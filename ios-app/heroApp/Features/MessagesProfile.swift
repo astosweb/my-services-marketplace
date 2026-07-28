@@ -338,7 +338,7 @@ struct ConversationDetailView: View {
         do {
             guard let data = try await selectedPhoto.loadTransferable(type: Data.self),
                   let image = UIImage(data: data),
-                  let jpeg = image.jpegData(compressionQuality: 0.82)
+                  let jpeg = ImageUploadPrep.jpegData(from: image, kind: .messageAttachment)
             else {
                 errorMessage = "Couldn’t read the selected photo."
                 return
@@ -572,7 +572,7 @@ struct ProfileView: View {
         do {
             guard let data = try await selectedAvatar.loadTransferable(type: Data.self),
                   let image = UIImage(data: data),
-                  let jpeg = image.jpegData(compressionQuality: 0.85)
+                  let jpeg = ImageUploadPrep.jpegData(from: image, kind: .avatar)
             else {
                 errorMessage = "Couldn’t read the selected photo."
                 return

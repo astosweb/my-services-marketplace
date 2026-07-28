@@ -345,7 +345,7 @@ struct NewRequestView: View {
             guard draftPhotos.count + loaded.count < Self.maxPhotos else { break }
             if let data = try? await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data),
-               let jpeg = image.jpegData(compressionQuality: 0.82) {
+               let jpeg = ImageUploadPrep.jpegData(from: image, kind: .requestPhoto) {
                 loaded.append(DraftPhoto(jpegData: jpeg))
             }
         }
