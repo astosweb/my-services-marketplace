@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -7,8 +6,14 @@ import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import { handle } from "hono/vercel";
 import { corsOrigins } from "./lib/env.js";
-import { notFound } from "./lib/errors.js";
-import { localUploadPath } from "./lib/storage.js";
+import { forbidden, notFound, unauthorized } from "./lib/errors.js";
+import { readUploadObject } from "./lib/storage.js";
+import {
+  isPrivateUploadKey,
+  verifyPrivateUploadToken,
+} from "./lib/upload-access.js";
+import { verifyAccessToken } from "./lib/auth.js";
+import { prisma } from "./lib/prisma.js";
 import { onError } from "./middleware/on-error.js";
 import { authRoutes } from "./routes/auth.js";
 import { categoryRoutes } from "./routes/categories.js";
@@ -52,27 +57,52 @@ app.route("/uploads", uploadRoutes);
 app.route("/users", userRoutes);
 app.route("/devices", deviceRoutes);
 
+async function assertCanReadPrivateUpload(key: string, authHeader: string | undefined) {
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw unauthorized("Authentication required for private uploads");
+  }
+  const userId = await verifyAccessToken(authHeader.slice(7));
+  if (!userId) throw unauthorized("Authentication required for private uploads");
+
+  const ownerPrefix = `messages/${userId}/`;
+  if (key.startsWith(ownerPrefix)) return;
+
+  const message = await prisma.message.findFirst({
+    where: { attachmentKey: key },
+    select: {
+      conversation: {
+        select: { participants: { select: { userId: true } } },
+      },
+    },
+  });
+  const allowed = message?.conversation.participants.some((p) => p.userId === userId);
+  if (!allowed) throw forbidden("You do not have access to this file");
+}
+
 app.get("/uploads/*", async (c) => {
-  const key = c.req.path.replace(/^\/uploads\//, "");
+  const key = decodeURIComponent(c.req.path.replace(/^\/uploads\//, ""));
   if (!key || key.includes("..") || path.isAbsolute(key)) throw notFound("File not found");
 
-  const filePath = localUploadPath(key);
-  const resolvedRoot = path.resolve(process.cwd(), ".data/uploads");
-  if (!filePath.startsWith(resolvedRoot + path.sep) && filePath !== resolvedRoot) {
-    throw notFound("File not found");
+  if (isPrivateUploadKey(key)) {
+    const tokenOk = verifyPrivateUploadToken(
+      key,
+      c.req.query("token"),
+      c.req.query("exp"),
+    );
+    if (!tokenOk) {
+      await assertCanReadPrivateUpload(key, c.req.header("Authorization"));
+    }
   }
 
-  try {
-    const data = await readFile(filePath);
-    const ext = path.extname(key).toLowerCase();
-    const type = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
-    return c.body(data, 200, {
-      "Content-Type": type,
-      "Cache-Control": "public, max-age=86400",
-    });
-  } catch {
-    throw notFound("File not found");
-  }
+  const object = await readUploadObject(key);
+  if (!object) throw notFound("File not found");
+
+  return c.body(object.data, 200, {
+    "Content-Type": object.contentType,
+    "Cache-Control": isPrivateUploadKey(key)
+      ? "private, max-age=60"
+      : "public, max-age=86400",
+  });
 });
 
 app.notFound((c) => c.json({ error: { message: "Not found", code: "NOT_FOUND" } }, 404));

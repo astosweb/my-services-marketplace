@@ -94,3 +94,15 @@ pnpm test:watch
 - `pnpm typecheck` — pass
 - `pnpm build` — pass
 - `pnpm audit` — no known vulnerabilities
+
+## Versioned Prisma migrations (production)
+
+Baseline migration: `prisma/migrations/20260728195000_init` (full schema from empty DB).
+
+| Environment | Command | Notes |
+| --- | --- | --- |
+| Production / CI | `pnpm db:migrate:deploy` | Apply committed migrations only |
+| Local schema change | `pnpm db:migrate` | Creates SQL under `prisma/migrations/` and applies |
+| Throwaway prototype | `pnpm db:push` | No history — do not use in prod |
+
+After deploy, `pnpm db:migrate:status` should report the database in sync. Existing databases that were created with `db:push` can be baselined with `prisma migrate resolve --applied 20260728195000_init` once the schema already matches, then use migrate going forward.

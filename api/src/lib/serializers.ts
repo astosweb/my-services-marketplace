@@ -12,6 +12,12 @@ import type {
 } from "../generated/prisma/client.js";
 import { OfferStatus } from "../generated/prisma/client.js";
 import { spacesPublicUrl } from "./env.js";
+import { isPrivateUploadKey, signedPrivateUploadUrl } from "./upload-access.js";
+
+function mediaUrlForKey(key: string) {
+  if (isPrivateUploadKey(key)) return signedPrivateUploadUrl(key);
+  return spacesPublicUrl(key);
+}
 
 type RequestWithRelations = ServiceRequest & {
   category: Category;
@@ -197,7 +203,7 @@ export function serializeMessage(
     sender: serializeUser(message.sender),
     attachment: message.attachmentKey
       ? {
-          url: spacesPublicUrl(message.attachmentKey),
+          url: mediaUrlForKey(message.attachmentKey),
           name: message.attachmentName ?? "Attachment",
           mimeType: message.attachmentMimeType ?? "application/octet-stream",
         }

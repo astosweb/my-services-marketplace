@@ -68,8 +68,8 @@ Host ports are `5433` / `6380` so they don’t clash with other local Postgres/R
 | POST   | `/requests`               | Create request (Bearer token; optional `photoKeys`; `pricingMode` can be `PROVIDER_OFFERS` or `OWNER_FIXED_PRICE`)                                                  |
 | GET    | `/requests/:id/offers`    | List offers                                                                                                                                                         |
 | POST   | `/requests/:id/offers`    | Create price offer or fixed-price interest (Bearer token; `priceCents` required for provider-priced requests, omitted for fixed-price requests; optional `message`) |
-| POST   | `/requests/:id/conversation` | Start or open a 1:1 chat with the post owner (or accepted provider if owner). No offer required. Bearer token. |
-| POST   | `/requests/:id/messages`  | Message post owner (Bearer token; `body`). Creates a 1:1 conversation if needed. No offer required.                                                                   |
+| POST   | `/requests/:id/conversation` | Start or open a 1:1 chat. Bearer. Allowed only for the request owner (with an accepted provider) or a user with a pending/accepted offer. |
+| POST   | `/requests/:id/messages`  | Message post owner (Bearer; `body`). Same offer/owner policy as conversation open. Creates a 1:1 conversation if needed. |
 | POST   | `/auth/register`          | Register (`email`, `password`, `displayName`)                                                                                                                       |
 | POST   | `/auth/login`             | Login (`email`, `password`)                                                                                                                                         |
 | POST   | `/auth/refresh`           | Rotate tokens (`refreshToken`)                                                                                                                                      |
@@ -100,5 +100,11 @@ Uses **Prisma ORM 7** with `prisma.config.ts`, generated client at `src/generate
 Auth credential endpoints (`/auth/login`, `/auth/register`, `/auth/forgot-password`) are limited to **5 requests/minute** per client IP + email. Refresh is **30/minute** per IP. Request view increments are **10/minute** per IP + request id. Exceeding a limit returns `429` with `{ error: { code: "RATE_LIMITED" } }` and a `Retry-After` header.
 
 Counters use **Redis** when `REDIS_URL` is set (recommended for production / multi-instance). Without Redis, an **in-memory** store is used (fine for local/dev). Production refuses to boot without `REDIS_URL` unless `RATE_LIMIT_ALLOW_MEMORY=true` (single-node only).
+
+### Messaging & private files
+
+- **Who can chat:** Request owner ↔ accepted provider, or any user with a **pending or accepted** offer on that request. Unrelated authenticated users receive `403`.
+- **Message attachments** (`messages/…` keys) are stored **private** (no Spaces `public-read`). API responses expose short-lived signed `/uploads/…?token=&exp=` URLs (15 minutes). Anonymous `GET` without a valid token is rejected; Bearer auth is accepted as a fallback when the caller owns the key or is a conversation participant.
+- Request photos and avatars may remain publicly readable for marketplace browse.
 
 See [MIGRATION.md](./MIGRATION.md) for the latest dependency and tooling upgrade notes.
