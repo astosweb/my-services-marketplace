@@ -26,6 +26,16 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_DAYS: z.coerce.number().int().positive().default(30),
   PASSWORD_RESET_URL: z.url().default("http://localhost:3001/reset-password"),
+  /** Redis for rate limiting. Required in production unless RATE_LIMIT_ALLOW_MEMORY=true. */
+  REDIS_URL: z.string().optional(),
+  /**
+   * Allow in-memory rate limits in production (single-node only).
+   * Prefer REDIS_URL so limits are shared across instances.
+   */
+  RATE_LIMIT_ALLOW_MEMORY: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export const env = envSchema.parse(process.env);
@@ -35,6 +45,15 @@ export function corsOrigins(): string | string[] {
   return env.CORS_ORIGIN.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+}
+
+/** Production must not use CORS_ORIGIN=* (fail closed at boot). */
+export function assertProductionCors() {
+  if (env.NODE_ENV === "production" && env.CORS_ORIGIN.trim() === "*") {
+    throw new Error(
+      "CORS_ORIGIN=* is not allowed in production. Set an explicit comma-separated allowlist (or a single origin).",
+    );
+  }
 }
 
 function spacesCredentialsConfigured() {

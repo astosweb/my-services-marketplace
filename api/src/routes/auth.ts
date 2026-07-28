@@ -20,6 +20,10 @@ import { serializeMe } from "../lib/serializers.js";
 import { parseOrThrow } from "../lib/validate.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  authCredentialRateLimit,
+  refreshRateLimit,
+} from "../middleware/rate-limit.js";
 
 const registerSchema = z.object({
   email: z.email(),
@@ -82,16 +86,17 @@ function authPayload(
 
 export const authRoutes = new Hono<{ Variables: AuthVariables }>();
 
-authRoutes.post("/register", async (c) => {
+authRoutes.post("/register", authCredentialRateLimit, async (c) => {
   const parsed = parseOrThrow(registerSchema, await c.req.json());
+  const email = parsed.email.trim().toLowerCase();
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw conflict("Email already registered");
 
   const passwordHash = await hashPassword(parsed.password);
   const user = await prisma.user.create({
     data: {
-      email: parsed.email,
+      email,
       displayName: parsed.displayName,
       passwordHash,
     },
@@ -101,10 +106,11 @@ authRoutes.post("/register", async (c) => {
   return c.json({ data: authPayload(user, tokens) }, 201);
 });
 
-authRoutes.post("/login", async (c) => {
+authRoutes.post("/login", authCredentialRateLimit, async (c) => {
   const parsed = parseOrThrow(loginSchema, await c.req.json());
+  const email = parsed.email.trim().toLowerCase();
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.email } });
+  const user = await prisma.user.findUnique({ where: { email } });
   if (!user?.passwordHash) throw unauthorized("Invalid email or password");
 
   const valid = await verifyPassword(parsed.password, user.passwordHash);
@@ -114,25 +120,53 @@ authRoutes.post("/login", async (c) => {
   return c.json({ data: authPayload(user, tokens) });
 });
 
-authRoutes.post("/refresh", async (c) => {
+authRoutes.post("/refresh", refreshRateLimit, async (c) => {
   const parsed = parseOrThrow(refreshSchema, await c.req.json());
-
   const tokenHash = hashRefreshToken(parsed.refreshToken);
-  const stored = await prisma.refreshToken.findUnique({
-    where: { tokenHash },
-    include: { user: true },
+
+  const rotated = await prisma.$transaction(async (tx) => {
+    const stored = await tx.refreshToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (!stored) {
+      throw unauthorized("Invalid or expired refresh token");
+    }
+
+    if (stored.expiresAt < new Date()) {
+      await tx.refreshToken.deleteMany({ where: { id: stored.id } });
+      throw unauthorized("Invalid or expired refresh token");
+    }
+
+    const removed = await tx.refreshToken.deleteMany({ where: { id: stored.id } });
+    if (removed.count !== 1) {
+      await tx.refreshToken.deleteMany({ where: { userId: stored.userId } });
+      throw unauthorized("Refresh token reuse detected");
+    }
+
+    const refreshToken = createRefreshTokenValue();
+    await tx.refreshToken.create({
+      data: {
+        userId: stored.userId,
+        tokenHash: hashRefreshToken(refreshToken),
+        expiresAt: refreshTokenExpiresAt(),
+      },
+    });
+
+    return {
+      user: stored.user,
+      refreshToken,
+      accessToken: await signAccessToken(stored.userId),
+    };
   });
 
-  if (!stored || stored.expiresAt < new Date()) {
-    if (stored) {
-      await prisma.refreshToken.delete({ where: { id: stored.id } });
-    }
-    throw unauthorized("Invalid or expired refresh token");
-  }
-
-  await prisma.refreshToken.delete({ where: { id: stored.id } });
-  const tokens = await issueTokens(stored.userId);
-  return c.json({ data: authPayload(stored.user, tokens) });
+  return c.json({
+    data: authPayload(rotated.user, {
+      accessToken: rotated.accessToken,
+      refreshToken: rotated.refreshToken,
+    }),
+  });
 });
 
 authRoutes.post("/logout", async (c) => {
@@ -143,9 +177,10 @@ authRoutes.post("/logout", async (c) => {
   return c.json({ data: { ok: true } });
 });
 
-authRoutes.post("/forgot-password", async (c) => {
+authRoutes.post("/forgot-password", authCredentialRateLimit, async (c) => {
   const parsed = parseOrThrow(forgotPasswordSchema, await c.req.json());
-  const user = await prisma.user.findUnique({ where: { email: parsed.email } });
+  const email = parsed.email.trim().toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email } });
   const response: {
     message: string;
     token?: string;
@@ -256,4 +291,27 @@ authRoutes.patch("/me", requireAuth, async (c) => {
     data: parsed,
   });
   return c.json({ data: serializeMe(user) });
+});
+
+const deleteAccountSchema = z.object({
+  password: z.string().min(1),
+});
+
+/**
+ * Hard-delete the authenticated account (GDPR / App Store).
+ * Cascades remove requests, offers, messages, tokens, devices, etc.
+ * Reviews authored or received by the user are also deleted.
+ */
+authRoutes.delete("/me", requireAuth, async (c) => {
+  const parsed = parseOrThrow(deleteAccountSchema, await c.req.json());
+  const userId = c.get("userId");
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user?.passwordHash) throw unauthorized("Invalid password");
+
+  const valid = await verifyPassword(parsed.password, user.passwordHash);
+  if (!valid) throw unauthorized("Invalid password");
+
+  await prisma.user.delete({ where: { id: userId } });
+  return c.body(null, 204);
 });

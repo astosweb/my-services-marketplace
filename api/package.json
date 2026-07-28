@@ -21,6 +21,9 @@
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
     "db:seed": "prisma db seed",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
@@ -38,6 +41,7 @@
     "hono": "^4.12.32",
     "jose": "^6.2.4",
     "pg": "^8.22.0",
+    "redis": "^5.12.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

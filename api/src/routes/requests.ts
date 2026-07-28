@@ -22,6 +22,7 @@ import {
 import { parseOrThrow } from "../lib/validate.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
+import { viewRateLimit } from "../middleware/rate-limit.js";
 
 const citySchema = z.enum(EstonianCity);
 
@@ -117,6 +118,48 @@ async function ensureConversation(requestId: string, ownerId: string, participan
       },
     },
   });
+}
+
+/**
+ * Messaging policy: thread only if
+ * (a) user is request owner chatting with accepted provider, or
+ * (b) user has a pending/accepted offer on the request.
+ */
+async function assertCanOpenRequestChat(requestId: string, userId: string) {
+  const request = await prisma.serviceRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      title: true,
+      ownerId: true,
+      offers: {
+        where: {
+          OR: [
+            { status: OfferStatus.ACCEPTED },
+            { offererId: userId, status: { in: [OfferStatus.PENDING, OfferStatus.ACCEPTED] } },
+          ],
+        },
+        select: { offererId: true, status: true },
+      },
+    },
+  });
+  if (!request) throw notFound("Request not found");
+
+  if (request.ownerId === userId) {
+    const accepted = request.offers.find((o) => o.status === OfferStatus.ACCEPTED);
+    if (!accepted) throw badRequest("No accepted provider to chat with");
+    return { request, peerUserId: accepted.offererId };
+  }
+
+  const ownOffer = request.offers.find(
+    (o) =>
+      o.offererId === userId &&
+      (o.status === OfferStatus.PENDING || o.status === OfferStatus.ACCEPTED),
+  );
+  if (!ownOffer) {
+    throw forbidden("Only users with a pending or accepted offer can message the request owner");
+  }
+  return { request, peerUserId: request.ownerId };
 }
 
 async function findUserConversation(requestId: string, userId: string, peerUserId?: string) {
@@ -244,32 +287,50 @@ requestRoutes.get("/:id", async (c) => {
   return c.json({ data: serializeRequest(request, viewerUserId) });
 });
 
-requestRoutes.post("/:id/views", async (c) => {
+requestRoutes.post("/:id/views", viewRateLimit, async (c) => {
   const requestId = c.req.param("id");
   const viewerUserId = await optionalUserId(c.req.header("Authorization"));
   const existingRequest = await prisma.serviceRequest.findUnique({
     where: { id: requestId },
-    select: { id: true },
+    select: { id: true, ownerId: true },
   });
   if (!existingRequest) throw notFound("Request not found");
 
-  const request = await prisma.serviceRequest.update({
-    where: { id: requestId },
-    data: { viewCount: { increment: 1 } },
-    include: {
-      category: true,
-      owner: true,
-      photos: true,
-      offers: {
-        where: viewerUserId
-          ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
-          : { status: OfferStatus.ACCEPTED },
-        include: { offerer: true },
-        orderBy: { createdAt: "desc" },
-      },
-      _count: { select: { offers: true } },
-    },
-  });
+  const shouldIncrement = viewerUserId !== existingRequest.ownerId;
+  const request = shouldIncrement
+    ? await prisma.serviceRequest.update({
+        where: { id: requestId },
+        data: { viewCount: { increment: 1 } },
+        include: {
+          category: true,
+          owner: true,
+          photos: true,
+          offers: {
+            where: viewerUserId
+              ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
+              : { status: OfferStatus.ACCEPTED },
+            include: { offerer: true },
+            orderBy: { createdAt: "desc" },
+          },
+          _count: { select: { offers: true } },
+        },
+      })
+    : await prisma.serviceRequest.findUniqueOrThrow({
+        where: { id: requestId },
+        include: {
+          category: true,
+          owner: true,
+          photos: true,
+          offers: {
+            where: viewerUserId
+              ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
+              : { status: OfferStatus.ACCEPTED },
+            include: { offerer: true },
+            orderBy: { createdAt: "desc" },
+          },
+          _count: { select: { offers: true } },
+        },
+      });
 
   return c.json({ data: serializeRequest(request, viewerUserId) });
 });
@@ -479,6 +540,12 @@ requestRoutes.patch("/:id/status", requireAuth, async (c) => {
     throw badRequest("Only in-progress requests can be completed");
   }
   if (
+    parsed.status === ServiceRequestStatus.COMPLETED &&
+    existing.progressStatus !== JobProgressStatus.PROVIDER_DONE
+  ) {
+    throw badRequest("Owner can complete only after the provider marks the job done");
+  }
+  if (
     parsed.status === ServiceRequestStatus.CANCELLED &&
     existing.status === ServiceRequestStatus.COMPLETED
   ) {
@@ -575,8 +642,8 @@ requestRoutes.patch("/:id/progress", requireAuth, async (c) => {
     currentProgress as (typeof providerProgressOrder)[number],
   );
   const nextIndex = providerProgressOrder.indexOf(parsed.status);
-  if (nextIndex <= currentIndex) {
-    throw badRequest("Progress can only move forward");
+  if (nextIndex !== currentIndex + 1) {
+    throw badRequest("Progress can only advance one step at a time");
   }
 
   const now = new Date();
@@ -729,31 +796,7 @@ requestRoutes.get("/:id/conversation", requireAuth, async (c) => {
 
 requestRoutes.post("/:id/conversation", requireAuth, async (c) => {
   const userId = c.get("userId");
-
-  const request = await prisma.serviceRequest.findUnique({
-    where: { id: c.req.param("id") },
-    select: {
-      id: true,
-      ownerId: true,
-      offers: {
-        where: { status: OfferStatus.ACCEPTED },
-        select: { offererId: true },
-        take: 1,
-      },
-    },
-  });
-  if (!request) throw notFound("Request not found");
-
-  let peerUserId: string;
-  if (request.ownerId === userId) {
-    const acceptedOffererId = request.offers[0]?.offererId;
-    if (!acceptedOffererId) {
-      throw badRequest("No accepted provider to chat with");
-    }
-    peerUserId = acceptedOffererId;
-  } else {
-    peerUserId = request.ownerId;
-  }
+  const { request, peerUserId } = await assertCanOpenRequestChat(c.req.param("id"), userId);
 
   const otherParticipantId = request.ownerId === userId ? peerUserId : userId;
   await ensureConversation(request.id, request.ownerId, otherParticipantId);
@@ -840,14 +883,10 @@ requestRoutes.post("/:id/messages", requireAuth, async (c) => {
   const parsed = parseOrThrow(sendMessageSchema, await c.req.json());
 
   const senderId = c.get("userId");
+  const { request, peerUserId } = await assertCanOpenRequestChat(c.req.param("id"), senderId);
 
-  const request = await prisma.serviceRequest.findUnique({
-    where: { id: c.req.param("id") },
-    select: { id: true, title: true, ownerId: true },
-  });
-  if (!request) throw notFound("Request not found");
   if (request.ownerId === senderId) {
-    throw badRequest("Cannot message yourself on your own request");
+    throw badRequest("Owners should message via the accepted-provider conversation");
   }
 
   const conversation = await ensureConversation(request.id, request.ownerId, senderId);
@@ -869,7 +908,7 @@ requestRoutes.post("/:id/messages", requireAuth, async (c) => {
   const sender = message.sender;
   await prisma.notification.create({
     data: {
-      userId: request.ownerId,
+      userId: peerUserId,
       kind: NotificationKind.NEW_MESSAGE,
       title: `${sender.displayName} sent you a message`,
       body: parsed.body.length > 120 ? `${parsed.body.slice(0, 117)}...` : parsed.body,

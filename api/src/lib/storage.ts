@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { badRequest, serviceUnavailable } from "./errors.js";
 import { env, uploadUsesSpaces } from "./env.js";
+import { isPrivateUploadKey } from "./upload-access.js";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MESSAGE_FILE_TYPES = new Set([
@@ -21,6 +22,19 @@ const MAX_MESSAGE_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 const MAX_FILES = 6;
 
 const localUploadRoot = path.resolve(process.cwd(), ".data/uploads");
+
+const EXT_CONTENT_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".pdf": "application/pdf",
+  ".txt": "text/plain",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
 
 let s3: S3Client | null = null;
 
@@ -56,6 +70,12 @@ function extensionFor(contentType: string) {
   return "jpg";
 }
 
+export function contentTypeForUploadKey(key: string, fallback?: string | null) {
+  if (fallback) return fallback;
+  const ext = path.extname(key).toLowerCase();
+  return EXT_CONTENT_TYPES[ext] ?? "application/octet-stream";
+}
+
 function rethrowStorageError(err: unknown): never {
   const code = (err as { Code?: string; name?: string }).Code ?? (err as { name?: string }).name;
   if (
@@ -70,6 +90,7 @@ function rethrowStorageError(err: unknown): never {
 
 async function storeBuffer(key: string, buffer: Buffer, contentType: string) {
   const client = getS3();
+  const isPublic = !isPrivateUploadKey(key);
   if (client && env.SPACES_BUCKET) {
     try {
       await client.send(
@@ -78,7 +99,8 @@ async function storeBuffer(key: string, buffer: Buffer, contentType: string) {
           Key: key,
           Body: buffer,
           ContentType: contentType,
-          ACL: "public-read",
+          // Message attachments stay private; marketplace photos/avatars may be public-read.
+          ...(isPublic ? { ACL: "public-read" as const } : {}),
         }),
       );
     } catch (err) {
@@ -88,6 +110,38 @@ async function storeBuffer(key: string, buffer: Buffer, contentType: string) {
     const dest = path.join(localUploadRoot, key);
     await mkdir(path.dirname(dest), { recursive: true });
     await writeFile(dest, buffer);
+  }
+}
+
+/** Read an uploaded object from Spaces or local disk. */
+export async function readUploadObject(key: string) {
+  const client = getS3();
+  if (client && env.SPACES_BUCKET) {
+    try {
+      const result = await client.send(
+        new GetObjectCommand({
+          Bucket: env.SPACES_BUCKET,
+          Key: key,
+        }),
+      );
+      const bytes = await result.Body?.transformToByteArray();
+      if (!bytes) return null;
+      return {
+        data: Buffer.from(bytes),
+        contentType: contentTypeForUploadKey(key, result.ContentType),
+      };
+    } catch (err) {
+      const code = (err as { name?: string; Code?: string }).name ?? (err as { Code?: string }).Code;
+      if (code === "NoSuchKey" || code === "NotFound") return null;
+      rethrowStorageError(err);
+    }
+  }
+
+  try {
+    const data = await readFile(localUploadPath(key));
+    return { data, contentType: contentTypeForUploadKey(key) };
+  } catch {
+    return null;
   }
 }
 

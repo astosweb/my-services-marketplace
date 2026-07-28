@@ -32,3 +32,7 @@ export function conflict(message: string) {
 export function serviceUnavailable(message: string) {
   return new AppError(503, message, "SERVICE_UNAVAILABLE");
 }
+
+export function tooManyRequests(message = "Too many requests") {
+  return new AppError(429, message, "RATE_LIMITED");
+}

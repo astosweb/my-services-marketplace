@@ -8,6 +8,11 @@ import { hashPassword } from "../src/lib/auth.js";
 import { categoryCatalog } from "../src/lib/category-catalog.js";
 import { createPrismaClient } from "../src/lib/create-prisma.js";
 
+if (process.env.NODE_ENV === "production" && process.env.ALLOW_SEED !== "true") {
+  console.error("Refusing to seed: NODE_ENV=production (set ALLOW_SEED=true to override).");
+  process.exit(1);
+}
+
 const prisma = createPrismaClient();
 
 const seedUsers = [
