@@ -49,6 +49,8 @@ Host ports are `5433` / `6380` so they don’t clash with other local Postgres/R
 | `pnpm db:push`                      | Sync schema without migration history (local prototype only) |
 | `pnpm db:seed`                      | Seed categories, sample users, and requests |
 
+CI runs on pull requests and pushes that touch `api/` (see `.github/workflows/api-ci.yml`): `pnpm lint`, `typecheck`, `test`, and `build`.
+
 ### Database: migrate vs push
 
 **Production and shared environments must use `pnpm db:migrate:deploy`**, not `db:push`. Migrations live under `prisma/migrations/` and are the source of truth for schema history.
