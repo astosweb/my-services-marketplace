@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import sharp from "sharp";
 import { badRequest, serviceUnavailable } from "./errors.js";
 import { env, uploadUsesSpaces } from "./env.js";
 
@@ -19,6 +20,11 @@ const MESSAGE_ATTACHMENT_TYPES = new Set([...IMAGE_TYPES, ...MESSAGE_FILE_TYPES]
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const MAX_MESSAGE_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 const MAX_FILES = 9;
+
+const PHOTO_MAX_DIMENSION = 1920;
+const AVATAR_MAX_DIMENSION = 1024;
+const PHOTO_JPEG_QUALITY = 80;
+const AVATAR_JPEG_QUALITY = 82;
 
 const localUploadRoot = path.resolve(process.cwd(), ".data/uploads");
 
@@ -111,6 +117,28 @@ async function storeBuffer(key: string, buffer: Buffer, contentType: string) {
   }
 }
 
+/** Resize + JPEG-encode images before storage. Honors EXIF orientation. */
+export async function compressImageBuffer(
+  buffer: Buffer,
+  options: { maxDimension: number; quality: number },
+): Promise<{ buffer: Buffer; contentType: "image/jpeg"; ext: "jpg" }> {
+  try {
+    const compressed = await sharp(buffer)
+      .rotate()
+      .resize({
+        width: options.maxDimension,
+        height: options.maxDimension,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: options.quality, mozjpeg: true })
+      .toBuffer();
+    return { buffer: compressed, contentType: "image/jpeg", ext: "jpg" };
+  } catch {
+    throw badRequest("Could not process image. Try another photo.");
+  }
+}
+
 /** Read an uploaded object from Spaces or local disk. */
 export async function readUploadObject(key: string) {
   const client = getS3();
@@ -153,14 +181,17 @@ export async function uploadRequestPhotos(userId: string, files: File[]) {
     if (!IMAGE_TYPES.has(file.type)) {
       throw badRequest("Only JPEG, PNG, and WebP images are allowed");
     }
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (buffer.byteLength > MAX_PHOTO_BYTES) {
+    const raw = Buffer.from(await file.arrayBuffer());
+    if (raw.byteLength > MAX_PHOTO_BYTES) {
       throw badRequest("Each photo must be 8 MB or smaller");
     }
 
-    const ext = extensionFor(file.type);
+    const { buffer, contentType, ext } = await compressImageBuffer(raw, {
+      maxDimension: PHOTO_MAX_DIMENSION,
+      quality: PHOTO_JPEG_QUALITY,
+    });
     const key = `requests/${userId}/${randomUUID()}.${ext}`;
-    await storeBuffer(key, buffer, file.type);
+    await storeBuffer(key, buffer, contentType);
     keys.push(key);
   }
 
@@ -173,14 +204,25 @@ export async function uploadMessageAttachment(userId: string, file: File) {
     throw badRequest("Unsupported file type. Use images, PDF, or common document formats.");
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  if (buffer.byteLength > MAX_MESSAGE_ATTACHMENT_BYTES) {
+  const raw = Buffer.from(await file.arrayBuffer());
+  if (raw.byteLength > MAX_MESSAGE_ATTACHMENT_BYTES) {
     throw badRequest("Attachment must be 15 MB or smaller");
+  }
+
+  if (IMAGE_TYPES.has(mimeType)) {
+    const { buffer, contentType, ext } = await compressImageBuffer(raw, {
+      maxDimension: PHOTO_MAX_DIMENSION,
+      quality: PHOTO_JPEG_QUALITY,
+    });
+    const key = `messages/${userId}/${randomUUID()}.${ext}`;
+    await storeBuffer(key, buffer, contentType);
+    const name = file.name?.trim() || `attachment.${ext}`;
+    return { key, name: name.replace(/\.[^.]+$/, `.${ext}`), mimeType: contentType };
   }
 
   const ext = extensionFor(mimeType);
   const key = `messages/${userId}/${randomUUID()}.${ext}`;
-  await storeBuffer(key, buffer, mimeType);
+  await storeBuffer(key, raw, mimeType);
 
   const name = file.name?.trim() || `attachment.${ext}`;
   return { key, name, mimeType };
@@ -191,14 +233,17 @@ export async function uploadAvatar(userId: string, file: File) {
     throw badRequest("Only JPEG, PNG, and WebP images are allowed");
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  if (buffer.byteLength > MAX_PHOTO_BYTES) {
+  const raw = Buffer.from(await file.arrayBuffer());
+  if (raw.byteLength > MAX_PHOTO_BYTES) {
     throw badRequest("Avatar must be 8 MB or smaller");
   }
 
-  const ext = extensionFor(file.type);
+  const { buffer, contentType, ext } = await compressImageBuffer(raw, {
+    maxDimension: AVATAR_MAX_DIMENSION,
+    quality: AVATAR_JPEG_QUALITY,
+  });
   const key = `avatars/${userId}/${randomUUID()}.${ext}`;
-  await storeBuffer(key, buffer, file.type);
+  await storeBuffer(key, buffer, contentType);
   return { key };
 }
 
