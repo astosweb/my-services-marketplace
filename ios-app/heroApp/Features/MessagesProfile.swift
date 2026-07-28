@@ -379,6 +379,9 @@ struct ProfileView: View {
     @State private var errorMessage: String?
     @State private var successMessage: String?
     @State private var feedbackTrigger = 0
+    @State private var showDeleteConfirm = false
+    @State private var deletePassword = ""
+    @State private var isDeletingAccount = false
 
     var body: some View {
         Form {
@@ -472,12 +475,44 @@ struct ProfileView: View {
                     }
                     .disabled(auth.isWorking)
                 }
+
+                Section {
+                    Button("Delete Account", role: .destructive) {
+                        deletePassword = ""
+                        errorMessage = nil
+                        showDeleteConfirm = true
+                    }
+                    .disabled(auth.isWorking || isDeletingAccount)
+                }
             }
         }
         .navigationTitle("Profile")
         .notificationsToolbar()
         .task { await load() }
         .sensoryFeedback(.success, trigger: feedbackTrigger)
+        .alert("Delete Account", isPresented: $showDeleteConfirm) {
+            SecureField("Password", text: $deletePassword)
+            Button("Delete", role: .destructive) {
+                Task { await deleteAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your account and associated data. Enter your password to confirm.")
+        }
+    }
+
+    private func deleteAccount() async {
+        let password = deletePassword
+        guard !password.isEmpty else {
+            errorMessage = "Password is required to delete your account."
+            return
+        }
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        let ok = await auth.deleteAccount(password: password)
+        if !ok {
+            errorMessage = auth.errorMessage ?? "Could not delete account."
+        }
     }
 
     private func load() async {

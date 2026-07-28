@@ -261,3 +261,26 @@ authRoutes.patch("/me", requireAuth, async (c) => {
   });
   return c.json({ data: serializeMe(user) });
 });
+
+const deleteAccountSchema = z.object({
+  password: z.string().min(1),
+});
+
+/**
+ * Hard-delete the authenticated account (GDPR / App Store).
+ * Cascades remove requests, offers, messages, tokens, devices, etc.
+ * Reviews authored or received by the user are also deleted.
+ */
+authRoutes.delete("/me", requireAuth, async (c) => {
+  const parsed = parseOrThrow(deleteAccountSchema, await c.req.json());
+  const userId = c.get("userId");
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user?.passwordHash) throw unauthorized("Invalid password");
+
+  const valid = await verifyPassword(parsed.password, user.passwordHash);
+  if (!valid) throw unauthorized("Invalid password");
+
+  await prisma.user.delete({ where: { id: userId } });
+  return c.body(null, 204);
+});

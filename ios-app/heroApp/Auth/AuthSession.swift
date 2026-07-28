@@ -177,6 +177,29 @@ final class AuthSession {
         state = .signedOut
     }
 
+    func deleteAccount(password: String) async -> Bool {
+        guard state == .signedIn else { return false }
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+        do {
+            try await api.sendNoContent(
+                "DELETE",
+                path: "auth/me",
+                body: DeleteAccountRequest(password: password)
+            )
+            api.clearCredentials()
+            user = nil
+            messageUnreadCount = 0
+            notificationUnreadCount = 0
+            state = .signedOut
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     private func authenticate(_ operation: () async throws -> AuthPayload) async -> Bool {
         guard !isWorking else { return false }
         isWorking = true

@@ -156,6 +156,24 @@ final class APIClient {
         }
     }
 
+    /// Sends a request that expects an empty success body (e.g. HTTP 204).
+    func sendNoContent<Body: Encodable>(
+        _ method: String,
+        path: String,
+        query: [URLQueryItem] = [],
+        body: Body?,
+        authenticated: Bool = true
+    ) async throws {
+        let request = try makeRequest(method, path: path, query: query, body: body, token: authenticated ? accessToken : nil)
+        do {
+            try await performNoContent(request)
+        } catch APIError.server(let status, _, _) where status == 401 && authenticated {
+            let payload = try await synchronizedRefresh()
+            let retry = try makeRequest(method, path: path, query: query, body: body, token: payload.accessToken)
+            try await performNoContent(retry)
+        }
+    }
+
     func uploadMultipart<Response: Decodable>(
         path: String,
         fieldName: String,
@@ -332,6 +350,25 @@ final class APIClient {
             return try Self.decoder.decode(Response.self, from: data)
         } catch {
             throw APIError.decoding
+        }
+    }
+
+    private func performNoContent(_ request: URLRequest) async throws {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.transport(error.localizedDescription)
+        }
+        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard 200..<300 ~= http.statusCode else {
+            let body = try? Self.decoder.decode(APIErrorEnvelope.self, from: data)
+            throw APIError.server(
+                status: http.statusCode,
+                code: body?.error.code,
+                message: body?.error.message ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
+            )
         }
     }
 

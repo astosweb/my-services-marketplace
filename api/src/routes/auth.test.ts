@@ -13,6 +13,7 @@ type PasswordResetCreateArgs = {
 const mocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   userCreate: vi.fn(),
+  userDelete: vi.fn(),
   passwordResetDeleteMany: vi.fn(),
   passwordResetCreate: vi.fn<(args: PasswordResetCreateArgs) => Promise<unknown>>(),
   refreshTokenCreate: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("../lib/prisma.js", () => ({
     user: {
       findUnique: mocks.userFindUnique,
       create: mocks.userCreate,
+      delete: mocks.userDelete,
     },
     passwordResetToken: {
       deleteMany: mocks.passwordResetDeleteMany,
@@ -43,7 +45,7 @@ vi.mock("../lib/prisma.js", () => ({
 }));
 
 import { env } from "../lib/env.js";
-import { hashPassword, verifyPassword } from "../lib/auth.js";
+import { hashPassword, signAccessToken, verifyPassword } from "../lib/auth.js";
 import { MemoryRateLimitStore, setRateLimitStoreForTests } from "../middleware/rate-limit.js";
 import { authRoutes } from "./auth.js";
 
@@ -346,5 +348,51 @@ describe.sequential("core auth routes", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ data: { ok: true } });
     expect(mocks.refreshTokenDeleteMany).toHaveBeenCalled();
+  });
+
+  it("deletes the authenticated account after password confirmation", async () => {
+    mocks.userFindUnique.mockResolvedValue(sampleUser);
+    mocks.userDelete.mockResolvedValue(sampleUser);
+
+    const token = await signAccessToken(sampleUser.id);
+    const response = await app.request("/auth/me", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: "password123" }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(mocks.userDelete).toHaveBeenCalledWith({ where: { id: sampleUser.id } });
+  });
+
+  it("rejects account deletion without auth", async () => {
+    const response = await app.request("/auth/me", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "password123" }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(mocks.userDelete).not.toHaveBeenCalled();
+  });
+
+  it("rejects account deletion with wrong password", async () => {
+    mocks.userFindUnique.mockResolvedValue(sampleUser);
+
+    const token = await signAccessToken(sampleUser.id);
+    const response = await app.request("/auth/me", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: "wrong-password" }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(mocks.userDelete).not.toHaveBeenCalled();
   });
 });

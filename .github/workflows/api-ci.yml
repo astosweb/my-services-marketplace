@@ -1,0 +1,68 @@
+name: API CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - ".github/workflows/api-ci.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - ".github/workflows/api-ci.yml"
+
+defaults:
+  run:
+    working-directory: api
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+        env:
+          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+          JWT_SECRET: ci-test-secret-at-least-32-characters-long
+
+      - name: Test
+        run: pnpm test
+        env:
+          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+          JWT_SECRET: ci-test-secret-at-least-32-characters-long
+          NODE_ENV: test
+
+      - name: Build
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+          JWT_SECRET: ci-test-secret-at-least-32-characters-long

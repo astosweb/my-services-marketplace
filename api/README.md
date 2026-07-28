@@ -79,6 +79,7 @@ Host ports are `5433` / `6380` so they don’t clash with other local Postgres/R
 | GET    | `/auth/me`                | Current user (Bearer token)                                                                                                                                         |
 | GET    | `/auth/me/stats`          | Activity stats: posted, completed, review counts (Bearer token)                                                                                                     |
 | PATCH  | `/auth/me`                | Update own profile (`displayName`, `bio`)                                                                                                                           |
+| DELETE | `/auth/me`                | Hard-delete account (Bearer; body `{ password }`). Cascades tokens, devices, requests, messages, reviews. Returns 204.                                              |
 | GET    | `/users/:id`              | User profile                                                                                                                                                        |
 | GET    | `/users/:id/reviews`      | Reviews received by user (max 50)                                                                                                                                   |
 | PATCH  | `/users/:id`              | Update own profile / `avatarKey` (Bearer token, own id only)                                                                                                        |
@@ -106,5 +107,9 @@ Counters use **Redis** when `REDIS_URL` is set (recommended for production / mul
 - **Who can chat:** Request owner ↔ accepted provider, or any user with a **pending or accepted** offer on that request. Unrelated authenticated users receive `403`.
 - **Message attachments** (`messages/…` keys) are stored **private** (no Spaces `public-read`). API responses expose short-lived signed `/uploads/…?token=&exp=` URLs (15 minutes). Anonymous `GET` without a valid token is rejected; Bearer auth is accepted as a fallback when the caller owns the key or is a conversation participant.
 - Request photos and avatars may remain publicly readable for marketplace browse.
+
+### Account deletion
+
+`DELETE /auth/me` with body `{ "password": "…" }` **hard-deletes** the user. Prisma cascades remove refresh/reset tokens, device tokens, owned requests (and related offers/conversations/messages), offers, notifications, and reviews given or received. Prefer this over soft-delete for App Store / GDPR account removal. The client must clear local credentials after `204`.
 
 See [MIGRATION.md](./MIGRATION.md) for the latest dependency and tooling upgrade notes.

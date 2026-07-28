@@ -491,3 +491,7 @@ struct ResetPasswordRequest: Encodable {
     let token: String
     let password: String
 }
+
+struct DeleteAccountRequest: Encodable {
+    let password: String
+}
