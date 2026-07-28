@@ -1,0 +1,378 @@
+import Foundation
+import Security
+
+enum APIConfiguration {
+    static let baseURL: URL = {
+        let configured = (Bundle.main.object(forInfoDictionaryKey: "DAVAY_API_BASE_URL") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidate = (configured?.isEmpty == false ? configured : nil) ?? "http://127.0.0.1:3000"
+        return URL(string: candidate)!
+    }()
+}
+
+enum APIError: LocalizedError {
+    case invalidResponse
+    case server(status: Int, code: String?, message: String)
+    case transport(String)
+    case decoding
+    case signedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse: "The server returned an invalid response."
+        case .server(_, _, let message): message
+        case .transport(let message): message
+        case .decoding: "The server response could not be read."
+        case .signedOut: "Your session expired. Please sign in again."
+        }
+    }
+}
+
+struct KeychainTokenStore: Sendable {
+    private let service = Bundle.main.bundleIdentifier ?? "com.serhatsabuncu.davayApp"
+    private let account = "refresh-token"
+
+    func read() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data
+        else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func save(_ token: String) throws {
+        let data = Data(token.utf8)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        let result: OSStatus
+        if status == errSecSuccess {
+            result = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        } else {
+            var insert = query
+            insert[kSecValueData as String] = data
+            insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            result = SecItemAdd(insert as CFDictionary, nil)
+        }
+        guard result == errSecSuccess else {
+            throw APIError.transport("Secure token storage is unavailable.")
+        }
+    }
+
+    func delete() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
+@MainActor
+final class APIClient {
+    private let session: URLSession
+    private let tokenStore: KeychainTokenStore
+    private var accessToken: String?
+    private var refreshToken: String?
+    private var persistsRefreshToken = false
+    private var isRefreshing = false
+    private var refreshWaiters: [CheckedContinuation<AuthPayload, Error>] = []
+    var onSessionExpired: (() -> Void)?
+
+    init(session: URLSession? = nil, tokenStore: KeychainTokenStore = KeychainTokenStore()) {
+        if let session {
+            self.session = session
+        } else {
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.timeoutIntervalForRequest = 15
+            configuration.timeoutIntervalForResource = 20
+            configuration.waitsForConnectivity = false
+            self.session = URLSession(configuration: configuration)
+        }
+        self.tokenStore = tokenStore
+    }
+
+    var currentRefreshToken: String? { refreshToken }
+
+    func restorePersistedRefreshToken() -> String? {
+        let token = tokenStore.read()
+        refreshToken = token
+        persistsRefreshToken = token != nil
+        return token
+    }
+
+    func setCredentials(_ payload: AuthPayload, rememberMe: Bool) throws {
+        accessToken = payload.accessToken
+        refreshToken = payload.refreshToken
+        persistsRefreshToken = rememberMe
+        if rememberMe {
+            try tokenStore.save(payload.refreshToken)
+        } else {
+            tokenStore.delete()
+        }
+    }
+
+    func clearCredentials() {
+        accessToken = nil
+        refreshToken = nil
+        persistsRefreshToken = false
+        tokenStore.delete()
+    }
+
+    func send<Response: Decodable>(
+        _ method: String = "GET",
+        path: String,
+        query: [URLQueryItem] = [],
+        authenticated: Bool = true
+    ) async throws -> Response {
+        try await send(method, path: path, query: query, body: Optional<EmptyBody>.none, authenticated: authenticated)
+    }
+
+    func send<Body: Encodable, Response: Decodable>(
+        _ method: String,
+        path: String,
+        query: [URLQueryItem] = [],
+        body: Body?,
+        authenticated: Bool = true
+    ) async throws -> Response {
+        let request = try makeRequest(method, path: path, query: query, body: body, token: authenticated ? accessToken : nil)
+        do {
+            return try await perform(request)
+        } catch APIError.server(let status, _, _) where status == 401 && authenticated {
+            let payload = try await synchronizedRefresh()
+            let retry = try makeRequest(method, path: path, query: query, body: body, token: payload.accessToken)
+            return try await perform(retry)
+        }
+    }
+
+    func uploadMultipart<Response: Decodable>(
+        path: String,
+        fieldName: String,
+        filename: String,
+        mimeType: String,
+        fileData: Data,
+        authenticated: Bool = true
+    ) async throws -> Response {
+        try await uploadMultipart(
+            path: path,
+            parts: [
+                MultipartFilePart(
+                    fieldName: fieldName,
+                    filename: filename,
+                    mimeType: mimeType,
+                    data: fileData
+                )
+            ],
+            authenticated: authenticated
+        )
+    }
+
+    func uploadMultipart<Response: Decodable>(
+        path: String,
+        parts: [MultipartFilePart],
+        authenticated: Bool = true
+    ) async throws -> Response {
+        let request = try makeMultipartRequest(
+            path: path,
+            parts: parts,
+            token: authenticated ? accessToken : nil
+        )
+        do {
+            return try await perform(request)
+        } catch APIError.server(let status, _, _) where status == 401 && authenticated {
+            let payload = try await synchronizedRefresh()
+            let retry = try makeMultipartRequest(path: path, parts: parts, token: payload.accessToken)
+            return try await perform(retry)
+        }
+    }
+
+    func refreshSession() async throws -> AuthPayload {
+        try await synchronizedRefresh()
+    }
+
+    private func synchronizedRefresh() async throws -> AuthPayload {
+        if isRefreshing {
+            return try await withCheckedThrowingContinuation { continuation in
+                refreshWaiters.append(continuation)
+            }
+        }
+
+        guard let refreshToken else {
+            onSessionExpired?()
+            throw APIError.signedOut
+        }
+
+        isRefreshing = true
+        let shouldPersist = persistsRefreshToken
+        do {
+            let response: APIEnvelope<AuthPayload> = try await send(
+                "POST",
+                path: "auth/refresh",
+                body: RefreshRequest(refreshToken: refreshToken),
+                authenticated: false
+            )
+            let payload = response.data
+            try setCredentials(payload, rememberMe: shouldPersist)
+            finishRefresh(returning: payload)
+            return payload
+        } catch {
+            clearCredentials()
+            onSessionExpired?()
+            finishRefresh(throwing: APIError.signedOut)
+            throw APIError.signedOut
+        }
+    }
+
+    private func finishRefresh(returning payload: AuthPayload) {
+        isRefreshing = false
+        let waiters = refreshWaiters
+        refreshWaiters = []
+        for waiter in waiters {
+            waiter.resume(returning: payload)
+        }
+    }
+
+    private func finishRefresh(throwing error: Error) {
+        isRefreshing = false
+        let waiters = refreshWaiters
+        refreshWaiters = []
+        for waiter in waiters {
+            waiter.resume(throwing: error)
+        }
+    }
+
+    private func makeRequest<Body: Encodable>(
+        _ method: String,
+        path: String,
+        query: [URLQueryItem],
+        body: Body?,
+        token: String?
+    ) throws -> URLRequest {
+        var url = APIConfiguration.baseURL.appending(path: path)
+        if !query.isEmpty {
+            url.append(queryItems: query)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        if let body {
+            request.httpBody = try Self.encoder.encode(body)
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        return request
+    }
+
+    private func makeMultipartRequest(
+        path: String,
+        parts: [MultipartFilePart],
+        token: String?
+    ) throws -> URLRequest {
+        guard !parts.isEmpty else {
+            throw APIError.transport("No files to upload.")
+        }
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var request = URLRequest(url: APIConfiguration.baseURL.appending(path: path))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 60
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body = Data()
+        for part in parts {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append(
+                "Content-Disposition: form-data; name=\"\(part.fieldName)\"; filename=\"\(part.filename)\"\r\n"
+                    .data(using: .utf8)!
+            )
+            body.append("Content-Type: \(part.mimeType)\r\n\r\n".data(using: .utf8)!)
+            body.append(part.data)
+            body.append("\r\n".data(using: .utf8)!)
+        }
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+        return request
+    }
+
+    private func perform<Response: Decodable>(_ request: URLRequest) async throws -> Response {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.transport(error.localizedDescription)
+        }
+        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard 200..<300 ~= http.statusCode else {
+            let body = try? Self.decoder.decode(APIErrorEnvelope.self, from: data)
+            throw APIError.server(
+                status: http.statusCode,
+                code: body?.error.code,
+                message: body?.error.message ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
+            )
+        }
+        do {
+            return try Self.decoder.decode(Response.self, from: data)
+        } catch {
+            throw APIError.decoding
+        }
+    }
+
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let value = try decoder.singleValueContainer().decode(String.self)
+            if let date = ISO8601DateFormatter.fractional.date(from: value)
+                ?? ISO8601DateFormatter.standard.date(from: value) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: try decoder.singleValueContainer(),
+                debugDescription: "Invalid ISO 8601 date"
+            )
+        }
+        return decoder
+    }()
+}
+
+private struct EmptyBody: Encodable {}
+
+struct MultipartFilePart: Sendable {
+    let fieldName: String
+    let filename: String
+    let mimeType: String
+    let data: Data
+}
+
+private extension ISO8601DateFormatter {
+    static let fractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    static let standard = ISO8601DateFormatter()
+}
