@@ -292,27 +292,45 @@ requestRoutes.post("/:id/views", viewRateLimit, async (c) => {
   const viewerUserId = await optionalUserId(c.req.header("Authorization"));
   const existingRequest = await prisma.serviceRequest.findUnique({
     where: { id: requestId },
-    select: { id: true },
+    select: { id: true, ownerId: true },
   });
   if (!existingRequest) throw notFound("Request not found");
 
-  const request = await prisma.serviceRequest.update({
-    where: { id: requestId },
-    data: { viewCount: { increment: 1 } },
-    include: {
-      category: true,
-      owner: true,
-      photos: true,
-      offers: {
-        where: viewerUserId
-          ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
-          : { status: OfferStatus.ACCEPTED },
-        include: { offerer: true },
-        orderBy: { createdAt: "desc" },
-      },
-      _count: { select: { offers: true } },
-    },
-  });
+  const shouldIncrement = viewerUserId !== existingRequest.ownerId;
+  const request = shouldIncrement
+    ? await prisma.serviceRequest.update({
+        where: { id: requestId },
+        data: { viewCount: { increment: 1 } },
+        include: {
+          category: true,
+          owner: true,
+          photos: true,
+          offers: {
+            where: viewerUserId
+              ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
+              : { status: OfferStatus.ACCEPTED },
+            include: { offerer: true },
+            orderBy: { createdAt: "desc" },
+          },
+          _count: { select: { offers: true } },
+        },
+      })
+    : await prisma.serviceRequest.findUniqueOrThrow({
+        where: { id: requestId },
+        include: {
+          category: true,
+          owner: true,
+          photos: true,
+          offers: {
+            where: viewerUserId
+              ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
+              : { status: OfferStatus.ACCEPTED },
+            include: { offerer: true },
+            orderBy: { createdAt: "desc" },
+          },
+          _count: { select: { offers: true } },
+        },
+      });
 
   return c.json({ data: serializeRequest(request, viewerUserId) });
 });
@@ -522,6 +540,12 @@ requestRoutes.patch("/:id/status", requireAuth, async (c) => {
     throw badRequest("Only in-progress requests can be completed");
   }
   if (
+    parsed.status === ServiceRequestStatus.COMPLETED &&
+    existing.progressStatus !== JobProgressStatus.PROVIDER_DONE
+  ) {
+    throw badRequest("Owner can complete only after the provider marks the job done");
+  }
+  if (
     parsed.status === ServiceRequestStatus.CANCELLED &&
     existing.status === ServiceRequestStatus.COMPLETED
   ) {
@@ -618,8 +642,8 @@ requestRoutes.patch("/:id/progress", requireAuth, async (c) => {
     currentProgress as (typeof providerProgressOrder)[number],
   );
   const nextIndex = providerProgressOrder.indexOf(parsed.status);
-  if (nextIndex <= currentIndex) {
-    throw badRequest("Progress can only move forward");
+  if (nextIndex !== currentIndex + 1) {
+    throw badRequest("Progress can only advance one step at a time");
   }
 
   const now = new Date();

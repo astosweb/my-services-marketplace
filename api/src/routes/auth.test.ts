@@ -245,6 +245,30 @@ describe.sequential("core auth routes", () => {
     env.NODE_ENV = "development";
     sampleUser.passwordHash = await hashPassword("password123");
     mocks.refreshTokenCreate.mockResolvedValue({});
+    mocks.transaction.mockImplementation(async (operationsOrCallback) => {
+      if (Array.isArray(operationsOrCallback)) return Promise.all(operationsOrCallback);
+      if (typeof operationsOrCallback === "function") {
+        const tx = {
+          refreshToken: {
+            findUnique: mocks.refreshTokenFindUnique,
+            deleteMany: mocks.refreshTokenDeleteMany,
+            create: mocks.refreshTokenCreate,
+          },
+          user: {
+            findUnique: mocks.userFindUnique,
+            create: mocks.userCreate,
+            delete: mocks.userDelete,
+            update: vi.fn(),
+          },
+          passwordResetToken: {
+            findUnique: vi.fn(),
+            deleteMany: mocks.passwordResetDeleteMany,
+          },
+        };
+        return (operationsOrCallback as (client: typeof tx) => Promise<unknown>)(tx);
+      }
+      throw new Error("Transaction callback not configured");
+    });
   });
 
   it("registers a new account", async () => {
@@ -319,7 +343,7 @@ describe.sequential("core auth routes", () => {
       expiresAt: new Date(Date.now() + 60_000),
       user: sampleUser,
     });
-    mocks.refreshTokenDelete.mockResolvedValue({});
+    mocks.refreshTokenDeleteMany.mockResolvedValue({ count: 1 });
 
     const response = await app.request("/auth/refresh", {
       method: "POST",
@@ -331,9 +355,47 @@ describe.sequential("core auth routes", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(mocks.refreshTokenDelete).toHaveBeenCalledWith({ where: { id: "refresh_1" } });
+    expect(mocks.refreshTokenDeleteMany).toHaveBeenCalledWith({ where: { id: "refresh_1" } });
     expect(body.data.refreshToken).toBeTruthy();
     expect(body.data.accessToken).toBeTruthy();
+  });
+
+  it("revokes all refresh tokens on reuse of a rotated token", async () => {
+    mocks.refreshTokenFindUnique.mockResolvedValue({
+      id: "refresh_1",
+      userId: sampleUser.id,
+      expiresAt: new Date(Date.now() + 60_000),
+      user: sampleUser,
+    });
+    mocks.refreshTokenDeleteMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 2 });
+
+    const response = await app.request("/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: "already-rotated-token" }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(mocks.refreshTokenDeleteMany).toHaveBeenCalledWith({
+      where: { userId: sampleUser.id },
+    });
+  });
+
+  it("normalizes email case on login", async () => {
+    mocks.userFindUnique.mockResolvedValue(sampleUser);
+
+    const response = await app.request("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "User@Example.com", password: "password123" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.userFindUnique).toHaveBeenCalledWith({
+      where: { email: "user@example.com" },
+    });
   });
 
   it("logs out by revoking the refresh token", async () => {

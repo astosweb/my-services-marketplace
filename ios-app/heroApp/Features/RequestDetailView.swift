@@ -26,6 +26,9 @@ struct RequestDetailView: View {
     @State private var errorMessage: String?
     @State private var successMessage: String?
     @State private var didRecordView = false
+    @State private var pendingCancel = false
+    @State private var pendingAcceptOffer: Offer?
+    @State private var pendingWithdrawOffer: Offer?
 
     init(request: ServiceRequest) {
         _request = State(initialValue: request)
@@ -76,7 +79,7 @@ struct RequestDetailView: View {
     }
 
     private var canOwnerComplete: Bool {
-        isOwner && request.status == .inProgress
+        isOwner && request.status == .inProgress && request.progressStatus == .providerDone
     }
 
     private var canOwnerCancel: Bool {
@@ -183,6 +186,52 @@ struct RequestDetailView: View {
                 } else {
                     ownerOffers = []
                 }
+            }
+        }
+        .confirmationDialog("Cancel this request?", isPresented: $pendingCancel, titleVisibility: .visible) {
+            Button("Cancel request", role: .destructive) {
+                Task { await updateRequestStatus(.cancelled) }
+            }
+            Button("Keep request", role: .cancel) {}
+        } message: {
+            Text("Pending offers will be declined. This cannot be undone.")
+        }
+        .confirmationDialog(
+            "Accept this offer?",
+            isPresented: Binding(
+                get: { pendingAcceptOffer != nil },
+                set: { if !$0 { pendingAcceptOffer = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Accept offer") {
+                if let offer = pendingAcceptOffer {
+                    Task { await respond(to: offer, status: .accepted) }
+                }
+                pendingAcceptOffer = nil
+            }
+            Button("Not now", role: .cancel) {
+                pendingAcceptOffer = nil
+            }
+        } message: {
+            Text("Other pending offers will be declined.")
+        }
+        .confirmationDialog(
+            "Withdraw your offer?",
+            isPresented: Binding(
+                get: { pendingWithdrawOffer != nil },
+                set: { if !$0 { pendingWithdrawOffer = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Withdraw", role: .destructive) {
+                if let offer = pendingWithdrawOffer {
+                    Task { await respond(to: offer, status: .withdrawn) }
+                }
+                pendingWithdrawOffer = nil
+            }
+            Button("Keep offer", role: .cancel) {
+                pendingWithdrawOffer = nil
             }
         }
     }
@@ -476,7 +525,7 @@ struct RequestDetailView: View {
 
             if canOwnerCancel {
                 Button(role: .destructive) {
-                    Task { await updateRequestStatus(.cancelled) }
+                    pendingCancel = true
                 } label: {
                     Label("Cancel request", systemImage: "xmark.circle")
                         .frame(maxWidth: .infinity)
@@ -610,7 +659,7 @@ struct RequestDetailView: View {
             if offer.status == .pending, request.status == .open {
                 HStack(spacing: 8) {
                     Button {
-                        Task { await respond(to: offer, status: .accepted) }
+                        pendingAcceptOffer = offer
                     } label: {
                         if respondingOfferId == offer.id {
                             ProgressView()
@@ -722,7 +771,7 @@ struct RequestDetailView: View {
             }
             if offer.status == .pending {
                 Button(role: .destructive) {
-                    Task { await respond(to: offer, status: .withdrawn) }
+                    pendingWithdrawOffer = offer
                 } label: {
                     if respondingOfferId == offer.id {
                         ProgressView().frame(maxWidth: .infinity)

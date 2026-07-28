@@ -5,7 +5,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import { handle } from "hono/vercel";
-import { corsOrigins } from "./lib/env.js";
+import { corsOrigins, assertProductionCors } from "./lib/env.js";
 import { forbidden, notFound, unauthorized } from "./lib/errors.js";
 import { readUploadObject } from "./lib/storage.js";
 import {
@@ -15,6 +15,7 @@ import {
 import { verifyAccessToken } from "./lib/auth.js";
 import { prisma } from "./lib/prisma.js";
 import { onError } from "./middleware/on-error.js";
+import { requestId } from "./middleware/request-id.js";
 import { authRoutes } from "./routes/auth.js";
 import { categoryRoutes } from "./routes/categories.js";
 import { conversationRoutes } from "./routes/conversations.js";
@@ -25,9 +26,12 @@ import { requestRoutes } from "./routes/requests.js";
 import { uploadRoutes } from "./routes/uploads.js";
 import { userRoutes } from "./routes/users.js";
 
+assertProductionCors();
+
 export const app = new Hono();
 
 app.onError(onError);
+app.use("*", requestId);
 app.use("*", logger());
 app.use("*", secureHeaders());
 app.use(
@@ -105,6 +109,17 @@ app.get("/uploads/*", async (c) => {
   });
 });
 
-app.notFound((c) => c.json({ error: { message: "Not found", code: "NOT_FOUND" } }, 404));
+app.notFound((c) =>
+  c.json(
+    {
+      error: {
+        message: "Not found",
+        code: "NOT_FOUND",
+        requestId: c.res.headers.get("x-request-id") ?? c.req.header("x-request-id") ?? undefined,
+      },
+    },
+    404,
+  ),
+);
 
 export default handle(app);

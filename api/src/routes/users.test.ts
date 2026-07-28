@@ -13,8 +13,10 @@ describe("user routes", () => {
     });
 
     expect(res.status).toBe(404);
-    await expect(res.json()).resolves.toEqual({
-      error: { message: "Not found", code: "NOT_FOUND" },
-    });
+    const body = (await res.json()) as {
+      error: { message: string; code: string; requestId?: string };
+    };
+    expect(body.error.message).toBe("Not found");
+    expect(body.error.code).toBe("NOT_FOUND");
   });
 });

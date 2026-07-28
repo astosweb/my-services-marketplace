@@ -47,6 +47,15 @@ export function corsOrigins(): string | string[] {
     .filter(Boolean);
 }
 
+/** Production must not use CORS_ORIGIN=* (fail closed at boot). */
+export function assertProductionCors() {
+  if (env.NODE_ENV === "production" && env.CORS_ORIGIN.trim() === "*") {
+    throw new Error(
+      "CORS_ORIGIN=* is not allowed in production. Set an explicit comma-separated allowlist (or a single origin).",
+    );
+  }
+}
+
 function spacesCredentialsConfigured() {
   return Boolean(
     env.SPACES_ENDPOINT &&

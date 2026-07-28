@@ -94,7 +94,7 @@ User signup is **only** via `POST /auth/register` (email + password + displayNam
 
 ## Env
 
-See `.env.example`. Minimum required: `DATABASE_URL`, `JWT_SECRET` (32+ characters). `PASSWORD_RESET_URL` is the frontend reset page; development and test forgot-password responses include the raw token and this link, while production responses never expose them. Reset tokens expire after one hour, are stored as SHA-256 hashes, are single-use, and revoke all refresh tokens when consumed. For DigitalOcean Managed Postgres, set `DATABASE_SSL_REJECT_UNAUTHORIZED=false` if you hit SSL cert errors. Set `SPACES_CDN_URL` so API responses include public photo/avatar URLs. Set `CORS_ORIGIN` to a comma-separated allowlist in production (defaults to `*`).
+See `.env.example`. Minimum required: `DATABASE_URL`, `JWT_SECRET` (32+ characters). `PASSWORD_RESET_URL` is the frontend reset page; development and test forgot-password responses include the raw token and this link, while production responses never expose them. Reset tokens expire after one hour, are stored as SHA-256 hashes, are single-use, and revoke all refresh tokens when consumed. For DigitalOcean Managed Postgres, set `DATABASE_SSL_REJECT_UNAUTHORIZED=false` if you hit SSL cert errors. Set `SPACES_CDN_URL` so API responses include public photo/avatar URLs. Set `CORS_ORIGIN` to a comma-separated allowlist in production (defaults to `*` for local/dev). **Production boot fails if `CORS_ORIGIN=*`.**
 
 Uses **Prisma ORM 7** with `prisma.config.ts`, generated client at `src/generated/prisma`, and `@prisma/adapter-pg`.
 

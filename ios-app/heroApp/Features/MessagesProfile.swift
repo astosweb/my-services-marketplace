@@ -296,6 +296,10 @@ struct ConversationDetailView: View {
             )
             messages = response.data
             errorMessage = nil
+            let _: APIEnvelope<OKResponse>? = try? await auth.api.send(
+                "POST",
+                path: "conversations/\(conversation.id)/read"
+            )
             await auth.refreshInboxBadges()
         } catch {
             errorMessage = error.localizedDescription
