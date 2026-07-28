@@ -13,7 +13,11 @@ docker compose up -d
 
 pnpm install
 pnpm db:generate   # required after schema changes (Prisma 7)
-pnpm db:push
+# Local prototype (optional): pnpm db:push
+# Preferred (versioned): create/apply migrations
+pnpm db:migrate        # dev: create + apply
+# Production / CI empty DB:
+pnpm db:migrate:deploy
 pnpm db:seed
 pnpm dev
 ```
@@ -39,8 +43,17 @@ Host ports are `5433` / `6380` so they don’t clash with other local Postgres/R
 | `pnpm format` / `pnpm format:check` | Prettier                                    |
 | `pnpm test`                         | Vitest                                      |
 | `pnpm db:generate`                  | Generate Prisma client                      |
-| `pnpm db:push`                      | Sync schema to database                     |
+| `pnpm db:migrate`                   | Create/apply migrations (dev)               |
+| `pnpm db:migrate:deploy`            | Apply pending migrations (prod/CI)          |
+| `pnpm db:migrate:status`            | Show migration status                       |
+| `pnpm db:push`                      | Sync schema without migration history (local prototype only) |
 | `pnpm db:seed`                      | Seed categories, sample users, and requests |
+
+### Database: migrate vs push
+
+**Production and shared environments must use `pnpm db:migrate:deploy`**, not `db:push`. Migrations live under `prisma/migrations/` and are the source of truth for schema history.
+
+`pnpm db:push` remains available for throwaway local prototyping when you intentionally skip migration files. After schema changes intended for production, always create a migration (`pnpm db:migrate`) and commit it.
 
 ## Endpoints
 
