@@ -126,6 +126,11 @@ enum EstonianCity: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    static func fromAPICity(_ value: String) -> EstonianCity {
+        if let byRaw = EstonianCity(rawValue: value) { return byRaw }
+        return allCases.first { $0.displayName == value } ?? .tallinn
+    }
+
     var center: (latitude: Double, longitude: Double) {
         switch self {
         case .tallinn: (59.437, 24.7536)
@@ -200,16 +205,18 @@ enum OfferStatus: String, Codable, Sendable {
 
 struct RequestPhoto: Codable, Identifiable, Hashable, Sendable {
     let id: String
+    let key: String?
     let url: URL
     let sortOrder: Int
 
     enum CodingKeys: String, CodingKey {
-        case id, url, sortOrder
+        case id, key, url, sortOrder
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
+        key = try c.decodeIfPresent(String.self, forKey: .key)
         url = APIConfiguration.resolveMediaURL(try c.decode(URL.self, forKey: .url))
         sortOrder = try c.decode(Int.self, forKey: .sortOrder)
     }

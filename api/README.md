@@ -82,6 +82,7 @@ CI runs on pull requests and pushes that touch `api/` (see `.github/workflows/ap
 | GET | `/requests/:id` | optional | Request detail |
 | POST | `/requests/:id/views` | optional | Increment view count (skips owner self-views; rate-limited) |
 | POST | `/requests` | Bearer | Create request (`photoKeys`, `pricingMode`, …) |
+| PATCH | `/requests/:id` | Bearer | Owner edits open request with **no offers** yet |
 | GET | `/requests/:id/offers` | Bearer | List offers |
 | POST | `/requests/:id/offers` | Bearer | Create offer / fixed-price interest |
 | PATCH | `/requests/:id/offers/:offerId` | Bearer | Accept / decline / withdraw offer |

@@ -12,7 +12,10 @@ struct NewRequestView: View {
     @Environment(AuthSession.self) private var auth
     @Environment(\.dismiss) private var dismiss
 
+    /// When set, the form updates this request instead of creating a new one.
+    var existing: ServiceRequest?
     var onCreated: ((ServiceRequest) -> Void)?
+    var onUpdated: ((ServiceRequest) -> Void)?
 
     @State private var categories: [Category] = []
     @State private var categoryId: String?
@@ -31,6 +34,9 @@ struct NewRequestView: View {
     @State private var uploadProgress: Double = 0
     @State private var errorMessage: String?
     @State private var nearby = NearbyLocation()
+    @State private var didPrefill = false
+
+    private var isEditing: Bool { existing != nil }
 
     private var trimmedTitle: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -88,7 +94,11 @@ struct NewRequestView: View {
             } header: {
                 Text("Job")
             } footer: {
-                Text("Title needs at least 3 characters, description at least 10.")
+                Text(
+                    isEditing
+                        ? "Edits are only allowed while the request is open and has no offers."
+                        : "Title needs at least 3 characters, description at least 10."
+                )
             }
 
             Section {
@@ -186,7 +196,7 @@ struct NewRequestView: View {
                 }
             }
         }
-        .navigationTitle("New Request")
+        .navigationTitle(isEditing ? "Edit Request" : "New Request")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -200,7 +210,7 @@ struct NewRequestView: View {
                     if isSubmitting {
                         ProgressView()
                     } else {
-                        Text("Post")
+                        Text(isEditing ? "Save" : "Post")
                             .fontWeight(.semibold)
                     }
                 }
@@ -211,6 +221,7 @@ struct NewRequestView: View {
         .task {
             nearby.start()
             await loadCategories()
+            prefillIfNeeded()
         }
     }
 
@@ -233,10 +244,19 @@ struct NewRequestView: View {
     private func photoCell(_ photo: DraftPhoto) -> some View {
         ZStack(alignment: .topTrailing) {
             Group {
-                if let image = UIImage(data: photo.data) {
+                if let data = photo.jpegData, let image = UIImage(data: data) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
+                } else if let url = photo.remoteURL {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        default:
+                            Color(.tertiarySystemFill)
+                        }
+                    }
                 } else {
                     Color(.tertiarySystemFill)
                 }
@@ -245,7 +265,7 @@ struct NewRequestView: View {
             .aspectRatio(1, contentMode: .fit)
             .clipShape(.rect(cornerRadius: 10))
 
-            if isSubmitting, submitPhase == .uploadingPhotos {
+            if isSubmitting, submitPhase == .uploadingPhotos, photo.jpegData != nil {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(.black.opacity(0.35))
                 ProgressView()
@@ -267,6 +287,42 @@ struct NewRequestView: View {
         }
     }
 
+    private func prefillIfNeeded() {
+        guard !didPrefill, let existing else { return }
+        didPrefill = true
+        categoryId = existing.categoryId
+        title = existing.title
+        description = existing.description
+        city = EstonianCity.fromAPICity(existing.city)
+        location = existing.location
+        pricingMode = existing.pricingMode
+        if let cents = existing.budgetCents {
+            budgetEuros = String(format: "%.0f", Double(cents) / 100)
+        }
+        draftPhotos = existing.photos
+            .sorted { $0.sortOrder < $1.sortOrder }
+            .map { photo in
+                DraftPhoto(
+                    id: photo.id,
+                    jpegData: nil,
+                    existingKey: photo.key ?? Self.uploadKey(from: photo.url),
+                    remoteURL: photo.url
+                )
+            }
+    }
+
+    /// Pull Spaces key from `/uploads/…` or CDN URL path.
+    private static func uploadKey(from url: URL) -> String? {
+        let path = url.path
+        if path.hasPrefix("/uploads/") {
+            return String(path.dropFirst("/uploads/".count))
+        }
+        if path.hasPrefix("/requests/") || path.hasPrefix("/avatars/") {
+            return String(path.dropFirst(1))
+        }
+        return nil
+    }
+
     private func appendSelectedPhotos() async {
         let items = selectedPhotos
         guard !items.isEmpty else { return }
@@ -282,7 +338,7 @@ struct NewRequestView: View {
             if let data = try? await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data),
                let jpeg = image.jpegData(compressionQuality: 0.82) {
-                loaded.append(DraftPhoto(data: jpeg))
+                loaded.append(DraftPhoto(jpegData: jpeg))
             }
         }
         draftPhotos.append(contentsOf: loaded)
@@ -309,19 +365,24 @@ struct NewRequestView: View {
     private func submit() async {
         guard canSubmit, let categoryId else { return }
         isSubmitting = true
-        submitPhase = draftPhotos.isEmpty ? .creatingRequest : .uploadingPhotos
+        let needsUpload = draftPhotos.contains { $0.jpegData != nil }
+        submitPhase = needsUpload ? .uploadingPhotos : (isEditing ? .savingRequest : .creatingRequest)
         uploadProgress = 0
         errorMessage = nil
 
         do {
-            var photoKeys: [String]?
-            if !draftPhotos.isEmpty {
-                let parts = draftPhotos.enumerated().map { index, photo in
+            var uploadedKeys: [String] = []
+            let newParts = draftPhotos.compactMap { photo -> (DraftPhoto, Data)? in
+                guard let data = photo.jpegData else { return nil }
+                return (photo, data)
+            }
+            if !newParts.isEmpty {
+                let parts = newParts.enumerated().map { index, item in
                     MultipartFilePart(
                         fieldName: "photos",
                         filename: "photo-\(index + 1).jpg",
                         mimeType: "image/jpeg",
-                        data: photo.data
+                        data: item.1
                     )
                 }
                 let upload: APIEnvelope<UploadKeysResponse> = try await auth.api.uploadMultipart(
@@ -332,18 +393,34 @@ struct NewRequestView: View {
                         uploadProgress = progress
                     }
                 }
-                photoKeys = upload.data.keys
+                uploadedKeys = upload.data.keys
                 uploadProgress = 1
             }
 
-            submitPhase = .creatingRequest
+            submitPhase = isEditing ? .savingRequest : .creatingRequest
 
-            let center = city.center
+            var photoKeys: [String] = []
+            var uploadIndex = 0
+            for photo in draftPhotos {
+                if photo.jpegData != nil {
+                    guard uploadIndex < uploadedKeys.count else {
+                        throw APIError.transport("Photo upload incomplete.")
+                    }
+                    photoKeys.append(uploadedKeys[uploadIndex])
+                    uploadIndex += 1
+                } else if let key = photo.existingKey {
+                    photoKeys.append(key)
+                }
+            }
+
             let coordinate: (latitude: Double, longitude: Double) = {
+                if isEditing, let existing {
+                    return (existing.latitude, existing.longitude)
+                }
                 if let location = nearby.location {
                     return (location.coordinate.latitude, location.coordinate.longitude)
                 }
-                return center
+                return city.center
             }()
 
             let cents = budgetCents
@@ -361,12 +438,21 @@ struct NewRequestView: View {
                 photoKeys: photoKeys
             )
 
-            let response: APIEnvelope<ServiceRequest> = try await auth.api.send(
-                "POST",
-                path: "requests",
-                body: body
-            )
-            onCreated?(response.data)
+            if let existing {
+                let response: APIEnvelope<ServiceRequest> = try await auth.api.send(
+                    "PATCH",
+                    path: "requests/\(existing.id)",
+                    body: body
+                )
+                onUpdated?(response.data)
+            } else {
+                let response: APIEnvelope<ServiceRequest> = try await auth.api.send(
+                    "POST",
+                    path: "requests",
+                    body: body
+                )
+                onCreated?(response.data)
+            }
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
@@ -378,20 +464,36 @@ struct NewRequestView: View {
 }
 
 private struct DraftPhoto: Identifiable {
-    let id = UUID()
-    let data: Data
+    let id: String
+    var jpegData: Data?
+    var existingKey: String?
+    var remoteURL: URL?
+
+    init(
+        id: String = UUID().uuidString,
+        jpegData: Data? = nil,
+        existingKey: String? = nil,
+        remoteURL: URL? = nil
+    ) {
+        self.id = id
+        self.jpegData = jpegData
+        self.existingKey = existingKey
+        self.remoteURL = remoteURL
+    }
 }
 
 private enum SubmitPhase: Equatable {
     case idle
     case uploadingPhotos
     case creatingRequest
+    case savingRequest
 
     var label: String {
         switch self {
         case .idle: ""
         case .uploadingPhotos: "Uploading photos…"
         case .creatingRequest: "Publishing request…"
+        case .savingRequest: "Saving changes…"
         }
     }
 }

@@ -29,6 +29,7 @@ struct RequestDetailView: View {
     @State private var pendingCancel = false
     @State private var pendingAcceptOffer: Offer?
     @State private var pendingWithdrawOffer: Offer?
+    @State private var isEditPresented = false
 
     init(request: ServiceRequest) {
         _request = State(initialValue: request)
@@ -40,6 +41,10 @@ struct RequestDetailView: View {
 
     private var isAcceptedProvider: Bool {
         request.acceptedOffer?.provider.id == auth.user?.id
+    }
+
+    private var canOwnerEdit: Bool {
+        isOwner && request.status == .open && request.offerCount == 0
     }
 
     private var canSendOffer: Bool {
@@ -153,6 +158,22 @@ struct RequestDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(request.categoryName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if canOwnerEdit {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Edit") { isEditPresented = true }
+                }
+            }
+        }
+        .sheet(isPresented: $isEditPresented) {
+            NavigationStack {
+                NewRequestView(existing: request, onUpdated: { updated in
+                    request = updated
+                    successMessage = "Request updated."
+                    errorMessage = nil
+                })
+            }
+        }
         .navigationDestination(item: $conversationId) { id in
             ConversationDetailView(
                 conversation: Conversation(

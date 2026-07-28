@@ -389,6 +389,88 @@ requestRoutes.post("/", requireAuth, async (c) => {
   return c.json({ data: serializeRequest(request) }, 201);
 });
 
+requestRoutes.patch("/:id", requireAuth, async (c) => {
+  const data = parseOrThrow(createRequestSchema, await c.req.json());
+  const userId = c.get("userId");
+  const requestId = c.req.param("id");
+  const pricingMode = data.pricingMode ?? RequestPricingMode.PROVIDER_OFFERS;
+
+  if (pricingMode === RequestPricingMode.OWNER_FIXED_PRICE && data.budgetCents == null) {
+    throw badRequest("Fixed price is required");
+  }
+
+  if (data.photoKeys?.length) {
+    assertOwnedObjectKeys(data.photoKeys, userId, "requests");
+  }
+
+  const existing = await prisma.serviceRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      ownerId: true,
+      status: true,
+      _count: { select: { offers: true } },
+    },
+  });
+  if (!existing) throw notFound("Request not found");
+  if (existing.ownerId !== userId) {
+    throw forbidden("Only the post owner can edit this request");
+  }
+  if (existing.status !== ServiceRequestStatus.OPEN) {
+    throw badRequest("Only open requests can be edited");
+  }
+  if (existing._count.offers > 0) {
+    throw conflict("Cannot edit a request that already has offers");
+  }
+
+  await ensureCategoryCatalog(prisma);
+  const category = await prisma.category.findUnique({ where: { id: data.categoryId } });
+  if (!category) throw badRequest("Category not found");
+
+  const request = await prisma.$transaction(async (tx) => {
+    if (data.photoKeys) {
+      await tx.requestPhoto.deleteMany({ where: { requestId } });
+      if (data.photoKeys.length > 0) {
+        await tx.requestPhoto.createMany({
+          data: data.photoKeys.map((spacesKey, index) => ({
+            requestId,
+            spacesKey,
+            sortOrder: index,
+          })),
+        });
+      }
+    }
+
+    return tx.serviceRequest.update({
+      where: { id: requestId },
+      data: {
+        categoryId: data.categoryId,
+        title: data.title,
+        description: data.description,
+        city: data.city,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        location: data.location,
+        budgetCents: data.budgetCents ?? null,
+        budgetLabel:
+          data.budgetLabel ??
+          (data.budgetCents != null ? `€${(data.budgetCents / 100).toFixed(0)}` : null),
+        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
+        pricingMode,
+        isPremium: data.isPremium ?? false,
+      },
+      include: {
+        category: true,
+        owner: true,
+        photos: true,
+        _count: { select: { offers: true } },
+      },
+    });
+  });
+
+  return c.json({ data: serializeRequest(request) });
+});
+
 requestRoutes.get("/:id/offers", requireAuth, async (c) => {
   const userId = c.get("userId");
 

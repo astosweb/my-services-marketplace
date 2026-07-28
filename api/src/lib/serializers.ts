@@ -123,6 +123,7 @@ export function serializeRequest(request: RequestWithRelations, viewerUserId?: s
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((p) => ({
         id: p.id,
+        key: p.spacesKey,
         url: mediaUrlForKey(p.spacesKey),
         sortOrder: p.sortOrder,
       })),
