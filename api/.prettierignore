@@ -1,0 +1,7 @@
+dist
+node_modules
+src/generated
+.data
+pnpm-lock.yaml
+coverage
+*.log
