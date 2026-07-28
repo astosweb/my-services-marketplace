@@ -29,6 +29,19 @@ Server defaults to `http://localhost:3000`.
 | Postgres | `5433`    | `hero` / `hero`, db `hero`                |
 | Redis    | `6380`    | no auth (`REDIS_URL=redis://localhost:6380`) |
 
+Compose images are pinned to `postgres:16` and `redis:7` (not `:latest`). The optional `api` service builds from `Dockerfile` and waits on healthy Postgres/Redis.
+
+```bash
+# Infra only
+docker compose up -d postgres redis
+
+# Full stack (set JWT_SECRET / CORS_ORIGIN in the environment or a .env file)
+docker compose up -d --build
+# Then: docker compose exec api pnpm db:migrate:deploy   # or run migrate in an init job
+```
+
+Deploy targets (DigitalOcean App Platform, Fly.io, Render): build the `Dockerfile`, set secrets via env, run `pnpm db:migrate:deploy` before or on boot, probe `/health` and `/health/ready`.
+
 Host ports are `5433` / `6380` so they don’t clash with other local Postgres/Redis on `5432` / `6379`.
 
 ## Scripts
@@ -59,34 +72,57 @@ CI runs on pull requests and pushes that touch `api/` (see `.github/workflows/ap
 
 ## Endpoints
 
-| Method | Path                      | Description                                                                                                                                                         |
-| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/health`                 | Liveness                                                                                                                                                            |
-| GET    | `/health/ready`           | DB connectivity                                                                                                                                                     |
-| GET    | `/categories`             | List job categories                                                                                                                                                 |
-| GET    | `/requests`               | List requests (`?city=TALLINN&categoryId=plumbing`)                                                                                                                 |
-| GET    | `/requests/:id`           | Request detail                                                                                                                                                      |
-| POST   | `/uploads/request-photos` | Upload job photos (Bearer token; multipart `photos`, max 6)                                                                                                         |
-| POST   | `/requests`               | Create request (Bearer token; optional `photoKeys`; `pricingMode` can be `PROVIDER_OFFERS` or `OWNER_FIXED_PRICE`)                                                  |
-| GET    | `/requests/:id/offers`    | List offers                                                                                                                                                         |
-| POST   | `/requests/:id/offers`    | Create price offer or fixed-price interest (Bearer token; `priceCents` required for provider-priced requests, omitted for fixed-price requests; optional `message`) |
-| POST   | `/requests/:id/conversation` | Start or open a 1:1 chat. Bearer. Allowed only for the request owner (with an accepted provider) or a user with a pending/accepted offer. |
-| POST   | `/requests/:id/messages`  | Message post owner (Bearer; `body`). Same offer/owner policy as conversation open. Creates a 1:1 conversation if needed. |
-| POST   | `/auth/register`          | Register (`email`, `password`, `displayName`)                                                                                                                       |
-| POST   | `/auth/login`             | Login (`email`, `password`)                                                                                                                                         |
-| POST   | `/auth/refresh`           | Rotate tokens (`refreshToken`)                                                                                                                                      |
-| POST   | `/auth/logout`            | Revoke refresh token (`refreshToken`)                                                                                                                               |
-| POST   | `/auth/forgot-password`   | Request a password reset (`email`); always returns a generic response                                                                                               |
-| POST   | `/auth/reset-password`    | Consume a reset token and replace the password (`token`, `password`)                                                                                                |
-| GET    | `/auth/me`                | Current user (Bearer token)                                                                                                                                         |
-| GET    | `/auth/me/stats`          | Activity stats: posted, completed, review counts (Bearer token)                                                                                                     |
-| PATCH  | `/auth/me`                | Update own profile (`displayName`, `bio`)                                                                                                                           |
-| DELETE | `/auth/me`                | Hard-delete account (Bearer; body `{ password }`). Cascades tokens, devices, requests, messages, reviews. Returns 204.                                              |
-| GET    | `/users/:id`              | User profile                                                                                                                                                        |
-| GET    | `/users/:id/reviews`      | Reviews received by user (max 50)                                                                                                                                   |
-| PATCH  | `/users/:id`              | Update own profile / `avatarKey` (Bearer token, own id only)                                                                                                        |
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/health` | — | Liveness |
+| GET | `/health/ready` | — | DB connectivity |
+| GET | `/categories` | — | List job categories |
+| GET | `/requests` | optional | List requests (`?city=&categoryId=&status=&limit=&offset=`) |
+| GET | `/requests/mine` | Bearer | Own requests as owner or provider (`?role=owner\|provider`) |
+| GET | `/requests/:id` | optional | Request detail |
+| POST | `/requests/:id/views` | optional | Increment view count (skips owner self-views; rate-limited) |
+| POST | `/requests` | Bearer | Create request (`photoKeys`, `pricingMode`, …) |
+| GET | `/requests/:id/offers` | Bearer | List offers |
+| POST | `/requests/:id/offers` | Bearer | Create offer / fixed-price interest |
+| PATCH | `/requests/:id/offers/:offerId` | Bearer | Accept / decline / withdraw offer |
+| PATCH | `/requests/:id/status` | Bearer | Owner complete / cancel (`PROVIDER_DONE` required to complete) |
+| PATCH | `/requests/:id/progress` | Bearer | Provider advances progress one step |
+| POST | `/requests/:id/reviews` | Bearer | Leave review after completion |
+| GET | `/requests/:id/conversation` | Bearer | Fetch existing thread messages |
+| POST | `/requests/:id/conversation` | Bearer | Open thread (offer/owner policy) |
+| POST | `/requests/:id/messages` | Bearer | Message owner (offer policy) |
+| GET | `/conversations` | Bearer | Inbox (`?archived=true\|false`); `meta.unreadCount` |
+| GET | `/conversations/:id/messages` | Bearer | Full message history (marks read) |
+| POST | `/conversations/:id/messages` | Bearer | Send text/attachment message |
+| POST | `/conversations/:id/read` | Bearer | Mark conversation read |
+| PATCH | `/conversations/:id/archive` | Bearer | Archive / unarchive |
+| PATCH | `/conversations/:id/pin` | Bearer | Pin / unpin |
+| GET | `/notifications` | Bearer | List notifications (`?limit=`); `meta.unreadCount` |
+| PATCH | `/notifications/:id` | Bearer | Mark one notification read |
+| POST | `/notifications/read-all` | Bearer | Mark all read |
+| POST | `/uploads/request-photos` | Bearer | Multipart job photos (max 6) |
+| POST | `/uploads/message-attachments` | Bearer | Multipart message file |
+| POST | `/uploads/avatars` | Bearer | Multipart avatar |
+| GET | `/uploads/*` | signed/Bearer for `messages/` | Serve local/Spaces object; public for `requests/`/`avatars/` |
+| POST | `/auth/register` | — | Register (`email`, `password`, `displayName`) |
+| POST | `/auth/login` | — | Login |
+| POST | `/auth/refresh` | — | Rotate refresh token (atomic; reuse revokes family) |
+| POST | `/auth/logout` | — | Revoke refresh token |
+| POST | `/auth/forgot-password` | — | Request password reset |
+| POST | `/auth/reset-password` | — | Consume reset token |
+| GET | `/auth/me` | Bearer | Current user |
+| GET | `/auth/me/stats` | Bearer | Posted / completed / review counts |
+| PATCH | `/auth/me` | Bearer | Update own profile |
+| DELETE | `/auth/me` | Bearer | Hard-delete account (`{ password }`) → 204 |
+| GET | `/users/:id` | — | Public user profile |
+| GET | `/users/:id/reviews` | — | Reviews received (max 50) |
+| PATCH | `/users/:id` | Bearer | Update own profile / `avatarKey` (own id only) |
+| POST | `/devices` | Bearer | Register APNs/FCM device token |
+| DELETE | `/devices/:token` | Bearer | Remove device token |
 
-User signup is **only** via `POST /auth/register` (email + password + displayName). `POST /users` is not available.
+User signup is **only** via `POST /auth/register`. `POST /users` is not available.
+
+All error responses may include `error.requestId` matching response header `x-request-id`.
 
 ### City query values
 
