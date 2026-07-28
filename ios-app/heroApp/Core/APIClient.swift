@@ -8,6 +8,32 @@ enum APIConfiguration {
         let candidate = (configured?.isEmpty == false ? configured : nil) ?? "http://127.0.0.1:3000"
         return URL(string: candidate)!
     }()
+
+    /// Rewrite Spaces/CDN or localhost media links to `HERO_API_BASE_URL/uploads/…`
+    /// so AsyncImage hits the API proxy (works when Spaces ACLs are disabled).
+    static func resolveMediaURL(_ url: URL) -> URL {
+        let path = url.path
+        let uploadPath: String
+        if path.hasPrefix("/uploads/") {
+            uploadPath = path
+        } else if path.hasPrefix("/requests/")
+            || path.hasPrefix("/avatars/")
+            || path.hasPrefix("/messages/")
+        {
+            uploadPath = "/uploads" + path
+        } else {
+            return url
+        }
+
+        guard var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+        let basePath = comps.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let suffix = uploadPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        comps.path = "/" + [basePath, suffix].filter { !$0.isEmpty }.joined(separator: "/")
+        comps.query = url.query
+        return comps.url ?? url
+    }
 }
 
 enum APIError: LocalizedError {

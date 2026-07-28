@@ -27,6 +27,22 @@ struct User: Codable, Identifiable, Hashable, Sendable {
     let reviewCount: Int
     let memberSince: Date
     let email: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, displayName, bio, avatarUrl, rating, reviewCount, memberSince, email
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        displayName = try c.decode(String.self, forKey: .displayName)
+        bio = try c.decodeIfPresent(String.self, forKey: .bio)
+        avatarUrl = try c.decodeIfPresent(URL.self, forKey: .avatarUrl).map(APIConfiguration.resolveMediaURL)
+        rating = try c.decode(Double.self, forKey: .rating)
+        reviewCount = try c.decode(Int.self, forKey: .reviewCount)
+        memberSince = try c.decode(Date.self, forKey: .memberSince)
+        email = try c.decodeIfPresent(String.self, forKey: .email)
+    }
 }
 
 struct AuthPayload: Decodable, Sendable {
@@ -186,6 +202,17 @@ struct RequestPhoto: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let url: URL
     let sortOrder: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, url, sortOrder
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        url = APIConfiguration.resolveMediaURL(try c.decode(URL.self, forKey: .url))
+        sortOrder = try c.decode(Int.self, forKey: .sortOrder)
+    }
 }
 
 struct OfferUser: Codable, Identifiable, Hashable, Sendable {
@@ -196,6 +223,21 @@ struct OfferUser: Codable, Identifiable, Hashable, Sendable {
     let rating: Double
     let reviewCount: Int
     let memberSince: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, displayName, bio, avatarUrl, rating, reviewCount, memberSince
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        displayName = try c.decode(String.self, forKey: .displayName)
+        bio = try c.decodeIfPresent(String.self, forKey: .bio)
+        avatarUrl = try c.decodeIfPresent(URL.self, forKey: .avatarUrl).map(APIConfiguration.resolveMediaURL)
+        rating = try c.decode(Double.self, forKey: .rating)
+        reviewCount = try c.decode(Int.self, forKey: .reviewCount)
+        memberSince = try c.decode(Date.self, forKey: .memberSince)
+    }
 }
 
 struct AcceptedOffer: Codable, Identifiable, Hashable, Sendable {
@@ -308,6 +350,17 @@ struct Attachment: Codable, Hashable, Sendable {
     let url: URL
     let name: String
     let mimeType: String
+
+    enum CodingKeys: String, CodingKey {
+        case url, name, mimeType
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        url = APIConfiguration.resolveMediaURL(try c.decode(URL.self, forKey: .url))
+        name = try c.decode(String.self, forKey: .name)
+        mimeType = try c.decode(String.self, forKey: .mimeType)
+    }
 }
 
 struct Message: Codable, Identifiable, Hashable, Sendable {
