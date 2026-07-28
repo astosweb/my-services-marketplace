@@ -67,8 +67,10 @@ Host ports are `5433` / `6380` so they don’t clash with other local Postgres/R
 | GET    | `/auth/me/stats`          | Activity stats: posted, completed, review counts (Bearer token)                                                                                                     |
 | PATCH  | `/auth/me`                | Update own profile (`displayName`, `bio`)                                                                                                                           |
 | GET    | `/users/:id`              | User profile                                                                                                                                                        |
-| POST   | `/users`                  | Create user profile (no password; prefer `/auth/register`)                                                                                                          |
+| GET    | `/users/:id/reviews`      | Reviews received by user (max 50)                                                                                                                                   |
 | PATCH  | `/users/:id`              | Update own profile / `avatarKey` (Bearer token, own id only)                                                                                                        |
+
+User signup is **only** via `POST /auth/register` (email + password + displayName). `POST /users` is not available.
 
 ### City query values
 

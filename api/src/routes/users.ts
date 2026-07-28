@@ -8,12 +8,6 @@ import { parseOrThrow } from "../lib/validate.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
 
-const createUserSchema = z.object({
-  email: z.email(),
-  displayName: z.string().min(1).max(100),
-  bio: z.string().max(1000).optional(),
-});
-
 const updateUserSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   bio: z.string().max(1000).nullable().optional(),
@@ -43,12 +37,6 @@ userRoutes.get("/:id/reviews", async (c) => {
   });
 
   return c.json({ data: reviews.map(serializeReview) });
-});
-
-userRoutes.post("/", async (c) => {
-  const parsed = parseOrThrow(createUserSchema, await c.req.json());
-  const user = await prisma.user.create({ data: parsed });
-  return c.json({ data: serializeUser(user) }, 201);
 });
 
 userRoutes.patch("/:id", requireAuth, async (c) => {
