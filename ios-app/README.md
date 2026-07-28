@@ -1,11 +1,11 @@
-# davayApp
+# heroApp
 
-Native SwiftUI client for the Davay marketplace API.
+Native SwiftUI client for the Hero marketplace API.
 
 ## API configuration
 
-`DAVAY_API_BASE_URL` is set via the Xcode build setting of the same name and merged into
-`davayApp/Info.plist`. It defaults to `http://192.168.1.122:3000` (Mac LAN IP + API port).
+`HERO_API_BASE_URL` is set via the Xcode build setting of the same name and merged into
+`heroApp/Info.plist`. It defaults to `http://192.168.1.122:3000` (Mac LAN IP + API port).
 Override per configuration or in CI with the deployed HTTPS API URL. For Simulator-only
 work you can switch it back to `http://127.0.0.1:3000`.
 
@@ -15,7 +15,7 @@ always use HTTPS.
 
 ## Explore
 
-`ExploreView` (`davayApp/Features/ExploreView.swift`) is the marketplace browser and has two
+`ExploreView` (`heroApp/Features/ExploreView.swift`) is the marketplace browser and has two
 layouts, toggled from the navigation bar:
 
 - **List** – request cards with photo, category, city/distance, budget, offer/view counts.
@@ -26,14 +26,14 @@ Search, category chips and sorting (Recommended, Newest, Highest Budget, Nearest
 client side on the page loaded from `GET /requests?limit=50`. Categories are derived from the
 loaded requests, so no extra endpoint is needed.
 
-`RequestDetailView` (`davayApp/Features/RequestDetailView.swift`) is shared by Explore and My
+`RequestDetailView` (`heroApp/Features/RequestDetailView.swift`) is shared by Explore and My
 Requests: photo gallery, status/pricing badges, stats, requester card, and a non-interactive
 map with Directions / Open in Maps links.
 
 ### Location permission
 
 Distance labels, the "Nearest" sort and the map's user location need
-`NSLocationWhenInUseUsageDescription` (already in `davayApp/Info.plist`). The prompt is only
+`NSLocationWhenInUseUsageDescription` (already in `heroApp/Info.plist`). The prompt is only
 shown when the user opens the map layout or picks the "Nearest" sort — never on launch.
 
 ## Authentication

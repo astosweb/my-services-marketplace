@@ -1,6 +1,6 @@
-# Davay API
+# Hero API
 
-Hono + Prisma backend for the Davay marketplace app. Data lives in PostgreSQL; file keys point at DigitalOcean Spaces (URLs built when `SPACES_CDN_URL` is set).
+Hono + Prisma backend for the Hero marketplace app. Data lives in PostgreSQL; file keys point at DigitalOcean Spaces (URLs built when `SPACES_CDN_URL` is set).
 
 ## Setup
 
@@ -22,7 +22,7 @@ Server defaults to `http://localhost:3000`.
 
 | Service  | Host port | Credentials                                  |
 | -------- | --------- | -------------------------------------------- |
-| Postgres | `5433`    | `davay` / `davay`, db `davay`                |
+| Postgres | `5433`    | `hero` / `hero`, db `hero`                |
 | Redis    | `6380`    | no auth (`REDIS_URL=redis://localhost:6380`) |
 
 Host ports are `5433` / `6380` so they don’t clash with other local Postgres/Redis on `5432` / `6379`.

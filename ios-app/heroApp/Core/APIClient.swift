@@ -3,7 +3,7 @@ import Security
 
 enum APIConfiguration {
     static let baseURL: URL = {
-        let configured = (Bundle.main.object(forInfoDictionaryKey: "DAVAY_API_BASE_URL") as? String)?
+        let configured = (Bundle.main.object(forInfoDictionaryKey: "HERO_API_BASE_URL") as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let candidate = (configured?.isEmpty == false ? configured : nil) ?? "http://127.0.0.1:3000"
         return URL(string: candidate)!
@@ -29,7 +29,7 @@ enum APIError: LocalizedError {
 }
 
 struct KeychainTokenStore: Sendable {
-    private let service = Bundle.main.bundleIdentifier ?? "com.serhatsabuncu.davayApp"
+    private let service = Bundle.main.bundleIdentifier ?? "com.serhatsabuncu.heroApp"
     private let account = "refresh-token"
 
     func read() -> String? {

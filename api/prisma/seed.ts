@@ -13,7 +13,7 @@ const prisma = createPrismaClient();
 const seedUsers = [
   {
     id: "seed_user_moonika",
-    email: "moonika@davay.test",
+    email: "moonika@hero.test",
     displayName: "Moonika Tamm",
     bio: "Renting in Kristiine. Handy with most things but plumbing is a mystery to me.",
     rating: 4.2,
@@ -21,7 +21,7 @@ const seedUsers = [
   },
   {
     id: "seed_user_raivo",
-    email: "raivo@davay.test",
+    email: "raivo@hero.test",
     displayName: "Raivo Kaljurand",
     bio: "Just moved into a new place in Kalamaja. Looking for reliable tradespeople.",
     rating: 4.8,
@@ -29,7 +29,7 @@ const seedUsers = [
   },
   {
     id: "seed_user_siiri",
-    email: "siiri@davay.test",
+    email: "siiri@hero.test",
     displayName: "Siiri Leppänen",
     bio: "Student living in Annelinn. Recently renovated my flat and need it spotless.",
     rating: 4.5,

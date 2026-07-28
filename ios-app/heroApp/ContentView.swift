@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  davayApp
+//  heroApp
 //
 //  Created by Serhat on 28.07.2026.
 //

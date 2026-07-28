@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>DAVAY_API_BASE_URL</key>
-	<string>$(DAVAY_API_BASE_URL)</string>
+	<key>HERO_API_BASE_URL</key>
+	<string>$(HERO_API_BASE_URL)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Davay uses your location to show nearby requests on the map and sort them by distance.</string>
+	<string>Hero uses your location to show nearby requests on the map and sort them by distance.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

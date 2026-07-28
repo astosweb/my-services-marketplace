@@ -2,7 +2,7 @@
 
 ## Summary
 
-Upgraded the Davay API to the latest stable toolchain and dependency versions, migrated deprecated Zod 4 APIs, hardened security defaults, and added modern lint/format/test tooling. Public HTTP APIs and response shapes are unchanged.
+Upgraded the Hero API to the latest stable toolchain and dependency versions, migrated deprecated Zod 4 APIs, hardened security defaults, and added modern lint/format/test tooling. Public HTTP APIs and response shapes are unchanged.
 
 ## Dependency upgrades
 

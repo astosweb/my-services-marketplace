@@ -5,7 +5,7 @@ describe("health routes", () => {
   it("GET /health returns ok", async () => {
     const res = await app.request("/health");
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ ok: true, service: "davay-api" });
+    await expect(res.json()).resolves.toEqual({ ok: true, service: "hero-api" });
   });
 
   it("unknown routes return NOT_FOUND", async () => {
