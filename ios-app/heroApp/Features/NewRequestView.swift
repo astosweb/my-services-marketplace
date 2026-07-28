@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 struct NewRequestView: View {
-    private static let maxPhotos = 9
+    private static let maxPhotos = 6
     private static let photoColumns = Array(
         repeating: GridItem(.flexible(), spacing: 8),
         count: 3
@@ -102,27 +102,8 @@ struct NewRequestView: View {
             }
 
             Section {
-                LazyVGrid(columns: Self.photoColumns, spacing: 8) {
-                    ForEach(draftPhotos) { photo in
-                        photoCell(photo)
-                    }
-
-                    if draftPhotos.count < Self.maxPhotos {
-                        PhotosPicker(
-                            selection: $selectedPhotos,
-                            maxSelectionCount: Self.maxPhotos - draftPhotos.count,
-                            matching: .images,
-                            photoLibrary: .shared()
-                        ) {
-                            addPhotoCell
-                        }
-                        .disabled(isSubmitting || isLoadingPhotos)
-                        .onChange(of: selectedPhotos) {
-                            Task { await appendSelectedPhotos() }
-                        }
-                    }
-                }
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                photoGrid
+                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
 
                 if isLoadingPhotos {
                     HStack(spacing: 8) {
@@ -152,7 +133,7 @@ struct NewRequestView: View {
             } header: {
                 Text("Photos")
             } footer: {
-                Text("Optional. Up to \(Self.maxPhotos) JPEG/PNG/WebP images in a 3×3 grid.")
+                Text("Optional. Up to \(Self.maxPhotos) JPEG/PNG/WebP images in a 3×2 grid.")
             }
 
             Section("Where") {
@@ -225,20 +206,44 @@ struct NewRequestView: View {
         }
     }
 
-    private var addPhotoCell: some View {
+    private var photoGrid: some View {
+        LazyVGrid(columns: Self.photoColumns, spacing: 8) {
+            ForEach(0..<Self.maxPhotos, id: \.self) { index in
+                Group {
+                    if index < draftPhotos.count {
+                        photoCell(draftPhotos[index])
+                    } else if index == draftPhotos.count {
+                        PhotosPicker(
+                            selection: $selectedPhotos,
+                            maxSelectionCount: Self.maxPhotos - draftPhotos.count,
+                            matching: .images,
+                            photoLibrary: .shared()
+                        ) {
+                            emptyPhotoCell
+                        }
+                        .disabled(isSubmitting || isLoadingPhotos)
+                    } else {
+                        emptyPhotoCell
+                    }
+                }
+                .aspectRatio(1, contentMode: .fit)
+            }
+        }
+        .onChange(of: selectedPhotos) {
+            Task { await appendSelectedPhotos() }
+        }
+    }
+
+    private var emptyPhotoCell: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color(.secondarySystemFill))
-            VStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.title2.weight(.semibold))
-                Text(draftPhotos.isEmpty ? "Add" : "\(draftPhotos.count)/\(Self.maxPhotos)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .foregroundStyle(.secondary)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(
+                    Color(.tertiaryLabel).opacity(0.35),
+                    style: StrokeStyle(lineWidth: 1, dash: [5, 4])
+                )
         }
-        .aspectRatio(1, contentMode: .fit)
     }
 
     private func photoCell(_ photo: DraftPhoto) -> some View {
@@ -261,8 +266,8 @@ struct NewRequestView: View {
                     Color(.tertiarySystemFill)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
             .clipShape(.rect(cornerRadius: 10))
 
             if isSubmitting, submitPhase == .uploadingPhotos, photo.jpegData != nil {
@@ -299,16 +304,19 @@ struct NewRequestView: View {
         if let cents = existing.budgetCents {
             budgetEuros = String(format: "%.0f", Double(cents) / 100)
         }
-        draftPhotos = existing.photos
-            .sorted { $0.sortOrder < $1.sortOrder }
-            .map { photo in
-                DraftPhoto(
-                    id: photo.id,
-                    jpegData: nil,
-                    existingKey: photo.key ?? Self.uploadKey(from: photo.url),
-                    remoteURL: photo.url
-                )
-            }
+        draftPhotos = Array(
+            existing.photos
+                .sorted { $0.sortOrder < $1.sortOrder }
+                .prefix(Self.maxPhotos)
+                .map { photo in
+                    DraftPhoto(
+                        id: photo.id,
+                        jpegData: nil,
+                        existingKey: photo.key ?? Self.uploadKey(from: photo.url),
+                        remoteURL: photo.url
+                    )
+                }
+        )
     }
 
     /// Pull Spaces key from `/uploads/…` or CDN URL path.
