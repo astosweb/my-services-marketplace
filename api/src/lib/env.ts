@@ -13,9 +13,18 @@ const envSchema = z.object({
   SPACES_ACCESS_KEY_ID: z.string().optional(),
   SPACES_SECRET_ACCESS_KEY: z.string().optional(),
   SPACES_CDN_URL: z.url().optional(),
+  /**
+   * When true, photo/avatar URLs use SPACES_CDN_URL directly.
+   * Requires anonymous GetObject on the Space (bucket policy). Default false —
+   * API proxies reads so ACL-disabled Spaces still work.
+   */
+  SPACES_CDN_PUBLIC: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
   /** `auto` uses local disk in development and Spaces in production when configured. */
   UPLOAD_STORAGE: z.enum(["local", "spaces", "auto"]).default("auto"),
-  /** Public API base URL for locally stored uploads (defaults to http://127.0.0.1:PORT). */
+  /** Public API base URL for upload links (defaults to http://127.0.0.1:PORT). */
   API_PUBLIC_URL: z.url().optional(),
   /**
    * Comma-separated CORS origins, or `*` (default) for any origin.
@@ -76,9 +85,15 @@ export function uploadUsesSpaces() {
 }
 
 export function spacesPublicUrl(key: string): string | null {
-  if (uploadUsesSpaces() && env.SPACES_CDN_URL) {
-    return `${env.SPACES_CDN_URL.replace(/\/$/, "")}/${key}`;
+  const encodedKey = key
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  if (uploadUsesSpaces() && env.SPACES_CDN_URL && env.SPACES_CDN_PUBLIC) {
+    return `${env.SPACES_CDN_URL.replace(/\/$/, "")}/${encodedKey}`;
   }
+
   const base = env.API_PUBLIC_URL ?? `http://127.0.0.1:${env.PORT}`;
-  return `${base.replace(/\/$/, "")}/uploads/${key}`;
+  return `${base.replace(/\/$/, "")}/uploads/${encodedKey}`;
 }

@@ -3,6 +3,12 @@ import SwiftUI
 import UIKit
 
 struct NewRequestView: View {
+    private static let maxPhotos = 9
+    private static let photoColumns = Array(
+        repeating: GridItem(.flexible(), spacing: 8),
+        count: 3
+    )
+
     @Environment(AuthSession.self) private var auth
     @Environment(\.dismiss) private var dismiss
 
@@ -17,9 +23,12 @@ struct NewRequestView: View {
     @State private var budgetEuros = ""
     @State private var pricingMode: RequestPricingMode = .providerOffers
     @State private var selectedPhotos: [PhotosPickerItem] = []
-    @State private var photoData: [Data] = []
+    @State private var draftPhotos: [DraftPhoto] = []
     @State private var isLoadingCategories = true
+    @State private var isLoadingPhotos = false
     @State private var isSubmitting = false
+    @State private var submitPhase: SubmitPhase = .idle
+    @State private var uploadProgress: Double = 0
     @State private var errorMessage: String?
     @State private var nearby = NearbyLocation()
 
@@ -44,7 +53,7 @@ struct NewRequestView: View {
     }
 
     private var canSubmit: Bool {
-        guard !isSubmitting, categoryId != nil else { return false }
+        guard !isSubmitting, !isLoadingPhotos, categoryId != nil else { return false }
         guard trimmedTitle.count >= 3, trimmedDescription.count >= 10 else { return false }
         guard !trimmedLocation.isEmpty else { return false }
         if pricingMode == .ownerFixedPrice {
@@ -83,53 +92,57 @@ struct NewRequestView: View {
             }
 
             Section {
-                PhotosPicker(
-                    selection: $selectedPhotos,
-                    maxSelectionCount: 6,
-                    matching: .images,
-                    photoLibrary: .shared()
-                ) {
-                    Label(
-                        photoData.isEmpty ? "Add photos" : "\(photoData.count) photo\(photoData.count == 1 ? "" : "s") selected",
-                        systemImage: "photo.on.rectangle.angled"
-                    )
+                LazyVGrid(columns: Self.photoColumns, spacing: 8) {
+                    ForEach(draftPhotos) { photo in
+                        photoCell(photo)
+                    }
+
+                    if draftPhotos.count < Self.maxPhotos {
+                        PhotosPicker(
+                            selection: $selectedPhotos,
+                            maxSelectionCount: Self.maxPhotos - draftPhotos.count,
+                            matching: .images,
+                            photoLibrary: .shared()
+                        ) {
+                            addPhotoCell
+                        }
+                        .disabled(isSubmitting || isLoadingPhotos)
+                        .onChange(of: selectedPhotos) {
+                            Task { await appendSelectedPhotos() }
+                        }
+                    }
                 }
-                .onChange(of: selectedPhotos) {
-                    Task { await loadSelectedPhotos() }
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+
+                if isLoadingPhotos {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Loading photos…")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
-                if !photoData.isEmpty {
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 8) {
-                            ForEach(Array(photoData.enumerated()), id: \.offset) { index, data in
-                                if let image = UIImage(data: data) {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 72, height: 72)
-                                        .clipShape(.rect(cornerRadius: 10))
-                                        .overlay(alignment: .topTrailing) {
-                                            Button {
-                                                photoData.remove(at: index)
-                                                if selectedPhotos.indices.contains(index) {
-                                                    selectedPhotos.remove(at: index)
-                                                }
-                                            } label: {
-                                                Image(systemName: "xmark.circle.fill")
-                                                    .symbolRenderingMode(.palette)
-                                                    .foregroundStyle(.white, .black.opacity(0.55))
-                                            }
-                                            .offset(x: 4, y: -4)
-                                        }
-                                }
-                            }
+                if isSubmitting {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(submitPhase.label)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        if submitPhase == .uploadingPhotos {
+                            ProgressView(value: uploadProgress)
+                                .tint(.accentColor)
+                            Text("\(Int((uploadProgress * 100).rounded()))%")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            ProgressView()
                         }
                     }
                 }
             } header: {
                 Text("Photos")
             } footer: {
-                Text("Optional. Up to 6 JPEG/PNG/WebP images.")
+                Text("Optional. Up to \(Self.maxPhotos) JPEG/PNG/WebP images in a 3×3 grid.")
             }
 
             Section("Where") {
@@ -201,16 +214,78 @@ struct NewRequestView: View {
         }
     }
 
-    private func loadSelectedPhotos() async {
-        var loaded: [Data] = []
-        for item in selectedPhotos {
+    private var addPhotoCell: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(.secondarySystemFill))
+            VStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                Text(draftPhotos.isEmpty ? "Add" : "\(draftPhotos.count)/\(Self.maxPhotos)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.secondary)
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+
+    private func photoCell(_ photo: DraftPhoto) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Group {
+                if let image = UIImage(data: photo.data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Color(.tertiarySystemFill)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+            .clipShape(.rect(cornerRadius: 10))
+
+            if isSubmitting, submitPhase == .uploadingPhotos {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(.black.opacity(0.35))
+                ProgressView()
+                    .tint(.white)
+            }
+
+            Button {
+                draftPhotos.removeAll { $0.id == photo.id }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .black.opacity(0.55))
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
+            .offset(x: 4, y: -4)
+            .disabled(isSubmitting)
+            .opacity(isSubmitting ? 0 : 1)
+        }
+    }
+
+    private func appendSelectedPhotos() async {
+        let items = selectedPhotos
+        guard !items.isEmpty else { return }
+        isLoadingPhotos = true
+        defer {
+            isLoadingPhotos = false
+            selectedPhotos = []
+        }
+
+        var loaded: [DraftPhoto] = []
+        for item in items {
+            guard draftPhotos.count + loaded.count < Self.maxPhotos else { break }
             if let data = try? await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data),
                let jpeg = image.jpegData(compressionQuality: 0.82) {
-                loaded.append(jpeg)
+                loaded.append(DraftPhoto(data: jpeg))
             }
         }
-        photoData = loaded
+        draftPhotos.append(contentsOf: loaded)
     }
 
     private func loadCategories() async {
@@ -234,25 +309,34 @@ struct NewRequestView: View {
     private func submit() async {
         guard canSubmit, let categoryId else { return }
         isSubmitting = true
+        submitPhase = draftPhotos.isEmpty ? .creatingRequest : .uploadingPhotos
+        uploadProgress = 0
         errorMessage = nil
 
         do {
             var photoKeys: [String]?
-            if !photoData.isEmpty {
-                let parts = photoData.enumerated().map { index, data in
+            if !draftPhotos.isEmpty {
+                let parts = draftPhotos.enumerated().map { index, photo in
                     MultipartFilePart(
                         fieldName: "photos",
                         filename: "photo-\(index + 1).jpg",
                         mimeType: "image/jpeg",
-                        data: data
+                        data: photo.data
                     )
                 }
                 let upload: APIEnvelope<UploadKeysResponse> = try await auth.api.uploadMultipart(
                     path: "uploads/request-photos",
                     parts: parts
-                )
+                ) { progress in
+                    Task { @MainActor in
+                        uploadProgress = progress
+                    }
+                }
                 photoKeys = upload.data.keys
+                uploadProgress = 1
             }
+
+            submitPhase = .creatingRequest
 
             let center = city.center
             let coordinate: (latitude: Double, longitude: Double) = {
@@ -288,6 +372,27 @@ struct NewRequestView: View {
             errorMessage = error.localizedDescription
         }
         isSubmitting = false
+        submitPhase = .idle
+        uploadProgress = 0
+    }
+}
+
+private struct DraftPhoto: Identifiable {
+    let id = UUID()
+    let data: Data
+}
+
+private enum SubmitPhase: Equatable {
+    case idle
+    case uploadingPhotos
+    case creatingRequest
+
+    var label: String {
+        switch self {
+        case .idle: ""
+        case .uploadingPhotos: "Uploading photos…"
+        case .creatingRequest: "Publishing request…"
+        }
     }
 }
 

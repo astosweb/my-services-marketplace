@@ -53,7 +53,7 @@ const createRequestSchema = z.object({
   scheduledAt: z.iso.datetime().optional(),
   pricingMode: z.enum(RequestPricingMode).optional(),
   isPremium: z.boolean().optional(),
-  photoKeys: z.array(z.string().min(1)).max(6).optional(),
+  photoKeys: z.array(z.string().min(1)).max(9).optional(),
 });
 
 const createOfferSchema = z.object({

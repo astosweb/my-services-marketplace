@@ -4,7 +4,6 @@ import path from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { badRequest, serviceUnavailable } from "./errors.js";
 import { env, uploadUsesSpaces } from "./env.js";
-import { isPrivateUploadKey } from "./upload-access.js";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MESSAGE_FILE_TYPES = new Set([
@@ -19,7 +18,7 @@ const MESSAGE_ATTACHMENT_TYPES = new Set([...IMAGE_TYPES, ...MESSAGE_FILE_TYPES]
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const MAX_MESSAGE_ATTACHMENT_BYTES = 15 * 1024 * 1024;
-const MAX_FILES = 6;
+const MAX_FILES = 9;
 
 const localUploadRoot = path.resolve(process.cwd(), ".data/uploads");
 
@@ -90,17 +89,16 @@ function rethrowStorageError(err: unknown): never {
 
 async function storeBuffer(key: string, buffer: Buffer, contentType: string) {
   const client = getS3();
-  const isPublic = !isPrivateUploadKey(key);
   if (client && env.SPACES_BUCKET) {
     try {
+      // No object ACL — Spaces with ACLs disabled reject it. Public CDN access for
+      // requests/avatars is via Space/bucket policy; messages/ stay private + signed URLs.
       await client.send(
         new PutObjectCommand({
           Bucket: env.SPACES_BUCKET,
           Key: key,
           Body: buffer,
           ContentType: contentType,
-          // Message attachments stay private; marketplace photos/avatars may be public-read.
-          ...(isPublic ? { ACL: "public-read" as const } : {}),
         }),
       );
     } catch (err) {

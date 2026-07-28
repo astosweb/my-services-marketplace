@@ -39,7 +39,7 @@ export function serializeUser(user: User) {
     id: user.id,
     displayName: user.displayName,
     bio: user.bio,
-    avatarUrl: user.avatarKey ? spacesPublicUrl(user.avatarKey) : null,
+    avatarUrl: user.avatarKey ? mediaUrlForKey(user.avatarKey) : null,
     rating: user.rating,
     reviewCount: user.reviewCount,
     memberSince: user.createdAt.toISOString(),
@@ -123,7 +123,7 @@ export function serializeRequest(request: RequestWithRelations, viewerUserId?: s
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((p) => ({
         id: p.id,
-        url: spacesPublicUrl(p.spacesKey),
+        url: mediaUrlForKey(p.spacesKey),
         sortOrder: p.sortOrder,
       })),
     requester: serializeUser(request.owner),

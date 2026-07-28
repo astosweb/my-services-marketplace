@@ -1,6 +1,6 @@
 # Hero API
 
-Hono + Prisma backend for the Hero marketplace app. Data lives in PostgreSQL; file keys point at DigitalOcean Spaces (URLs built when `SPACES_CDN_URL` is set).
+Hono + Prisma backend for the Hero marketplace app. Data lives in PostgreSQL; file keys point at DigitalOcean Spaces (served via API `/uploads/…`, or CDN when `SPACES_CDN_PUBLIC=true`).
 
 ## Setup
 
@@ -100,7 +100,7 @@ CI runs on pull requests and pushes that touch `api/` (see `.github/workflows/ap
 | GET | `/notifications` | Bearer | List notifications (`?limit=`); `meta.unreadCount` |
 | PATCH | `/notifications/:id` | Bearer | Mark one notification read |
 | POST | `/notifications/read-all` | Bearer | Mark all read |
-| POST | `/uploads/request-photos` | Bearer | Multipart job photos (max 6) |
+| POST | `/uploads/request-photos` | Bearer | Multipart job photos (max 9) |
 | POST | `/uploads/message-attachments` | Bearer | Multipart message file |
 | POST | `/uploads/avatars` | Bearer | Multipart avatar |
 | GET | `/uploads/*` | signed/Bearer for `messages/` | Serve local/Spaces object; public for `requests/`/`avatars/` |
@@ -130,7 +130,7 @@ All error responses may include `error.requestId` matching response header `x-re
 
 ## Env
 
-See `.env.example`. Minimum required: `DATABASE_URL`, `JWT_SECRET` (32+ characters). `PASSWORD_RESET_URL` is the frontend reset page; development and test forgot-password responses include the raw token and this link, while production responses never expose them. Reset tokens expire after one hour, are stored as SHA-256 hashes, are single-use, and revoke all refresh tokens when consumed. For DigitalOcean Managed Postgres, set `DATABASE_SSL_REJECT_UNAUTHORIZED=false` if you hit SSL cert errors. Set `SPACES_CDN_URL` so API responses include public photo/avatar URLs. Set `CORS_ORIGIN` to a comma-separated allowlist in production (defaults to `*` for local/dev). **Production boot fails if `CORS_ORIGIN=*`.**
+See `.env.example`. Minimum required: `DATABASE_URL`, `JWT_SECRET` (32+ characters). `PASSWORD_RESET_URL` is the frontend reset page; development and test forgot-password responses include the raw token and this link, while production responses never expose them. Reset tokens expire after one hour, are stored as SHA-256 hashes, are single-use, and revoke all refresh tokens when consumed. For DigitalOcean Managed Postgres, set `DATABASE_SSL_REJECT_UNAUTHORIZED=false` if you hit SSL cert errors. Photo/avatar URLs default to `API_PUBLIC_URL/uploads/…` (API proxies Spaces). Set `SPACES_CDN_PUBLIC=true` plus `SPACES_CDN_URL` only after anonymous GetObject works on the Space. Set `CORS_ORIGIN` to a comma-separated allowlist in production (defaults to `*` for local/dev). **Production boot fails if `CORS_ORIGIN=*`.**
 
 Uses **Prisma ORM 7** with `prisma.config.ts`, generated client at `src/generated/prisma`, and `@prisma/adapter-pg`.
 
@@ -143,8 +143,8 @@ Counters use **Redis** when `REDIS_URL` is set (recommended for production / mul
 ### Messaging & private files
 
 - **Who can chat:** Request owner ↔ accepted provider, or any user with a **pending or accepted** offer on that request. Unrelated authenticated users receive `403`.
-- **Message attachments** (`messages/…` keys) are stored **private** (no Spaces `public-read`). API responses expose short-lived signed `/uploads/…?token=&exp=` URLs (15 minutes). Anonymous `GET` without a valid token is rejected; Bearer auth is accepted as a fallback when the caller owns the key or is a conversation participant.
-- Request photos and avatars may remain publicly readable for marketplace browse.
+- **Message attachments** (`messages/…` keys) are stored private (no object ACL; omit them from any public bucket policy). API responses expose short-lived signed `/uploads/…?token=&exp=` URLs (15 minutes). Anonymous `GET` without a valid token is rejected; Bearer auth is accepted as a fallback when the caller owns the key or is a conversation participant.
+- Uploads never set `ACL` on PutObject (Spaces with ACLs disabled reject it). Request photos/avatars are served through authenticated Spaces reads on `GET /uploads/…` unless `SPACES_CDN_PUBLIC=true`.
 
 ### Account deletion
 

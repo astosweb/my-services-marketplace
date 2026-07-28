@@ -37,7 +37,7 @@ app.use("*", secureHeaders());
 app.use(
   "*",
   bodyLimit({
-    maxSize: 20 * 1024 * 1024,
+    maxSize: 80 * 1024 * 1024,
     onError: (c) =>
       c.json({ error: { message: "Request body too large", code: "PAYLOAD_TOO_LARGE" } }, 413),
   }),

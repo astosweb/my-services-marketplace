@@ -27,7 +27,8 @@ function singleFile(value: unknown): File | undefined {
 }
 
 uploadRoutes.post("/request-photos", requireAuth, async (c) => {
-  const body = await c.req.parseBody();
+  // `all: true` keeps every file when multiple parts share the "photos" field.
+  const body = await c.req.parseBody({ all: true });
   const files = collectPhotoFiles(body.photos);
   if (files.length === 0) throw badRequest('Include at least one image in the "photos" field');
 
@@ -36,7 +37,7 @@ uploadRoutes.post("/request-photos", requireAuth, async (c) => {
 });
 
 uploadRoutes.post("/message-attachments", requireAuth, async (c) => {
-  const body = await c.req.parseBody();
+  const body = await c.req.parseBody({ all: true });
   const file = singleFile(body.file);
   if (!file) throw badRequest('Include a file in the "file" field');
 
@@ -45,7 +46,7 @@ uploadRoutes.post("/message-attachments", requireAuth, async (c) => {
 });
 
 uploadRoutes.post("/avatars", requireAuth, async (c) => {
-  const body = await c.req.parseBody();
+  const body = await c.req.parseBody({ all: true });
   const file = singleFile(body.file) ?? singleFile(body.avatar);
   if (!file) throw badRequest('Include an image in the "file" field');
 

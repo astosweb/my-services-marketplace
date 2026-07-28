@@ -82,6 +82,7 @@ struct KeychainTokenStore: Sendable {
 @MainActor
 final class APIClient {
     private let session: URLSession
+    private let uploadSession: URLSession
     private let tokenStore: KeychainTokenStore
     private var accessToken: String?
     private var refreshToken: String?
@@ -93,12 +94,19 @@ final class APIClient {
     init(session: URLSession? = nil, tokenStore: KeychainTokenStore = KeychainTokenStore()) {
         if let session {
             self.session = session
+            self.uploadSession = session
         } else {
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = 15
             configuration.timeoutIntervalForResource = 20
             configuration.waitsForConnectivity = false
             self.session = URLSession(configuration: configuration)
+
+            let uploadConfiguration = URLSessionConfiguration.ephemeral
+            uploadConfiguration.timeoutIntervalForRequest = 120
+            uploadConfiguration.timeoutIntervalForResource = 300
+            uploadConfiguration.waitsForConnectivity = true
+            self.uploadSession = URLSession(configuration: uploadConfiguration)
         }
         self.tokenStore = tokenStore
     }
@@ -180,7 +188,8 @@ final class APIClient {
         filename: String,
         mimeType: String,
         fileData: Data,
-        authenticated: Bool = true
+        authenticated: Bool = true,
+        onProgress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> Response {
         try await uploadMultipart(
             path: path,
@@ -192,14 +201,16 @@ final class APIClient {
                     data: fileData
                 )
             ],
-            authenticated: authenticated
+            authenticated: authenticated,
+            onProgress: onProgress
         )
     }
 
     func uploadMultipart<Response: Decodable>(
         path: String,
         parts: [MultipartFilePart],
-        authenticated: Bool = true
+        authenticated: Bool = true,
+        onProgress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> Response {
         let request = try makeMultipartRequest(
             path: path,
@@ -207,11 +218,11 @@ final class APIClient {
             token: authenticated ? accessToken : nil
         )
         do {
-            return try await perform(request)
+            return try await performUpload(request, onProgress: onProgress)
         } catch APIError.server(let status, _, _) where status == 401 && authenticated {
             let payload = try await synchronizedRefresh()
             let retry = try makeMultipartRequest(path: path, parts: parts, token: payload.accessToken)
-            return try await perform(retry)
+            return try await performUpload(retry, onProgress: onProgress)
         }
     }
 
@@ -299,14 +310,14 @@ final class APIClient {
         path: String,
         parts: [MultipartFilePart],
         token: String?
-    ) throws -> URLRequest {
+    ) throws -> (request: URLRequest, body: Data) {
         guard !parts.isEmpty else {
             throw APIError.transport("No files to upload.")
         }
         let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: APIConfiguration.baseURL.appending(path: path))
         request.httpMethod = "POST"
-        request.timeoutInterval = 60
+        request.timeoutInterval = 120
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if let token {
@@ -325,8 +336,54 @@ final class APIClient {
             body.append("\r\n".data(using: .utf8)!)
         }
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
-        request.httpBody = body
-        return request
+        return (request, body)
+    }
+
+    private func performUpload<Response: Decodable>(
+        _ prepared: (request: URLRequest, body: Data),
+        onProgress: (@Sendable (Double) -> Void)?
+    ) async throws -> Response {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await upload(prepared.request, from: prepared.body, onProgress: onProgress)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.transport(error.localizedDescription)
+        }
+        return try decodeSuccess(data: data, response: response)
+    }
+
+    private func upload(
+        _ request: URLRequest,
+        from body: Data,
+        onProgress: (@Sendable (Double) -> Void)?
+    ) async throws -> (Data, URLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            let box = UploadProgressObservation()
+
+            let task = uploadSession.uploadTask(with: request, from: body) { data, response, error in
+                box.observation?.invalidate()
+                box.observation = nil
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let data, let response else {
+                    continuation.resume(throwing: APIError.invalidResponse)
+                    return
+                }
+                continuation.resume(returning: (data, response))
+            }
+
+            if let onProgress {
+                box.observation = task.progress.observe(\.fractionCompleted, options: [.initial, .new]) { progress, _ in
+                    onProgress(progress.fractionCompleted)
+                }
+            }
+            task.resume()
+        }
     }
 
     private func perform<Response: Decodable>(_ request: URLRequest) async throws -> Response {
@@ -337,6 +394,10 @@ final class APIClient {
         } catch {
             throw APIError.transport(error.localizedDescription)
         }
+        return try decodeSuccess(data: data, response: response)
+    }
+
+    private func decodeSuccess<Response: Decodable>(data: Data, response: URLResponse) throws -> Response {
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard 200..<300 ~= http.statusCode else {
             let body = try? Self.decoder.decode(APIErrorEnvelope.self, from: data)
@@ -396,6 +457,10 @@ final class APIClient {
 }
 
 private struct EmptyBody: Encodable {}
+
+private final class UploadProgressObservation: @unchecked Sendable {
+    var observation: NSKeyValueObservation?
+}
 
 struct MultipartFilePart: Sendable {
     let fieldName: String
