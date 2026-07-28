@@ -44,15 +44,20 @@ vi.mock("../lib/prisma.js", () => ({
 
 import { env } from "../lib/env.js";
 import { hashPassword, verifyPassword } from "../lib/auth.js";
+import { MemoryRateLimitStore, setRateLimitStoreForTests } from "../middleware/rate-limit.js";
 import { authRoutes } from "./auth.js";
 
 const app = new Hono();
 app.onError(onError);
 app.route("/auth", authRoutes);
 
+const rateLimitStore = new MemoryRateLimitStore();
+
 describe.sequential("password reset routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    rateLimitStore.clear();
+    setRateLimitStoreForTests(rateLimitStore);
     env.NODE_ENV = "development";
     mocks.passwordResetDeleteMany.mockResolvedValue({ count: 0 });
     mocks.passwordResetCreate.mockResolvedValue({});
@@ -233,6 +238,8 @@ describe.sequential("core auth routes", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    rateLimitStore.clear();
+    setRateLimitStoreForTests(rateLimitStore);
     env.NODE_ENV = "development";
     sampleUser.passwordHash = await hashPassword("password123");
     mocks.refreshTokenCreate.mockResolvedValue({});

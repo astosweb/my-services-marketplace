@@ -82,4 +82,10 @@ See `.env.example`. Minimum required: `DATABASE_URL`, `JWT_SECRET` (32+ characte
 
 Uses **Prisma ORM 7** with `prisma.config.ts`, generated client at `src/generated/prisma`, and `@prisma/adapter-pg`.
 
+### Rate limiting
+
+Auth credential endpoints (`/auth/login`, `/auth/register`, `/auth/forgot-password`) are limited to **5 requests/minute** per client IP + email. Refresh is **30/minute** per IP. Request view increments are **10/minute** per IP + request id. Exceeding a limit returns `429` with `{ error: { code: "RATE_LIMITED" } }` and a `Retry-After` header.
+
+Counters use **Redis** when `REDIS_URL` is set (recommended for production / multi-instance). Without Redis, an **in-memory** store is used (fine for local/dev). Production refuses to boot without `REDIS_URL` unless `RATE_LIMIT_ALLOW_MEMORY=true` (single-node only).
+
 See [MIGRATION.md](./MIGRATION.md) for the latest dependency and tooling upgrade notes.

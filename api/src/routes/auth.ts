@@ -20,6 +20,10 @@ import { serializeMe } from "../lib/serializers.js";
 import { parseOrThrow } from "../lib/validate.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  authCredentialRateLimit,
+  refreshRateLimit,
+} from "../middleware/rate-limit.js";
 
 const registerSchema = z.object({
   email: z.email(),
@@ -82,7 +86,7 @@ function authPayload(
 
 export const authRoutes = new Hono<{ Variables: AuthVariables }>();
 
-authRoutes.post("/register", async (c) => {
+authRoutes.post("/register", authCredentialRateLimit, async (c) => {
   const parsed = parseOrThrow(registerSchema, await c.req.json());
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
@@ -101,7 +105,7 @@ authRoutes.post("/register", async (c) => {
   return c.json({ data: authPayload(user, tokens) }, 201);
 });
 
-authRoutes.post("/login", async (c) => {
+authRoutes.post("/login", authCredentialRateLimit, async (c) => {
   const parsed = parseOrThrow(loginSchema, await c.req.json());
 
   const user = await prisma.user.findUnique({ where: { email: parsed.email } });
@@ -114,7 +118,7 @@ authRoutes.post("/login", async (c) => {
   return c.json({ data: authPayload(user, tokens) });
 });
 
-authRoutes.post("/refresh", async (c) => {
+authRoutes.post("/refresh", refreshRateLimit, async (c) => {
   const parsed = parseOrThrow(refreshSchema, await c.req.json());
 
   const tokenHash = hashRefreshToken(parsed.refreshToken);
@@ -143,7 +147,7 @@ authRoutes.post("/logout", async (c) => {
   return c.json({ data: { ok: true } });
 });
 
-authRoutes.post("/forgot-password", async (c) => {
+authRoutes.post("/forgot-password", authCredentialRateLimit, async (c) => {
   const parsed = parseOrThrow(forgotPasswordSchema, await c.req.json());
   const user = await prisma.user.findUnique({ where: { email: parsed.email } });
   const response: {

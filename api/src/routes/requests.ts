@@ -22,6 +22,7 @@ import {
 import { parseOrThrow } from "../lib/validate.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
+import { viewRateLimit } from "../middleware/rate-limit.js";
 
 const citySchema = z.enum(EstonianCity);
 
@@ -244,7 +245,7 @@ requestRoutes.get("/:id", async (c) => {
   return c.json({ data: serializeRequest(request, viewerUserId) });
 });
 
-requestRoutes.post("/:id/views", async (c) => {
+requestRoutes.post("/:id/views", viewRateLimit, async (c) => {
   const requestId = c.req.param("id");
   const viewerUserId = await optionalUserId(c.req.header("Authorization"));
   const existingRequest = await prisma.serviceRequest.findUnique({
