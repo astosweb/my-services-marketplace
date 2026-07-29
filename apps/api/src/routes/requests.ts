@@ -1004,7 +1004,7 @@ requestRoutes.post("/:id/offers", requireAuth, async (c) => {
     action: "offer.created",
     entityType: "Offer",
     entityId: offer.id,
-    metadata: { requestId: request.id, priceCents: offer.priceCents },
+    metadata: { requestId: request.id, priceCents: offer.priceCents ?? undefined },
     ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
     userAgent: c.req.header("user-agent"),
   });

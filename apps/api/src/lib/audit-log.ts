@@ -1,3 +1,4 @@
+import type { InputJsonValue } from "../generated/prisma/internal/prismaNamespace.js";
 import { prisma } from "./prisma.js";
 
 export type AuditAction =
@@ -29,7 +30,7 @@ interface AuditLogEntry {
   action: AuditAction;
   entityType?: string;
   entityId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, InputJsonValue | undefined>;
   ipAddress?: string;
   userAgent?: string;
 }
@@ -42,7 +43,7 @@ export function logAudit(entry: AuditLogEntry): void {
         action: entry.action,
         entityType: entry.entityType ?? null,
         entityId: entry.entityId ?? null,
-        metadata: (entry.metadata as any) ?? undefined,
+        metadata: entry.metadata ?? undefined,
         ipAddress: entry.ipAddress ?? null,
         userAgent: entry.userAgent ?? null,
       },
