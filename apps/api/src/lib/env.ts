@@ -4,6 +4,7 @@ import { z } from "zod";
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   DATABASE_URL: z.string().min(1),
   /** Set to "false" for managed Postgres (e.g. DigitalOcean) if SSL cert validation fails. */
   DATABASE_SSL_REJECT_UNAUTHORIZED: z.enum(["true", "false"]).optional(),
@@ -47,7 +48,13 @@ const envSchema = z.object({
     .transform((v) => v === "true"),
 });
 
-export const env = envSchema.parse(process.env);
+export type Environment = z.infer<typeof envSchema>;
+
+export function validateEnvironment(config: Record<string, unknown>): Environment {
+  return envSchema.parse(config);
+}
+
+export const env = validateEnvironment(process.env);
 
 export function corsOrigins(): string | string[] {
   if (env.CORS_ORIGIN.trim() === "*") return "*";

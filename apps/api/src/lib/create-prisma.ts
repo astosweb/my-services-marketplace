@@ -1,17 +1,18 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
-import { env } from "./env.js";
 
 export function createPrismaClient() {
-  const adapter = new PrismaPg({
-    connectionString: env.DATABASE_URL,
-    ...(env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
-      ? { ssl: { rejectUnauthorized: false } }
-      : {}),
-  });
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required");
+  }
 
   return new PrismaClient({
-    adapter,
-    log: env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    adapter: new PrismaPg({
+      connectionString,
+      ...(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+        ? { ssl: { rejectUnauthorized: false } }
+        : {}),
+    }),
   });
 }
