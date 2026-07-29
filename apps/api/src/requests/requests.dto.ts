@@ -168,13 +168,13 @@ export class CreateOfferDto {
 export class UpdateOfferStatusDto {
   @ApiProperty({ enum: [OfferStatus.ACCEPTED, OfferStatus.DECLINED, OfferStatus.WITHDRAWN] })
   @IsIn([OfferStatus.ACCEPTED, OfferStatus.DECLINED, OfferStatus.WITHDRAWN])
-  status!: OfferStatus.ACCEPTED | OfferStatus.DECLINED | OfferStatus.WITHDRAWN;
+  status!: Extract<OfferStatus, "ACCEPTED" | "DECLINED" | "WITHDRAWN">;
 }
 
 export class UpdateRequestStatusDto {
   @ApiProperty({ enum: [ServiceRequestStatus.COMPLETED, ServiceRequestStatus.CANCELLED] })
   @IsIn([ServiceRequestStatus.COMPLETED, ServiceRequestStatus.CANCELLED])
-  status!: ServiceRequestStatus.COMPLETED | ServiceRequestStatus.CANCELLED;
+  status!: Extract<ServiceRequestStatus, "COMPLETED" | "CANCELLED">;
 }
 
 export class UpdateProgressDto {
@@ -186,8 +186,7 @@ export class UpdateProgressDto {
     ],
   })
   @IsIn([JobProgressStatus.ON_THE_WAY, JobProgressStatus.STARTED, JobProgressStatus.PROVIDER_DONE])
-  status!:
-    JobProgressStatus.ON_THE_WAY | JobProgressStatus.STARTED | JobProgressStatus.PROVIDER_DONE;
+  status!: Extract<JobProgressStatus, "ON_THE_WAY" | "STARTED" | "PROVIDER_DONE">;
 }
 
 export class CreateReviewDto {

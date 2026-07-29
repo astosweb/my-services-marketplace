@@ -2,12 +2,14 @@
 
 FROM node:24-bookworm-slim AS deps
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -17,6 +19,7 @@ RUN pnpm build && pnpm prune --prod
 FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 1001 --create-home hero
 COPY --from=build --chown=hero:hero /app/package.json ./
 COPY --from=build --chown=hero:hero /app/node_modules ./node_modules

@@ -47,12 +47,12 @@ export class UploadsController {
   @ApiOperation({ summary: "Upload up to nine request photos" })
   async requestPhotos(
     @CurrentUserId() userId: string,
-    @UploadedFiles() files: Express.Multer.File[] | undefined,
+    @UploadedFiles() files: UploadFile[] | undefined,
   ) {
     if (!files?.length) throw badRequest('Include at least one image in the "photos" field');
     return {
       data: {
-        keys: await this.uploadsService.requestPhotos(userId, files as UploadFile[]),
+        keys: await this.uploadsService.requestPhotos(userId, files),
       },
     };
   }
@@ -73,11 +73,11 @@ export class UploadsController {
   @ApiOperation({ summary: "Upload a private message attachment" })
   async messageAttachment(
     @CurrentUserId() userId: string,
-    @UploadedFile() file: Express.Multer.File | undefined,
+    @UploadedFile() file: UploadFile | undefined,
   ) {
     if (!file) throw badRequest('Include a file in the "file" field');
     return {
-      data: await this.uploadsService.messageAttachment(userId, file as UploadFile),
+      data: await this.uploadsService.messageAttachment(userId, file),
     };
   }
 
@@ -99,11 +99,11 @@ export class UploadsController {
   async avatar(
     @CurrentUserId() userId: string,
     @UploadedFiles()
-    files: { file?: Express.Multer.File[]; avatar?: Express.Multer.File[] } | undefined,
+    files: { file?: UploadFile[]; avatar?: UploadFile[] } | undefined,
   ) {
     const file = files?.file?.[0] ?? files?.avatar?.[0];
     if (!file) throw badRequest('Include an image in the "file" field');
-    return { data: await this.uploadsService.avatar(userId, file as UploadFile) };
+    return { data: await this.uploadsService.avatar(userId, file) };
   }
 
   @Get("*key")
