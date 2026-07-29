@@ -30,7 +30,7 @@
     "docker:logs": "docker compose logs -f",
     "update": "pnpm up --latest",
     "killport": "kill -9 $(lsof -ti:3000,3001,3002,6380)",
-    "setup:first": "pnpm db:generate && pnpm db:push && pnpm db:migrate && pnpm db:seed && pnpm docker:up && pnpm dev"
+    "restart:all": "pnpm docker:down && pnpm db:generate && pnpm db:push && pnpm db:migrate && pnpm db:seed && pnpm docker:up && pnpm dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1097.0",
