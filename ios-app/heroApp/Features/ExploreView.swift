@@ -129,13 +129,13 @@ struct ExploreView: View {
         }
         .sheet(isPresented: $isNewRequestPresented) {
             NavigationStack {
-                NewRequestView { created in
+                NewRequestView(onCreated: { created in
                     if created.city == selectedCity.displayName {
                         withAnimation {
                             requests.insert(created, at: 0)
                         }
                     }
-                }
+                })
             }
         }
         .task(id: selectedCity) { await load() }

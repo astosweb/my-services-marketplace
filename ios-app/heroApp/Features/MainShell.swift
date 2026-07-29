@@ -201,10 +201,10 @@ private struct MyRequestsView: View {
         }
         .sheet(isPresented: $isNewRequestPresented) {
             NavigationStack {
-                NewRequestView { created in
+                NewRequestView(onCreated: { created in
                     role = .owner
                     requests.insert(created, at: 0)
-                }
+                })
             }
         }
         .onChange(of: role) {

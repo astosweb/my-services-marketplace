@@ -4,8 +4,9 @@ import UIKit
 
 struct NewRequestView: View {
     private static let maxPhotos = 6
+    private static let photoSpacing: CGFloat = 8
     private static let photoColumns = Array(
-        repeating: GridItem(.flexible(), spacing: 8),
+        repeating: GridItem(.flexible(), spacing: photoSpacing),
         count: 3
     )
 
@@ -207,31 +208,40 @@ struct NewRequestView: View {
     }
 
     private var photoGrid: some View {
-        LazyVGrid(columns: Self.photoColumns, spacing: 8) {
-            ForEach(0..<Self.maxPhotos, id: \.self) { index in
-                Group {
-                    if index < draftPhotos.count {
-                        photoCell(draftPhotos[index])
-                    } else if index == draftPhotos.count {
-                        PhotosPicker(
-                            selection: $selectedPhotos,
-                            maxSelectionCount: Self.maxPhotos - draftPhotos.count,
-                            matching: .images,
-                            photoLibrary: .shared()
-                        ) {
-                            emptyPhotoCell
+        Color.clear
+            .aspectRatio(3 / 2, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                GeometryReader { geo in
+                    let side = (geo.size.width - Self.photoSpacing * 2) / 3
+                    LazyVGrid(columns: Self.photoColumns, spacing: Self.photoSpacing) {
+                        ForEach(0..<Self.maxPhotos, id: \.self) { index in
+                            Group {
+                                if index < draftPhotos.count {
+                                    photoCell(draftPhotos[index])
+                                } else if index == draftPhotos.count {
+                                    PhotosPicker(
+                                        selection: $selectedPhotos,
+                                        maxSelectionCount: Self.maxPhotos - draftPhotos.count,
+                                        matching: .images,
+                                        photoLibrary: .shared()
+                                    ) {
+                                        emptyPhotoCell
+                                    }
+                                    .disabled(isSubmitting || isLoadingPhotos)
+                                } else {
+                                    emptyPhotoCell
+                                }
+                            }
+                            .frame(width: side, height: side)
+                            .clipped()
                         }
-                        .disabled(isSubmitting || isLoadingPhotos)
-                    } else {
-                        emptyPhotoCell
                     }
                 }
-                .aspectRatio(1, contentMode: .fit)
             }
-        }
-        .onChange(of: selectedPhotos) {
-            Task { await appendSelectedPhotos() }
-        }
+            .onChange(of: selectedPhotos) {
+                Task { await appendSelectedPhotos() }
+            }
     }
 
     private var emptyPhotoCell: some View {
@@ -244,6 +254,7 @@ struct NewRequestView: View {
                     style: StrokeStyle(lineWidth: 1, dash: [5, 4])
                 )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func photoCell(_ photo: DraftPhoto) -> some View {
@@ -290,6 +301,7 @@ struct NewRequestView: View {
             .disabled(isSubmitting)
             .opacity(isSubmitting ? 0 : 1)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func prefillIfNeeded() {

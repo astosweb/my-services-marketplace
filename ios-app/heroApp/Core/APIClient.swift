@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-enum APIConfiguration {
+nonisolated enum APIConfiguration {
     static let baseURL: URL = {
         let configured = (Bundle.main.object(forInfoDictionaryKey: "HERO_API_BASE_URL") as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -54,7 +54,7 @@ enum APIError: LocalizedError {
     }
 }
 
-struct KeychainTokenStore: Sendable {
+nonisolated struct KeychainTokenStore: Sendable {
     private let service = Bundle.main.bundleIdentifier ?? "com.serhatsabuncu.heroApp"
     private let account = "refresh-token"
 
