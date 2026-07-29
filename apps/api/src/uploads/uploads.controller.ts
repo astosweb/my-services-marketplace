@@ -22,7 +22,6 @@ import { ApiStandardErrors } from "../common/decorators/api-standard-errors.deco
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { badRequest } from "../lib/errors.js";
-import type { UploadFile } from "../lib/storage.js";
 import { UploadsService } from "./uploads.service.js";
 
 @ApiTags("Uploads")

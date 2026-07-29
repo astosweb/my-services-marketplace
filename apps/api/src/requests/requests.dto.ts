@@ -168,13 +168,21 @@ export class CreateOfferDto {
 export class UpdateOfferStatusDto {
   @ApiProperty({ enum: [OfferStatus.ACCEPTED, OfferStatus.DECLINED, OfferStatus.WITHDRAWN] })
   @IsIn([OfferStatus.ACCEPTED, OfferStatus.DECLINED, OfferStatus.WITHDRAWN])
+<<<<<<< HEAD
   status!: Extract<OfferStatus, "ACCEPTED" | "DECLINED" | "WITHDRAWN">;
+=======
+  status!: typeof OfferStatus.ACCEPTED | typeof OfferStatus.DECLINED | typeof OfferStatus.WITHDRAWN;
+>>>>>>> 7507a61e1fc2802998485c8e128c8f7a232df8aa
 }
 
 export class UpdateRequestStatusDto {
   @ApiProperty({ enum: [ServiceRequestStatus.COMPLETED, ServiceRequestStatus.CANCELLED] })
   @IsIn([ServiceRequestStatus.COMPLETED, ServiceRequestStatus.CANCELLED])
+<<<<<<< HEAD
   status!: Extract<ServiceRequestStatus, "COMPLETED" | "CANCELLED">;
+=======
+  status!: typeof ServiceRequestStatus.COMPLETED | typeof ServiceRequestStatus.CANCELLED;
+>>>>>>> 7507a61e1fc2802998485c8e128c8f7a232df8aa
 }
 
 export class UpdateProgressDto {
@@ -186,7 +194,14 @@ export class UpdateProgressDto {
     ],
   })
   @IsIn([JobProgressStatus.ON_THE_WAY, JobProgressStatus.STARTED, JobProgressStatus.PROVIDER_DONE])
+<<<<<<< HEAD
   status!: Extract<JobProgressStatus, "ON_THE_WAY" | "STARTED" | "PROVIDER_DONE">;
+=======
+  status!:
+    | typeof JobProgressStatus.ON_THE_WAY
+    | typeof JobProgressStatus.STARTED
+    | typeof JobProgressStatus.PROVIDER_DONE;
+>>>>>>> 7507a61e1fc2802998485c8e128c8f7a232df8aa
 }
 
 export class CreateReviewDto {
