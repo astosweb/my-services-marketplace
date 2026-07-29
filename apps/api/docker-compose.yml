@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:18
     container_name: hero-postgres
     restart: unless-stopped
     ports:
@@ -18,7 +18,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7
+    image: redis:8
     container_name: hero-redis
     restart: unless-stopped
     ports:
@@ -39,7 +39,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "3000"
       DATABASE_URL: postgresql://hero:hero@postgres:5432/hero
       REDIS_URL: redis://redis:6379
