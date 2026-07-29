@@ -117,9 +117,6 @@ struct RequestDetailView: View {
                         .font(.footnote)
                         .foregroundStyle(.green)
                 }
-                if !request.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    descriptionCard
-                }
                 requesterCard
                 if canMessageOwner {
                     messageOwnerCard
@@ -329,6 +326,13 @@ struct RequestDetailView: View {
                 .font(.title3.bold())
                 .fixedSize(horizontal: false, vertical: true)
 
+            if !request.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(request.description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(request.budget ?? "Open budget")
                     .font(.headline)
@@ -370,17 +374,42 @@ struct RequestDetailView: View {
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
 
-            metaRow(
-                title: "Offers",
-                value: "\(isOwner ? ownerOffers.count : request.offerCount)",
-                symbol: "tray.and.arrow.down"
-            )
-            metaRow(
-                title: "Visitors",
-                value: "\(request.viewCount)",
-                symbol: "eye"
-            )
+            HStack(alignment: .top, spacing: 12) {
+                engagementStat(
+                    title: "Offers",
+                    value: "\(isOwner ? ownerOffers.count : request.offerCount)",
+                    symbol: "tray.and.arrow.down"
+                )
+
+                Spacer(minLength: 8)
+
+                engagementStat(
+                    title: "Visitors",
+                    value: "\(request.viewCount)",
+                    symbol: "eye"
+                )
+            }
         }
+    }
+
+    private func engagementStat(title: String, value: String, symbol: String) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 18, alignment: .center)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.subheadline.weight(.medium))
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) \(value)")
     }
 
     private var activitySection: some View {
@@ -437,20 +466,6 @@ struct RequestDetailView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(detail.map { "\(title) \(value), \($0)" } ?? "\(title) \(value)")
-    }
-
-    // MARK: - Description
-
-    private var descriptionCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Details")
-                .font(.subheadline.weight(.semibold))
-            Text(request.description)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .detailCard()
     }
 
     // MARK: - Requester

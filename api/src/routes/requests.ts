@@ -292,7 +292,7 @@ requestRoutes.post("/:id/views", viewRateLimit, async (c) => {
   const viewerUserId = await optionalUserId(c.req.header("Authorization"));
   const existingRequest = await prisma.serviceRequest.findUnique({
     where: { id: requestId },
-    select: { id: true, ownerId: true },
+    select: { id: true, ownerId: true, updatedAt: true },
   });
   if (!existingRequest) throw notFound("Request not found");
 
@@ -300,7 +300,8 @@ requestRoutes.post("/:id/views", viewRateLimit, async (c) => {
   const request = shouldIncrement
     ? await prisma.serviceRequest.update({
         where: { id: requestId },
-        data: { viewCount: { increment: 1 } },
+        // Preserve updatedAt — view increments aren't content edits.
+        data: { viewCount: { increment: 1 }, updatedAt: existingRequest.updatedAt },
         include: {
           category: true,
           owner: true,
