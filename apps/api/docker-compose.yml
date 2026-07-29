@@ -41,7 +41,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: "3000"
-      DATABASE_URL: postgresql://hero:hero@postgres:5432/hero
+      DATABASE_URL: postgresql://neondb_owner:npg_SqdKyQcD5YU0@ep-dry-frost-a2lasvip-pooler.eu-central-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-chars}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
