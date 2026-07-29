@@ -12,8 +12,7 @@ import {
   verifyPassword,
 } from "../lib/auth.js";
 import { env } from "../lib/env.js";
-import { badRequest, conflict, notFound, unauthorized } from "../lib/errors.js";
-import { assertOwnedObjectKey } from "../lib/owned-keys.js";
+import { conflict, notFound, unauthorized } from "../lib/errors.js";
 import { serializeMe } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
@@ -23,7 +22,6 @@ import type {
   RefreshTokenDto,
   RegisterDto,
   ResetPasswordDto,
-  UpdateProfileDto,
 } from "./auth.dto.js";
 
 @Injectable()
@@ -186,11 +184,7 @@ export class AuthService {
     return serializeMe(user);
   }
 
-  async updateMe(userId: string, data: UpdateProfileDto) {
-    if (Object.keys(data).length === 0) throw badRequest("No fields to update");
-    if (data.avatarKey) assertOwnedObjectKey(data.avatarKey, userId, "avatars");
-    return serializeMe(await this.prisma.user.update({ where: { id: userId }, data }));
-  }
+
 
   async deleteMe(userId: string, data: DeleteAccountDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });

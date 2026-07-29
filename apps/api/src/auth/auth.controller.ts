@@ -33,11 +33,16 @@ import {
 } from "./auth.dto.js";
 import { AuthService } from "./auth.service.js";
 
+import { UsersService } from "../users/users.service.js";
+
 @ApiTags("Authentication")
 @ApiStandardErrors()
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Post("register")
   @CredentialRateLimit()
@@ -108,7 +113,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "Update the authenticated account" })
   async updateMe(@CurrentUserId() userId: string, @Body() data: UpdateProfileDto) {
-    return { data: await this.authService.updateMe(userId, data) };
+    return { data: await this.usersService.update(userId, userId, data) };
   }
 
   @Delete("me")

@@ -3,18 +3,22 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { env } from "../lib/env.js";
 
+import pg from "pg";
+const { Pool } = pg;
+
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
+    const pool = new Pool({
+      connectionString: env.DATABASE_URL,
+      ...(env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+        ? { ssl: { rejectUnauthorized: false } }
+        : {}),
+    });
     super({
-      adapter: new PrismaPg({
-        connectionString: env.DATABASE_URL,
-        ...(env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
-          ? { ssl: { rejectUnauthorized: false } }
-          : {}),
-      }),
+      adapter: new PrismaPg(pool),
       log: env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     });
   }
