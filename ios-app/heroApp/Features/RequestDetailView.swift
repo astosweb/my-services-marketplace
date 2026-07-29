@@ -429,10 +429,13 @@ struct RequestDetailView: View {
                 }
             }
 
-            budgetBanner
-
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    factChip(
+                        request.budget ?? "Open budget",
+                        symbol: "eurosign.circle",
+                        emphasized: request.budget != nil
+                    )
                     factChip(request.location, symbol: "mappin.and.ellipse")
                     if let scheduledAt = request.scheduledAt {
                         factChip(
@@ -452,35 +455,16 @@ struct RequestDetailView: View {
         .detailCard()
     }
 
-    private var budgetBanner: some View {
-        HStack(spacing: 12) {
-            Image(systemName: request.budget == nil ? "questionmark.circle.fill" : "eurosign.circle.fill")
-                .font(.title2)
-                .foregroundStyle(request.accentTint)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(isFixedPriceInterest ? "Fixed price" : "Budget")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(request.budget ?? "Open — providers set their price")
-                    .font(.title3.bold())
-                    .foregroundStyle(request.budget == nil ? .secondary : .primary)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(12)
-        .background(request.accentTint.opacity(0.1), in: .rect(cornerRadius: 12))
-    }
-
-    private func factChip(_ title: String, symbol: String) -> some View {
+    private func factChip(_ title: String, symbol: String, emphasized: Bool = false) -> some View {
         Label(title, systemImage: symbol)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
+            .font(.caption.weight(emphasized ? .semibold : .medium))
+            .foregroundStyle(emphasized ? request.accentTint : .secondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(Color(.tertiarySystemFill), in: .capsule)
+            .background(
+                emphasized ? request.accentTint.opacity(0.12) : Color(.tertiarySystemFill),
+                in: .capsule
+            )
             .lineLimit(1)
     }
 
