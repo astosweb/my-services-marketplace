@@ -32,6 +32,8 @@ struct RequestDetailView: View {
     @State private var isEditPresented = false
     @State private var fullscreenPhoto: RequestPhoto?
     @State private var selectedTab: DetailTab = .details
+    @State private var galleryPage: Int? = 0
+    @State private var isDescriptionExpanded = false
 
     private enum DetailTab: String, CaseIterable, Identifiable {
         case details
@@ -47,6 +49,15 @@ struct RequestDetailView: View {
             case .activity: "Activity"
             case .location: "Location"
             case .offers: "Offers"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .details: "doc.text"
+            case .activity: "clock.arrow.circlepath"
+            case .location: "map"
+            case .offers: "tray.and.arrow.down"
             }
         }
     }
@@ -125,7 +136,15 @@ struct RequestDetailView: View {
     }
 
     private var showJobActions: Bool {
-        canOpenConversation || nextProviderProgress != nil || canOwnerComplete || canOwnerCancel
+        canOpenConversation || canOwnerCancel
+    }
+
+    private var showProgressTracker: Bool {
+        request.status == .inProgress || request.progressStatus != nil
+    }
+
+    private var trimmedDescription: String {
+        request.description.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var availableTabs: [DetailTab] {
@@ -137,40 +156,37 @@ struct RequestDetailView: View {
         }
     }
 
+    private var offersTabBadge: Int? {
+        let count = isOwner ? ownerOffers.count : request.offerCount
+        return count > 0 ? count : nil
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                if !request.photos.isEmpty {
-                    gallery
-                }
+            VStack(alignment: .leading, spacing: 16) {
+                gallery
                 overviewCard
 
-                Picker("Section", selection: $selectedTab) {
-                    ForEach(availableTabs) { tab in
-                        Text(tab.label).tag(tab)
-                    }
+                if showProgressTracker {
+                    progressTrackerCard
                 }
-                .pickerStyle(.segmented)
 
                 if let successMessage {
-                    Label(successMessage, systemImage: "checkmark.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.green)
+                    feedbackBanner(successMessage, symbol: "checkmark.circle.fill", tint: .green)
                 }
+                if let errorMessage {
+                    feedbackBanner(errorMessage, symbol: "exclamationmark.triangle.fill", tint: .red)
+                }
+
+                tabPicker
 
                 tabContent
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
             }
             .frame(maxWidth: 720, alignment: .leading)
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(request.categoryName)
@@ -280,6 +296,7 @@ struct RequestDetailView: View {
                 pendingWithdrawOffer = nil
             }
         }
+        .sensoryFeedback(.success, trigger: successMessage)
     }
 
     private var conversationPeer: OfferUser {
@@ -291,42 +308,84 @@ struct RequestDetailView: View {
 
     // MARK: - Gallery
 
+    @ViewBuilder
     private var gallery: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(request.photos) { photo in
-                    AsyncImage(url: photo.url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        ZStack {
-                            Color(.tertiarySystemFill)
-                            ProgressView()
-                        }
-                    }
-                    .containerRelativeFrame(.horizontal)
-                    .clipped()
-                    .contentShape(.rect)
-                    .onTapGesture { fullscreenPhoto = photo }
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityHint("Shows full image")
+        if request.photos.isEmpty {
+            ZStack {
+                request.accentTint.opacity(0.12)
+                VStack(spacing: 10) {
+                    Image(systemName: request.categorySymbol)
+                        .font(.system(size: 36, weight: .semibold))
+                        .foregroundStyle(request.accentTint)
+                    Text(request.categoryName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(request.accentTint)
                 }
             }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .frame(height: 180)
-        .clipShape(.rect(cornerRadius: 14))
-        .overlay(alignment: .bottomTrailing) {
-            if request.photos.count > 1 {
-                Label("\(request.photos.count)", systemImage: "photo.on.rectangle")
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(.regularMaterial, in: .capsule)
-                    .padding(8)
+            .frame(maxWidth: .infinity)
+            .frame(height: 160)
+            .clipShape(.rect(cornerRadius: 18))
+            .accessibilityHidden(true)
+        } else {
+            ZStack(alignment: .bottom) {
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(Array(request.photos.enumerated()), id: \.element.id) { index, photo in
+                            AsyncImage(url: photo.url) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } placeholder: {
+                                ZStack {
+                                    Color(.tertiarySystemFill)
+                                    ProgressView()
+                                }
+                            }
+                            .containerRelativeFrame(.horizontal)
+                            .frame(height: 240)
+                            .clipped()
+                            .contentShape(.rect)
+                            .onTapGesture { fullscreenPhoto = photo }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityHint("Shows full image")
+                            .id(index)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $galleryPage)
+                .scrollIndicators(.hidden)
+                .frame(height: 240)
+                .clipShape(.rect(cornerRadius: 18))
+
+                HStack {
+                    if request.isPremium {
+                        badge("Boosted", symbol: "sparkles", tint: .orange)
+                    }
+                    Spacer(minLength: 0)
+                    if request.photos.count > 1 {
+                        Text("\((galleryPage ?? 0) + 1)/\(request.photos.count)")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(.ultraThinMaterial, in: .capsule)
+                    }
+                }
+                .padding(12)
+
+                if request.photos.count > 1 {
+                    HStack(spacing: 5) {
+                        ForEach(0..<request.photos.count, id: \.self) { index in
+                            Capsule()
+                                .fill(index == (galleryPage ?? 0) ? Color.white : Color.white.opacity(0.4))
+                                .frame(width: index == (galleryPage ?? 0) ? 14 : 5, height: 5)
+                                .animation(.snappy(duration: 0.2), value: galleryPage)
+                        }
+                    }
+                    .padding(.bottom, 10)
+                    .allowsHitTesting(false)
+                }
             }
         }
     }
@@ -334,53 +393,265 @@ struct RequestDetailView: View {
     // MARK: - Overview
 
     private var overviewCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
                 badge(request.statusLabel, tint: request.statusTint)
-                if request.isPremium {
-                    badge("Boosted", symbol: "sparkles", tint: .orange)
-                }
                 if let progress = progressLabel {
                     badge(progress, tint: .blue)
                 }
                 Spacer(minLength: 0)
+                Label(request.categoryName, systemImage: request.categorySymbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(request.accentTint)
+                    .lineLimit(1)
             }
 
             Text(request.title)
-                .font(.title3.bold())
+                .font(.title2.bold())
                 .fixedSize(horizontal: false, vertical: true)
 
-            if !request.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text(request.description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            if !trimmedDescription.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(trimmedDescription)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(isDescriptionExpanded ? nil : 3)
+                        .fixedSize(horizontal: false, vertical: true)
 
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(request.budget ?? "Open budget")
-                    .font(.headline)
-                    .foregroundStyle(request.budget == nil ? .secondary : .primary)
-                Text(pricingLabel)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 5) {
-                Label(request.categoryName, systemImage: request.categorySymbol)
-                Label(request.location, systemImage: "mappin")
-                    .lineLimit(2)
-                if let scheduledAt = request.scheduledAt {
-                    Label(
-                        scheduledAt.formatted(date: .abbreviated, time: .shortened),
-                        systemImage: "calendar"
-                    )
+                    if trimmedDescription.count > 140 {
+                        Button(isDescriptionExpanded ? "Show less" : "Read more") {
+                            withAnimation(.snappy) {
+                                isDescriptionExpanded.toggle()
+                            }
+                        }
+                        .font(.caption.weight(.semibold))
+                    }
                 }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+
+            budgetBanner
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    factChip(request.location, symbol: "mappin.and.ellipse")
+                    if let scheduledAt = request.scheduledAt {
+                        factChip(
+                            scheduledAt.formatted(date: .abbreviated, time: .shortened),
+                            symbol: "calendar"
+                        )
+                    }
+                    factChip(pricingLabel, symbol: "tag")
+                    factChip(
+                        "\(isOwner ? ownerOffers.count : request.offerCount) offers",
+                        symbol: "tray.and.arrow.down"
+                    )
+                    factChip("\(request.viewCount) views", symbol: "eye")
+                }
+            }
         }
         .detailCard()
+    }
+
+    private var budgetBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: request.budget == nil ? "questionmark.circle.fill" : "eurosign.circle.fill")
+                .font(.title2)
+                .foregroundStyle(request.accentTint)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isFixedPriceInterest ? "Fixed price" : "Budget")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(request.budget ?? "Open — providers set their price")
+                    .font(.title3.bold())
+                    .foregroundStyle(request.budget == nil ? .secondary : .primary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(request.accentTint.opacity(0.1), in: .rect(cornerRadius: 12))
+    }
+
+    private func factChip(_ title: String, symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color(.tertiarySystemFill), in: .capsule)
+            .lineLimit(1)
+    }
+
+    // MARK: - Progress tracker
+
+    private var progressTrackerCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Job progress", systemImage: "flag.checkered")
+                    .font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+                if let progress = progressLabel {
+                    Text(progress)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.blue)
+                }
+            }
+
+            HStack(spacing: 0) {
+                ForEach(Array(progressSteps.enumerated()), id: \.offset) { index, step in
+                    progressStepView(step, index: index)
+                    if index < progressSteps.count - 1 {
+                        Rectangle()
+                            .fill(step.isComplete ? Color.accentColor : Color(.tertiarySystemFill))
+                            .frame(height: 3)
+                            .padding(.bottom, 18)
+                    }
+                }
+            }
+
+            if let next = nextProviderProgress {
+                Button {
+                    Task { await updateProgress(next) }
+                } label: {
+                    if isUpdatingProgress {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Label(progressActionLabel(next), systemImage: "arrow.right.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(isUpdatingProgress)
+            } else if canOwnerComplete {
+                Button {
+                    Task { await updateRequestStatus(.completed) }
+                } label: {
+                    if isUpdatingStatus {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Label("Confirm & complete job", systemImage: "checkmark.seal.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .controlSize(.large)
+                .disabled(isUpdatingStatus)
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .detailCard()
+    }
+
+    private struct ProgressStep: Identifiable {
+        let id: String
+        let title: String
+        let isComplete: Bool
+        let isCurrent: Bool
+    }
+
+    private var progressSteps: [ProgressStep] {
+        let current = request.progressStatus
+        let order: [JobProgressStatus] = [.accepted, .onTheWay, .started, .providerDone, .ownerConfirmed]
+        let currentIndex = current.flatMap { order.firstIndex(of: $0) } ?? -1
+
+        let labels: [(JobProgressStatus, String)] = [
+            (.accepted, "Accepted"),
+            (.onTheWay, "On the way"),
+            (.started, "Working"),
+            (.providerDone, "Ready"),
+            (.ownerConfirmed, "Done")
+        ]
+
+        return labels.map { status, title in
+            let index = order.firstIndex(of: status) ?? 0
+            return ProgressStep(
+                id: status.rawValue,
+                title: title,
+                isComplete: index <= currentIndex,
+                isCurrent: index == currentIndex
+            )
+        }
+    }
+
+    private func progressStepView(_ step: ProgressStep, index: Int) -> some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(step.isComplete ? Color.accentColor : Color(.tertiarySystemFill))
+                    .frame(width: 22, height: 22)
+                if step.isComplete {
+                    Image(systemName: step.isCurrent ? "circle.fill" : "checkmark")
+                        .font(.system(size: step.isCurrent ? 8 : 10, weight: .bold))
+                        .foregroundStyle(.white)
+                } else {
+                    Text("\(index + 1)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text(step.title)
+                .font(.caption2.weight(step.isCurrent ? .bold : .medium))
+                .foregroundStyle(step.isCurrent ? .primary : .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(step.title)\(step.isComplete ? ", complete" : "")\(step.isCurrent ? ", current" : "")")
+    }
+
+    // MARK: - Tabs
+
+    private var tabPicker: some View {
+        HStack(spacing: 6) {
+            ForEach(availableTabs) { tab in
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: tab.symbol)
+                        Text(tab.label)
+                        if tab == .offers, let badge = offersTabBadge {
+                            Text("\(badge)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Color.accentColor, in: .capsule)
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        selectedTab == tab
+                            ? Color(.secondarySystemGroupedBackground)
+                            : Color.clear,
+                        in: .rect(cornerRadius: 10)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(
+                                selectedTab == tab
+                                    ? Color.black.opacity(0.06)
+                                    : Color.clear
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 12))
+        .sensoryFeedback(.selection, trigger: selectedTab)
     }
 
     @ViewBuilder
@@ -400,7 +671,6 @@ struct RequestDetailView: View {
     @ViewBuilder
     private var detailsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
-            engagementCard
             if canMessageOwner {
                 messageOwnerCard
             }
@@ -413,48 +683,111 @@ struct RequestDetailView: View {
             if canLeaveReview {
                 reviewCard
             }
+            if !canMessageOwner, request.acceptedOffer == nil, !showJobActions, !canLeaveReview {
+                emptyState(
+                    symbol: "checkmark.circle",
+                    title: "You're all set",
+                    detail: isOwner
+                        ? "Check Offers for proposals, or Activity for request history."
+                        : "Use the Offers tab to send a proposal or check your existing one."
+                )
+            }
         }
-    }
-
-    private var engagementCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            engagementStat(
-                title: "Offers",
-                value: "\(isOwner ? ownerOffers.count : request.offerCount)",
-                symbol: "tray.and.arrow.down"
-            )
-
-            Spacer(minLength: 8)
-
-            engagementStat(
-                title: "Visitors",
-                value: "\(request.viewCount)",
-                symbol: "eye"
-            )
-        }
-        .detailCard()
     }
 
     private var activityTab: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            metaRow(
-                title: "Created",
-                value: request.createdAt.formatted(date: .abbreviated, time: .shortened),
-                detail: request.createdAt.formatted(.relative(presentation: .named)),
-                symbol: "plus.circle"
-            )
-            metaRow(
-                title: "Updated",
-                value: request.updatedAt.formatted(date: .abbreviated, time: .shortened),
-                detail: request.updatedAt.formatted(.relative(presentation: .named)),
-                symbol: "arrow.triangle.2.circlepath"
-            )
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Timeline")
+                .font(.subheadline.weight(.semibold))
+
+            VStack(alignment: .leading, spacing: 0) {
+                timelineRow(
+                    title: "Created",
+                    value: request.createdAt.formatted(date: .abbreviated, time: .shortened),
+                    detail: request.createdAt.formatted(.relative(presentation: .named)),
+                    symbol: "plus.circle.fill",
+                    tint: .green,
+                    isLast: false
+                )
+                timelineRow(
+                    title: "Last updated",
+                    value: request.updatedAt.formatted(date: .abbreviated, time: .shortened),
+                    detail: request.updatedAt.formatted(.relative(presentation: .named)),
+                    symbol: "arrow.triangle.2.circlepath.circle.fill",
+                    tint: .blue,
+                    isLast: request.completedAt == nil && request.cancelledAt == nil
+                )
+                if let completedAt = request.completedAt {
+                    timelineRow(
+                        title: "Completed",
+                        value: completedAt.formatted(date: .abbreviated, time: .shortened),
+                        detail: completedAt.formatted(.relative(presentation: .named)),
+                        symbol: "checkmark.seal.fill",
+                        tint: .green,
+                        isLast: true
+                    )
+                } else if let cancelledAt = request.cancelledAt {
+                    timelineRow(
+                        title: "Cancelled",
+                        value: cancelledAt.formatted(date: .abbreviated, time: .shortened),
+                        detail: cancelledAt.formatted(.relative(presentation: .named)),
+                        symbol: "xmark.circle.fill",
+                        tint: .red,
+                        isLast: true
+                    )
+                }
+            }
 
             Divider().opacity(0.35)
+
+            Text("Posted by")
+                .font(.subheadline.weight(.semibold))
 
             requesterRow
         }
         .detailCard()
+    }
+
+    private func timelineRow(
+        title: String,
+        value: String,
+        detail: String?,
+        symbol: String,
+        tint: Color,
+        isLast: Bool
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 0) {
+                Image(systemName: symbol)
+                    .font(.body)
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                if !isLast {
+                    Rectangle()
+                        .fill(Color(.tertiarySystemFill))
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.subheadline.weight(.medium))
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.bottom, isLast ? 0 : 16)
+
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(detail.map { "\(title) \(value), \($0)" } ?? "\(title) \(value)")
     }
 
     @ViewBuilder
@@ -469,101 +802,54 @@ struct RequestDetailView: View {
                 sendOfferCard
             }
             if !isOwner, request.viewerOffer == nil, !canSendOffer {
-                Text("No offer yet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .detailCard()
+                emptyState(
+                    symbol: "tray",
+                    title: "No offer yet",
+                    detail: request.status == .open
+                        ? "Sign in as a provider to send an offer on this request."
+                        : "This request is no longer accepting offers."
+                )
             }
         }
-    }
-
-    private func engagementStat(title: String, value: String, symbol: String) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: symbol)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 18, alignment: .center)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.subheadline.weight(.medium))
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title) \(value)")
-    }
-
-    private func metaRow(
-        title: String,
-        value: String,
-        detail: String? = nil,
-        symbol: String
-    ) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: symbol)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 18, alignment: .center)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.subheadline.weight(.medium))
-            }
-
-            Spacer(minLength: 8)
-
-            if let detail {
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.trailing)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(detail.map { "\(title) \(value), \($0)" } ?? "\(title) \(value)")
     }
 
     // MARK: - Requester
 
     private var requesterRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             AsyncImage(url: request.requester.avatarUrl) { image in
                 image
                     .resizable()
                     .scaledToFill()
             } placeholder: {
                 ZStack {
-                    Color(.tertiarySystemFill)
+                    request.accentTint.opacity(0.15)
                     Image(systemName: "person.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.body)
+                        .foregroundStyle(request.accentTint)
                 }
             }
-            .frame(width: 40, height: 40)
+            .frame(width: 48, height: 48)
             .clipShape(.circle)
+            .overlay(Circle().strokeBorder(Color.black.opacity(0.06)))
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(request.requester.displayName)
                     .font(.subheadline.weight(.semibold))
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Label(
-                        String(format: "%.1f · %d", request.requester.rating, request.requester.reviewCount),
+                        String(format: "%.1f", request.requester.rating),
                         systemImage: "star.fill"
                     )
+                    .foregroundStyle(.orange)
+                    Text("\(request.requester.reviewCount) reviews")
+                        .foregroundStyle(.secondary)
                     Text("·")
+                        .foregroundStyle(.tertiary)
                     Text("Since \(request.requester.memberSince.formatted(.dateTime.year()))")
+                        .foregroundStyle(.secondary)
                 }
                 .font(.caption)
-                .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
             Spacer(minLength: 0)
@@ -577,15 +863,35 @@ struct RequestDetailView: View {
         Button {
             Task { await openConversation(createIfNeeded: true) }
         } label: {
-            if isOpeningChat {
-                ProgressView().frame(maxWidth: .infinity)
-            } else {
-                Label("Message owner", systemImage: "bubble.left.and.bubble.right.fill")
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 12) {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.title3)
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(Color.accentColor.gradient, in: .circle)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Message \(request.requester.displayName)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("Ask a question before offering")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+
+                if isOpeningChat {
+                    ProgressView()
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                }
             }
+            .padding(4)
         }
-        .buttonStyle(.bordered)
-        .font(.subheadline.weight(.semibold))
+        .buttonStyle(.plain)
         .disabled(isOpeningChat)
         .detailCard()
     }
@@ -593,16 +899,21 @@ struct RequestDetailView: View {
     // MARK: - Location
 
     private var locationCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Location")
+                Label("Where", systemImage: "mappin.and.ellipse")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text(request.city)
-                    .font(.caption)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+
+            Text(request.location)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Map(
                 initialPosition: .region(
@@ -618,11 +929,15 @@ struct RequestDetailView: View {
                     .tint(request.accentTint)
             }
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
-            .frame(height: 130)
-            .clipShape(.rect(cornerRadius: 12))
+            .frame(height: 180)
+            .clipShape(.rect(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.black.opacity(0.06))
+            )
             .accessibilityLabel("Map showing \(request.location)")
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Button {
                     if let directionsURL { openURL(directionsURL) }
                 } label: {
@@ -630,17 +945,18 @@ struct RequestDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
 
                 Button {
                     if let mapsURL { openURL(mapsURL) }
                 } label: {
-                    Label("Maps", systemImage: "map")
+                    Label("Open Maps", systemImage: "map")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
             }
-            .font(.caption.weight(.semibold))
-            .controlSize(.small)
+            .font(.subheadline.weight(.semibold))
         }
         .detailCard()
     }
@@ -648,8 +964,8 @@ struct RequestDetailView: View {
     // MARK: - Job actions
 
     private var jobActionsCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Job", systemImage: "wrench.and.screwdriver.fill")
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Actions", systemImage: "bolt.fill")
                 .font(.subheadline.weight(.semibold))
 
             if canOpenConversation {
@@ -664,38 +980,8 @@ struct RequestDetailView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .disabled(isOpeningChat)
-            }
-
-            if let next = nextProviderProgress {
-                Button {
-                    Task { await updateProgress(next) }
-                } label: {
-                    if isUpdatingProgress {
-                        ProgressView().frame(maxWidth: .infinity)
-                    } else {
-                        Text(progressActionLabel(next))
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .disabled(isUpdatingProgress)
-            }
-
-            if canOwnerComplete {
-                Button {
-                    Task { await updateRequestStatus(.completed) }
-                } label: {
-                    if isUpdatingStatus {
-                        ProgressView().frame(maxWidth: .infinity)
-                    } else {
-                        Label("Mark completed", systemImage: "checkmark.seal.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(isUpdatingStatus)
             }
 
             if canOwnerCancel {
@@ -706,6 +992,7 @@ struct RequestDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
                 .disabled(isUpdatingStatus)
             }
         }
@@ -714,20 +1001,36 @@ struct RequestDetailView: View {
     }
 
     private var reviewCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Leave a review", systemImage: "star.fill")
+        VStack(alignment: .leading, spacing: 14) {
+            Label("How did it go?", systemImage: "star.fill")
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.orange)
 
-            Picker("Rating", selection: $reviewRating) {
+            Text("Your review helps others choose with confidence.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 10) {
                 ForEach(1...5, id: \.self) { value in
-                    Text("\(value) ★").tag(value)
+                    Button {
+                        reviewRating = value
+                    } label: {
+                        Image(systemName: value <= reviewRating ? "star.fill" : "star")
+                            .font(.title2)
+                            .foregroundStyle(value <= reviewRating ? Color.orange : Color.secondary.opacity(0.35))
+                            .symbolEffect(.bounce, value: reviewRating == value)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(value) stars")
                 }
             }
-            .pickerStyle(.segmented)
+            .frame(maxWidth: .infinity)
+            .sensoryFeedback(.selection, trigger: reviewRating)
 
-            TextField("Optional comment", text: $reviewBody, axis: .vertical)
+            TextField("Share a short comment (optional)", text: $reviewBody, axis: .vertical)
                 .lineLimit(2...4)
-                .textFieldStyle(.roundedBorder)
+                .padding(12)
+                .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
 
             Button {
                 Task { await submitReview() }
@@ -740,6 +1043,7 @@ struct RequestDetailView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(isSubmittingReview)
         }
         .detailCard()
@@ -748,7 +1052,7 @@ struct RequestDetailView: View {
     // MARK: - Offers
 
     private var ownerOffersSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Offers", systemImage: "tray.and.arrow.down.fill")
                     .font(.subheadline.weight(.semibold))
@@ -756,13 +1060,22 @@ struct RequestDetailView: View {
                 if isLoadingOffers {
                     ProgressView()
                         .controlSize(.small)
+                } else if !ownerOffers.isEmpty {
+                    Text("\(ownerOffers.count)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.tertiarySystemFill), in: .capsule)
                 }
             }
 
             if ownerOffers.isEmpty, !isLoadingOffers {
-                Text("No offers yet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                emptyState(
+                    symbol: "tray",
+                    title: "Waiting for offers",
+                    detail: "Providers nearby can send proposals. You’ll see them here."
+                )
             } else {
                 ForEach(ownerOffers) { offer in
                     ownerOfferRow(offer)
@@ -776,8 +1089,8 @@ struct RequestDetailView: View {
     }
 
     private func ownerOfferRow(_ offer: Offer) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
                 AsyncImage(url: offer.offerer.avatarUrl) { image in
                     image
                         .resizable()
@@ -786,25 +1099,26 @@ struct RequestDetailView: View {
                     ZStack {
                         Color(.tertiarySystemFill)
                         Image(systemName: "person.fill")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 32, height: 32)
+                .frame(width: 40, height: 40)
                 .clipShape(.circle)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(offer.offerer.displayName)
                         .font(.subheadline.weight(.semibold))
-                    Text(
+                    Label(
                         String(
                             format: "%.1f · %d reviews",
                             offer.offerer.rating,
                             offer.offerer.reviewCount
-                        )
+                        ),
+                        systemImage: "star.fill"
                     )
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
                 }
 
                 Spacer(minLength: 0)
@@ -812,7 +1126,7 @@ struct RequestDetailView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     if let priceCents = offer.priceCents {
                         Text(priceText(priceCents))
-                            .font(.subheadline.weight(.semibold))
+                            .font(.headline)
                     } else {
                         Text("Interest")
                             .font(.caption.weight(.semibold))
@@ -827,8 +1141,11 @@ struct RequestDetailView: View {
 
             if let message = offer.message, !message.isEmpty {
                 Text(message)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
             }
 
             if offer.status == .pending, request.status == .open {
@@ -840,11 +1157,12 @@ struct RequestDetailView: View {
                             ProgressView()
                                 .frame(maxWidth: .infinity)
                         } else {
-                            Text("Accept")
+                            Label("Accept", systemImage: "checkmark")
                                 .frame(maxWidth: .infinity)
                         }
                     }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .disabled(respondingOfferId != nil)
 
                     Button {
@@ -854,16 +1172,17 @@ struct RequestDetailView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                     .disabled(respondingOfferId != nil)
                 }
-                .font(.caption.weight(.semibold))
-                .controlSize(.small)
+                .font(.subheadline.weight(.semibold))
             }
         }
+        .padding(.vertical, 4)
     }
 
     private var sendOfferCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Label(
                 isFixedPriceInterest ? "Show interest" : "Send an offer",
                 systemImage: "paperplane.fill"
@@ -871,18 +1190,33 @@ struct RequestDetailView: View {
             .font(.subheadline.weight(.semibold))
 
             if isFixedPriceInterest {
-                Text("This request has a fixed price of \(request.budget ?? "the listed amount").")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    Image(systemName: "tag.fill")
+                        .foregroundStyle(request.accentTint)
+                    Text("Fixed price of \(request.budget ?? "the listed amount"). No counter-offer needed.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(request.accentTint.opacity(0.1), in: .rect(cornerRadius: 10))
             } else {
-                TextField("Your price (€)", text: $offerPriceEuros)
-                    .keyboardType(.decimalPad)
-                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 8) {
+                    Text("€")
+                        .font(.title3.bold())
+                        .foregroundStyle(.secondary)
+                    TextField("Your price", text: $offerPriceEuros)
+                        .keyboardType(.decimalPad)
+                        .font(.title3.bold())
+                }
+                .padding(12)
+                .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
             }
 
-            TextField("Message (optional)", text: $offerMessage, axis: .vertical)
+            TextField("Add a short message (optional)", text: $offerMessage, axis: .vertical)
                 .lineLimit(2...4)
-                .textFieldStyle(.roundedBorder)
+                .padding(12)
+                .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
 
             Button {
                 Task { await submitOffer() }
@@ -891,11 +1225,15 @@ struct RequestDetailView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                 } else {
-                    Text(isFixedPriceInterest ? "I’m interested" : "Submit offer")
-                        .frame(maxWidth: .infinity)
+                    Label(
+                        isFixedPriceInterest ? "I’m interested" : "Submit offer",
+                        systemImage: "paperplane.fill"
+                    )
+                    .frame(maxWidth: .infinity)
                 }
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(!canSubmitOffer)
             .font(.subheadline.weight(.semibold))
         }
@@ -903,22 +1241,42 @@ struct RequestDetailView: View {
     }
 
     private func acceptedOfferCard(_ offer: AcceptedOffer) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Accepted offer", systemImage: "checkmark.seal.fill")
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Accepted provider", systemImage: "checkmark.seal.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.green)
-            HStack {
-                Text(offer.provider.displayName)
-                    .font(.subheadline.weight(.medium))
-                Spacer(minLength: 0)
-                if let priceCents = offer.priceCents {
-                    Text(priceText(priceCents))
-                        .font(.subheadline.weight(.semibold))
+
+            HStack(spacing: 12) {
+                AsyncImage(url: offer.provider.avatarUrl) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    ZStack {
+                        Color.green.opacity(0.15)
+                        Image(systemName: "person.fill")
+                            .foregroundStyle(.green)
+                    }
                 }
+                .frame(width: 44, height: 44)
+                .clipShape(.circle)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(offer.provider.displayName)
+                        .font(.subheadline.weight(.semibold))
+                    if let priceCents = offer.priceCents {
+                        Text(priceText(priceCents))
+                            .font(.headline)
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                Spacer(minLength: 0)
             }
+
             if let message = offer.message, !message.isEmpty {
                 Text(message)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
@@ -926,24 +1284,31 @@ struct RequestDetailView: View {
     }
 
     private func viewerOfferCard(_ offer: Offer) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Your offer", systemImage: "paperplane.fill")
-                .font(.subheadline.weight(.semibold))
-            HStack(spacing: 8) {
-                if let priceCents = offer.priceCents {
-                    Text(priceText(priceCents))
-                        .font(.subheadline.weight(.semibold))
-                } else {
-                    Text("Interest")
-                        .font(.subheadline.weight(.semibold))
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Your offer", systemImage: "paperplane.fill")
+                    .font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
                 badge(offer.status.rawValue.capitalized, tint: offerStatusTint(offer.status))
             }
+
+            if let priceCents = offer.priceCents {
+                Text(priceText(priceCents))
+                    .font(.title2.bold())
+            } else {
+                Text("Interest registered")
+                    .font(.title3.bold())
+            }
+
             if let message = offer.message, !message.isEmpty {
                 Text(message)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
             }
+
             if offer.status == .pending {
                 Button(role: .destructive) {
                     pendingWithdrawOffer = offer
@@ -951,15 +1316,47 @@ struct RequestDetailView: View {
                     if respondingOfferId == offer.id {
                         ProgressView().frame(maxWidth: .infinity)
                     } else {
-                        Text("Withdraw")
+                        Text("Withdraw offer")
                             .frame(maxWidth: .infinity)
                     }
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.small)
+                .controlSize(.large)
                 .disabled(respondingOfferId != nil)
             }
         }
+        .detailCard()
+    }
+
+    // MARK: - Shared UI
+
+    private func feedbackBanner(_ message: String, symbol: String, tint: Color) -> some View {
+        Label(message, systemImage: symbol)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(tint)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(tint.opacity(0.12), in: .rect(cornerRadius: 12))
+            .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private func emptyState(symbol: String, title: String, detail: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 56, height: 56)
+                .background(Color(.tertiarySystemFill), in: .circle)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
         .detailCard()
     }
 
@@ -1274,8 +1671,12 @@ private struct FullscreenPhotoViewer: View {
 
 private extension View {
     func detailCard() -> some View {
-        padding(12)
+        padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 14))
+            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.black.opacity(0.05))
+            )
     }
 }
