@@ -4,16 +4,16 @@ on:
   push:
     branches: [main]
     paths:
-      - "api/**"
+      - "apps/api/**"
       - ".github/workflows/api-ci.yml"
   pull_request:
     paths:
-      - "api/**"
+      - "apps/api/**"
       - ".github/workflows/api-ci.yml"
 
 defaults:
   run:
-    working-directory: api
+    working-directory: apps/api
 
 jobs:
   check:
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: api/pnpm-lock.yaml
+          cache-dependency-path: apps/api/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
