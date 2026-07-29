@@ -157,12 +157,13 @@ struct CreateRequestBody: Encodable {
     let location: String
     let budgetCents: Int?
     let budgetLabel: String?
+    let scheduledAt: Date?
     let pricingMode: RequestPricingMode?
     let photoKeys: [String]?
 
     enum CodingKeys: String, CodingKey {
         case categoryId, title, description, city, latitude, longitude, location
-        case budgetCents, budgetLabel, pricingMode, photoKeys
+        case budgetCents, budgetLabel, scheduledAt, pricingMode, photoKeys
     }
 
     func encode(to encoder: Encoder) throws {
@@ -176,6 +177,7 @@ struct CreateRequestBody: Encodable {
         try container.encode(location, forKey: .location)
         try container.encodeIfPresent(budgetCents, forKey: .budgetCents)
         try container.encodeIfPresent(budgetLabel, forKey: .budgetLabel)
+        try container.encodeIfPresent(scheduledAt, forKey: .scheduledAt)
         try container.encodeIfPresent(pricingMode, forKey: .pricingMode)
         try container.encodeIfPresent(photoKeys, forKey: .photoKeys)
     }

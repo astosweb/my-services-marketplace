@@ -26,6 +26,12 @@ struct NewRequestView: View {
     @State private var location = ""
     @State private var budgetEuros = ""
     @State private var pricingMode: RequestPricingMode = .providerOffers
+    @State private var hasSchedule = false
+    @State private var scheduledAt = Calendar.current.date(
+        byAdding: .day,
+        value: 1,
+        to: Date()
+    ) ?? Date().addingTimeInterval(86_400)
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var draftPhotos: [DraftPhoto] = []
     @State private var isLoadingCategories = true
@@ -168,6 +174,22 @@ struct NewRequestView: View {
                         ? "Providers can only show interest at your fixed price."
                         : "Leave blank for an open budget. Providers will send offers."
                 )
+            }
+
+            Section {
+                Toggle("Schedule a time", isOn: $hasSchedule)
+                if hasSchedule {
+                    DatePicker(
+                        "When",
+                        selection: $scheduledAt,
+                        in: Date()...,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                }
+            } header: {
+                Text("Schedule")
+            } footer: {
+                Text("Optional. When you need the job done.")
             }
 
             if let errorMessage {
@@ -316,6 +338,10 @@ struct NewRequestView: View {
         if let cents = existing.budgetCents {
             budgetEuros = String(format: "%.0f", Double(cents) / 100)
         }
+        if let existingScheduledAt = existing.scheduledAt {
+            hasSchedule = true
+            scheduledAt = max(existingScheduledAt, Date())
+        }
         draftPhotos = Array(
             existing.photos
                 .sorted { $0.sortOrder < $1.sortOrder }
@@ -454,6 +480,7 @@ struct NewRequestView: View {
                 location: trimmedLocation,
                 budgetCents: cents,
                 budgetLabel: cents.map { String(format: "€%.0f", Double($0) / 100) },
+                scheduledAt: hasSchedule ? scheduledAt : nil,
                 pricingMode: pricingMode,
                 photoKeys: photoKeys
             )
