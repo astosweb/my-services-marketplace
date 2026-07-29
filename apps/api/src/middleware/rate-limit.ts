@@ -1,4 +1,16 @@
-import type { Context, MiddlewareHandler, Next } from "hono";
+import {
+  applyDecorators,
+  CanActivate,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  SetMetadata,
+  UseGuards,
+  type ExecutionContext,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import type { Request, Response } from "express";
 import { createClient, type RedisClientType } from "redis";
 import { env } from "../lib/env.js";
 import { tooManyRequests } from "../lib/errors.js";
@@ -41,9 +53,6 @@ export class RedisRateLimitStore implements RateLimitStore {
 
   static async connect(url: string) {
     const client = createClient({ url }) as RedisClientType;
-    client.on("error", (err) => {
-      console.error("Redis rate-limit error:", err);
-    });
     await client.connect();
     return new RedisRateLimitStore(client);
   }
@@ -99,80 +108,87 @@ export async function initRateLimitStore() {
   return sharedStore;
 }
 
-export function clientIp(c: Context) {
-  const forwarded = c.req.header("x-forwarded-for");
+export function clientIp(request: Request) {
+  const forwarded = request.header("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0]?.trim();
     if (first) return first;
   }
-  return c.req.header("x-real-ip")?.trim() || "unknown";
+  return request.header("x-real-ip")?.trim() || request.ip || "unknown";
 }
 
 type RateLimitOptions = {
   limit: number;
   windowMs: number;
-  /** Build bucket key; return null to skip limiting. */
-  key: (c: Context, body: Record<string, unknown> | null) => string | null | Promise<string | null>;
-  /** When true, attempt to parse JSON body for keying (auth routes). */
-  readJsonBody?: boolean;
+  key: (request: Request) => string;
 };
 
-export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
-  return async (c: Context, next: Next) => {
-    let body: Record<string, unknown> | null = null;
-    if (options.readJsonBody) {
-      try {
-        const cloned = c.req.raw.clone();
-        const parsed: unknown = await cloned.json();
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          body = parsed as Record<string, unknown>;
-        }
-      } catch {
-        body = null;
-      }
-    }
-
-    const key = await options.key(c, body);
-    if (!key) {
-      await next();
-      return;
-    }
-
-    const store = getRateLimitStore();
-    const { count, retryAfterSec } = await store.hit(key, options.windowMs);
-    c.header("X-RateLimit-Limit", String(options.limit));
-    c.header("X-RateLimit-Remaining", String(Math.max(0, options.limit - count)));
-
-    if (count > options.limit) {
-      c.header("Retry-After", String(retryAfterSec));
-      throw tooManyRequests("Too many requests. Please try again later.");
-    }
-
-    await next();
-  };
-}
-
 const ONE_MINUTE = 60_000;
+const RATE_LIMIT_METADATA = "rate-limit";
 
-export const authCredentialRateLimit = rateLimit({
+const credentialRateLimit: RateLimitOptions = {
   limit: 5,
   windowMs: ONE_MINUTE,
-  readJsonBody: true,
-  key: (c, body) => {
+  key: (request) => {
+    const body = request.body as { email?: unknown } | undefined;
     const email =
       typeof body?.email === "string" ? body.email.trim().toLowerCase() : "unknown-email";
-    return `auth:${clientIp(c)}:${email}`;
+    return `auth:${clientIp(request)}:${email}`;
   },
-});
+};
 
-export const refreshRateLimit = rateLimit({
+const refreshRateLimit: RateLimitOptions = {
   limit: 30,
   windowMs: ONE_MINUTE,
-  key: (c) => `refresh:${clientIp(c)}`,
-});
+  key: (request) => `refresh:${clientIp(request)}`,
+};
 
-export const viewRateLimit = rateLimit({
+const viewRateLimit: RateLimitOptions = {
   limit: 10,
   windowMs: ONE_MINUTE,
-  key: (c) => `views:${clientIp(c)}:${c.req.param("id") ?? "unknown"}`,
-});
+  key: (request) => `views:${clientIp(request)}:${request.params.id ?? "unknown"}`,
+};
+
+@Injectable()
+export class RateLimitGuard implements CanActivate, OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(RateLimitGuard.name);
+
+  constructor(private readonly reflector: Reflector) {}
+
+  async onModuleInit() {
+    const store = await initRateLimitStore();
+    if (store instanceof RedisRateLimitStore) this.logger.log("Redis rate-limit store connected");
+    else this.logger.warn("Using in-memory rate limits");
+  }
+
+  async canActivate(context: ExecutionContext) {
+    const options = this.reflector.get<RateLimitOptions>(RATE_LIMIT_METADATA, context.getHandler());
+    if (!options) return true;
+
+    const request = context.switchToHttp().getRequest<Request>();
+    const response = context.switchToHttp().getResponse<Response>();
+    const { count, retryAfterSec } = await getRateLimitStore().hit(
+      options.key(request),
+      options.windowMs,
+    );
+    response.setHeader("X-RateLimit-Limit", String(options.limit));
+    response.setHeader("X-RateLimit-Remaining", String(Math.max(0, options.limit - count)));
+    if (count > options.limit) {
+      response.setHeader("Retry-After", String(retryAfterSec));
+      throw tooManyRequests("Too many requests. Please try again later.");
+    }
+    return true;
+  }
+
+  async onModuleDestroy() {
+    await getRateLimitStore().close?.();
+  }
+}
+
+function rateLimitDecorator(options: RateLimitOptions) {
+  return applyDecorators(SetMetadata(RATE_LIMIT_METADATA, options), UseGuards(RateLimitGuard));
+}
+
+export const CredentialRateLimit = () => rateLimitDecorator(credentialRateLimit);
+export const RefreshRateLimit = () => rateLimitDecorator(refreshRateLimit);
+export const ViewRateLimit = () => rateLimitDecorator(viewRateLimit);

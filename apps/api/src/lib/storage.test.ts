@@ -47,8 +47,8 @@ describe("compressImageBuffer", () => {
   });
 
   it("rejects corrupt image bytes", async () => {
-    await expect(compressImageBuffer(Buffer.from("not-an-image"), { maxDimension: 1024, quality: 80 })).rejects.toSatisfy(
-      (err: unknown) => err instanceof AppError && err.status === 400,
-    );
+    await expect(
+      compressImageBuffer(Buffer.from("not-an-image"), { maxDimension: 1024, quality: 80 }),
+    ).rejects.toSatisfy((err: unknown) => err instanceof AppError && err.status === 400);
   });
 });
