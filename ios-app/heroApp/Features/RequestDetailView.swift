@@ -313,7 +313,7 @@ struct RequestDetailView: View {
     // MARK: - Overview
 
     private var overviewCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 badge(request.statusLabel, tint: request.statusTint)
                 if request.isPremium {
@@ -354,21 +354,89 @@ struct RequestDetailView: View {
 
             Divider().opacity(0.35)
 
-            HStack(spacing: 0) {
-                compactStat(
-                    "\(isOwner ? ownerOffers.count : request.offerCount)",
-                    label: "Offers",
-                    symbol: "tray.and.arrow.down"
-                )
-                compactStat("\(request.viewCount)", label: "Views", symbol: "eye")
-                compactStat(
-                    request.createdAt.formatted(.relative(presentation: .numeric)),
-                    label: "Posted",
-                    symbol: "clock"
-                )
-            }
+            engagementSection
+
+            Divider().opacity(0.35)
+
+            activitySection
         }
         .detailCard()
+    }
+
+    private var engagementSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Engagement")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            metaRow(
+                title: "Offers",
+                value: "\(isOwner ? ownerOffers.count : request.offerCount)",
+                symbol: "tray.and.arrow.down"
+            )
+            metaRow(
+                title: "Visitors",
+                value: "\(request.viewCount)",
+                symbol: "eye"
+            )
+        }
+    }
+
+    private var activitySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Activity")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            metaRow(
+                title: "Created",
+                value: request.createdAt.formatted(date: .abbreviated, time: .shortened),
+                detail: request.createdAt.formatted(.relative(presentation: .named)),
+                symbol: "plus.circle"
+            )
+            metaRow(
+                title: "Updated",
+                value: request.updatedAt.formatted(date: .abbreviated, time: .shortened),
+                detail: request.updatedAt.formatted(.relative(presentation: .named)),
+                symbol: "arrow.triangle.2.circlepath"
+            )
+        }
+    }
+
+    private func metaRow(
+        title: String,
+        value: String,
+        detail: String? = nil,
+        symbol: String
+    ) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 18, alignment: .center)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.subheadline.weight(.medium))
+            }
+
+            Spacer(minLength: 8)
+
+            if let detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(detail.map { "\(title) \(value), \($0)" } ?? "\(title) \(value)")
     }
 
     // MARK: - Description
@@ -997,19 +1065,6 @@ struct RequestDetailView: View {
     }
 
     // MARK: - Pieces
-
-    private func compactStat(_ value: String, label: String, symbol: String) -> some View {
-        VStack(spacing: 2) {
-            Label(value, systemImage: symbol)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-    }
 
     private func badge(_ title: String, symbol: String? = nil, tint: Color) -> some View {
         HStack(spacing: 3) {
