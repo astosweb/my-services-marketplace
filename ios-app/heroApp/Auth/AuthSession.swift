@@ -42,6 +42,7 @@ final class AuthSession {
             let payload = try await api.refreshSession()
             user = payload.user
             state = .signedIn
+            await refreshInboxBadges()
         } catch {
             user = nil
             state = .signedOut
@@ -210,6 +211,7 @@ final class AuthSession {
             try api.setCredentials(payload, rememberMe: rememberMe)
             user = payload.user
             state = .signedIn
+            await refreshInboxBadges()
             return true
         } catch {
             errorMessage = error.localizedDescription

@@ -12,26 +12,36 @@ struct ConversationsView: View {
     var body: some View {
         ZStack {
             if isLoading && conversations.isEmpty {
-                ProgressView("Loading conversations")
+                List { }
+                    .overlay { ProgressView("Loading conversations") }
+                    .refreshable { await load() }
             } else if let errorMessage, conversations.isEmpty {
-                ContentUnavailableView {
-                    Label("Couldn’t Load Messages", systemImage: "wifi.exclamationmark")
-                } description: {
-                    Text(errorMessage)
-                } actions: {
-                    Button("Retry") { Task { await load() } }
-                        .buttonStyle(.borderedProminent)
-                }
+                List { }
+                    .overlay {
+                        ContentUnavailableView {
+                            Label("Couldn’t Load Messages", systemImage: "wifi.exclamationmark")
+                        } description: {
+                            Text(errorMessage)
+                        } actions: {
+                            Button("Retry") { Task { await load() } }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    .refreshable { await load() }
             } else if conversations.isEmpty {
-                ContentUnavailableView(
-                    showArchived ? "No Archived Messages" : "No Messages",
-                    systemImage: "bubble.left.and.bubble.right",
-                    description: Text(
-                        showArchived
-                            ? "Archived conversations appear here."
-                            : "Message a post owner anytime — offers aren’t required."
-                    )
-                )
+                List { }
+                    .overlay {
+                        ContentUnavailableView(
+                            showArchived ? "No Archived Messages" : "No Messages",
+                            systemImage: "bubble.left.and.bubble.right",
+                            description: Text(
+                                showArchived
+                                    ? "Archived conversations appear here."
+                                    : "Message a post owner anytime — offers aren’t required."
+                            )
+                        )
+                    }
+                    .refreshable { await load() }
             } else {
                 List {
                     ForEach(conversations) { conversation in
@@ -60,7 +70,10 @@ struct ConversationsView: View {
                     }
                 }
                 .listStyle(.plain)
-                .refreshable { await load() }
+                .refreshable {
+                    await load()
+                    await auth.refreshInboxBadges()
+                }
                 .navigationDestination(for: Conversation.self) { conversation in
                     ConversationDetailView(conversation: conversation)
                 }

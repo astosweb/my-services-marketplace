@@ -131,10 +131,11 @@ private struct MyRequestsView: View {
             Divider()
                 .opacity(0.4)
 
-            Group {
+            ScrollView {
                 if isLoading && requests.isEmpty {
                     ProgressView("Loading requests")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 80)
                 } else if let errorMessage, requests.isEmpty {
                     ContentUnavailableView {
                         Label("Couldn’t Load Requests", systemImage: "wifi.exclamationmark")
@@ -165,20 +166,21 @@ private struct MyRequestsView: View {
                         }
                     }
                 } else {
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 10) {
-                            ForEach(requests) { request in
-                                NavigationLink(value: request) {
-                                    RequestCard(request: request)
-                                }
-                                .buttonStyle(.plain)
+                    LazyVGrid(columns: columns, spacing: 10) {
+                        ForEach(requests) { request in
+                            NavigationLink(value: request) {
+                                RequestCard(request: request)
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
                     }
-                    .refreshable { await load() }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                 }
+            }
+            .refreshable {
+                await load()
+                await auth.refreshInboxBadges()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -308,15 +310,23 @@ private struct NotificationsView: View {
     var body: some View {
         ZStack {
             if isLoading && notifications.isEmpty {
-                ProgressView("Loading notifications")
+                List { }
+                    .overlay { ProgressView("Loading notifications") }
+                    .refreshable { await load() }
             } else if let errorMessage, notifications.isEmpty {
-                ContentUnavailableView(
-                    "Couldn’t Load Notifications",
-                    systemImage: "wifi.exclamationmark",
-                    description: Text(errorMessage)
-                )
+                List { }
+                    .overlay {
+                        ContentUnavailableView(
+                            "Couldn’t Load Notifications",
+                            systemImage: "wifi.exclamationmark",
+                            description: Text(errorMessage)
+                        )
+                    }
+                    .refreshable { await load() }
             } else if notifications.isEmpty {
-                ContentUnavailableView("No Notifications", systemImage: "bell.slash")
+                List { }
+                    .overlay { ContentUnavailableView("No Notifications", systemImage: "bell.slash") }
+                    .refreshable { await load() }
             } else {
                 List(notifications) { notification in
                     Button {
