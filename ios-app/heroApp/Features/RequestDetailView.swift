@@ -30,6 +30,7 @@ struct RequestDetailView: View {
     @State private var pendingAcceptOffer: Offer?
     @State private var pendingWithdrawOffer: Offer?
     @State private var isEditPresented = false
+    @State private var fullscreenPhoto: RequestPhoto?
 
     init(request: ServiceRequest) {
         _request = State(initialValue: request)
@@ -174,6 +175,9 @@ struct RequestDetailView: View {
                 })
             }
         }
+        .fullScreenCover(item: $fullscreenPhoto) { photo in
+            FullscreenPhotoViewer(photos: request.photos, initial: photo)
+        }
         .navigationDestination(item: $conversationId) { id in
             ConversationDetailView(
                 conversation: Conversation(
@@ -282,6 +286,10 @@ struct RequestDetailView: View {
                     }
                     .containerRelativeFrame(.horizontal)
                     .clipped()
+                    .contentShape(.rect)
+                    .onTapGesture { fullscreenPhoto = photo }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("Shows full image")
                 }
             }
             .scrollTargetLayout()
@@ -1073,6 +1081,61 @@ struct RequestDetailView: View {
             URLQueryItem(name: "dirflg", value: "d")
         ]
         return components?.url
+    }
+}
+
+private struct FullscreenPhotoViewer: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let photos: [RequestPhoto]
+    @State private var selection: String
+
+    init(photos: [RequestPhoto], initial: RequestPhoto) {
+        self.photos = photos
+        _selection = State(initialValue: initial.id)
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            TabView(selection: $selection) {
+                ForEach(photos) { photo in
+                    AsyncImage(url: photo.url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFit()
+                        case .failure:
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.largeTitle)
+                                .foregroundStyle(.white.opacity(0.7))
+                                .accessibilityLabel("Couldn’t load image")
+                        default:
+                            ProgressView()
+                                .tint(.white)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .tag(photo.id)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .automatic : .never))
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.white)
+                    .padding(16)
+            }
+            .accessibilityLabel("Close")
+        }
+        .statusBarHidden()
     }
 }
 
