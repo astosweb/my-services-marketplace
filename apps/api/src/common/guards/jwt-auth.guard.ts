@@ -4,7 +4,7 @@ import { unauthorized } from "../../lib/errors.js";
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard("jwt") {
-  handleRequest<TUser>(error: unknown, user: TUser): TUser {
+  override handleRequest<TUser>(error: unknown, user: TUser): TUser {
     if (error || !user) throw unauthorized("Authentication required");
     return user;
   }
@@ -12,7 +12,7 @@ export class JwtAuthGuard extends AuthGuard("jwt") {
 
 @Injectable()
 export class OptionalJwtAuthGuard extends AuthGuard("jwt") {
-  handleRequest<TUser>(_error: unknown, user: TUser): TUser | undefined {
+  override handleRequest<TUser>(_error: unknown, user: TUser): TUser | undefined {
     return user || undefined;
   }
 }

@@ -66,14 +66,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       code = "BAD_REQUEST";
     }
 
-    if (status >= 500) {
+    const statusCode = Number(status);
+    if (statusCode >= 500) {
       this.logger.error(
         { requestId, path: request.originalUrl, exception },
         exception instanceof Error ? exception.stack : undefined,
       );
     }
 
-    response.status(status).json({
+    response.status(statusCode).json({
       error: {
         message,
         code,

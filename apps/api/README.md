@@ -4,7 +4,7 @@ Production NestJS API for the Hero service marketplace.
 
 ## Stack
 
-- Node.js 24 LTS, TypeScript 6, NestJS 11
+- Node.js 22+/24 LTS, TypeScript 5.9, NestJS 11
 - PostgreSQL 18, Prisma 7
 - Redis 8, BullMQ 5
 - Passport JWT, Swagger/OpenAPI

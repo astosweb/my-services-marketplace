@@ -22,7 +22,6 @@ import { ApiStandardErrors } from "../common/decorators/api-standard-errors.deco
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { badRequest } from "../lib/errors.js";
-import type { UploadFile } from "../lib/storage.js";
 import { UploadsService } from "./uploads.service.js";
 
 @ApiTags("Uploads")
@@ -52,7 +51,7 @@ export class UploadsController {
     if (!files?.length) throw badRequest('Include at least one image in the "photos" field');
     return {
       data: {
-        keys: await this.uploadsService.requestPhotos(userId, files as UploadFile[]),
+        keys: await this.uploadsService.requestPhotos(userId, files),
       },
     };
   }
@@ -77,7 +76,7 @@ export class UploadsController {
   ) {
     if (!file) throw badRequest('Include a file in the "file" field');
     return {
-      data: await this.uploadsService.messageAttachment(userId, file as UploadFile),
+      data: await this.uploadsService.messageAttachment(userId, file),
     };
   }
 
@@ -103,7 +102,7 @@ export class UploadsController {
   ) {
     const file = files?.file?.[0] ?? files?.avatar?.[0];
     if (!file) throw badRequest('Include an image in the "file" field');
-    return { data: await this.uploadsService.avatar(userId, file as UploadFile) };
+    return { data: await this.uploadsService.avatar(userId, file) };
   }
 
   @Get("*key")

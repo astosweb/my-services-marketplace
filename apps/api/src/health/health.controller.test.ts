@@ -1,5 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import type { Server } from "node:http";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AllExceptionsFilter } from "../common/filters/all-exceptions.filter.js";
@@ -9,6 +10,7 @@ import { HealthController } from "./health.controller.js";
 
 describe("HealthController", () => {
   let app: INestApplication;
+  let server: Server;
   const queryRaw = vi.fn().mockResolvedValue([{ "?column?": 1 }]);
 
   beforeAll(async () => {
@@ -21,19 +23,20 @@ describe("HealthController", () => {
     app.use(requestId.use.bind(requestId));
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
+    server = app.getHttpServer() as Server;
   });
 
   afterAll(async () => app.close());
 
   it("reports liveness", async () => {
-    await request(app.getHttpServer())
+    await request(server)
       .get("/health")
       .expect(200)
       .expect({ ok: true, service: "hero-api" });
   });
 
   it("reports database readiness", async () => {
-    await request(app.getHttpServer())
+    await request(server)
       .get("/health/ready")
       .expect(200)
       .expect({ ok: true, database: "connected" });
@@ -41,7 +44,7 @@ describe("HealthController", () => {
   });
 
   it("preserves the error envelope and request id", async () => {
-    const response = await request(app.getHttpServer()).get("/missing").expect(404);
+    const response = await request(server).get("/missing").expect(404);
     expect(response.headers["x-request-id"]).toBeTruthy();
     expect(response.body).toEqual({
       error: {

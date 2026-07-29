@@ -146,7 +146,11 @@ const refreshRateLimit: RateLimitOptions = {
 const viewRateLimit: RateLimitOptions = {
   limit: 10,
   windowMs: ONE_MINUTE,
-  key: (request) => `views:${clientIp(request)}:${request.params.id ?? "unknown"}`,
+  key: (request) => {
+    const requestId = request.params.id;
+    const id = Array.isArray(requestId) ? requestId[0] : requestId;
+    return `views:${clientIp(request)}:${id ?? "unknown"}`;
+  },
 };
 
 @Injectable()
