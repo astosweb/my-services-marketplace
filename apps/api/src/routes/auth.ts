@@ -17,6 +17,7 @@ import { badRequest, conflict, notFound, unauthorized } from "../lib/errors.js";
 import { assertOwnedObjectKey } from "../lib/owned-keys.js";
 import { prisma } from "../lib/prisma.js";
 import { serializeMe } from "../lib/serializers.js";
+import { logAudit } from "../lib/audit-log.js";
 import { parseOrThrow } from "../lib/validate.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -103,6 +104,14 @@ authRoutes.post("/register", authCredentialRateLimit, async (c) => {
   });
 
   const tokens = await issueTokens(user.id);
+  logAudit({
+    userId: user.id,
+    action: "user.registered",
+    entityType: "User",
+    entityId: user.id,
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
   return c.json({ data: authPayload(user, tokens) }, 201);
 });
 
@@ -114,9 +123,27 @@ authRoutes.post("/login", authCredentialRateLimit, async (c) => {
   if (!user?.passwordHash) throw unauthorized("Invalid email or password");
 
   const valid = await verifyPassword(parsed.password, user.passwordHash);
-  if (!valid) throw unauthorized("Invalid email or password");
+  if (!valid) {
+    logAudit({
+      userId: user.id,
+      action: "user.login_failed",
+      entityType: "User",
+      entityId: user.id,
+      ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+      userAgent: c.req.header("user-agent"),
+    });
+    throw unauthorized("Invalid email or password");
+  }
 
   const tokens = await issueTokens(user.id);
+  logAudit({
+    userId: user.id,
+    action: "user.login",
+    entityType: "User",
+    entityId: user.id,
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
   return c.json({ data: authPayload(user, tokens) });
 });
 
@@ -173,7 +200,21 @@ authRoutes.post("/logout", async (c) => {
   const parsed = parseOrThrow(logoutSchema, await c.req.json());
 
   const tokenHash = hashRefreshToken(parsed.refreshToken);
+  const stored = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
+    select: { userId: true },
+  });
   await prisma.refreshToken.deleteMany({ where: { tokenHash } });
+  if (stored) {
+    logAudit({
+      userId: stored.userId,
+      action: "user.logout",
+      entityType: "User",
+      entityId: stored.userId,
+      ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+      userAgent: c.req.header("user-agent"),
+    });
+  }
   return c.json({ data: { ok: true } });
 });
 
@@ -188,6 +229,16 @@ authRoutes.post("/forgot-password", authCredentialRateLimit, async (c) => {
   } = {
     message: "If an account exists for that email, a password reset link has been created.",
   };
+
+  logAudit({
+    userId: user?.id,
+    action: "user.password_reset_requested",
+    entityType: "User",
+    entityId: user?.id,
+    metadata: { email },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
 
   if (user?.passwordHash) {
     const token = createPasswordResetToken();
@@ -236,6 +287,15 @@ authRoutes.post("/reset-password", async (c) => {
     });
     await tx.refreshToken.deleteMany({ where: { userId: stored.userId } });
     await tx.passwordResetToken.deleteMany({ where: { userId: stored.userId } });
+
+    logAudit({
+      userId: stored.userId,
+      action: "user.password_reset_completed",
+      entityType: "User",
+      entityId: stored.userId,
+      ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+      userAgent: c.req.header("user-agent"),
+    });
   });
 
   return c.json({ data: { ok: true } });
@@ -290,6 +350,15 @@ authRoutes.patch("/me", requireAuth, async (c) => {
     where: { id: c.get("userId") },
     data: parsed,
   });
+  logAudit({
+    userId: user.id,
+    action: "user.profile_updated",
+    entityType: "User",
+    entityId: user.id,
+    metadata: { fields: Object.keys(parsed) },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
   return c.json({ data: serializeMe(user) });
 });
 
@@ -313,5 +382,13 @@ authRoutes.delete("/me", requireAuth, async (c) => {
   if (!valid) throw unauthorized("Invalid password");
 
   await prisma.user.delete({ where: { id: userId } });
+  logAudit({
+    userId,
+    action: "user.deleted",
+    entityType: "User",
+    entityId: userId,
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
   return c.body(null, 204);
 });

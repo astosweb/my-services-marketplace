@@ -8,6 +8,7 @@ import {
   RequestPricingMode,
   ServiceRequestStatus,
 } from "../generated/prisma/client.js";
+import { logAudit } from "../lib/audit-log.js";
 import { verifyAccessToken } from "../lib/auth.js";
 import { ensureCategoryCatalog } from "../lib/category-catalog.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
@@ -376,6 +377,15 @@ requestRoutes.post("/", requireAuth, async (c) => {
     },
   });
 
+  logAudit({
+    userId: ownerId,
+    action: "request.created",
+    entityType: "ServiceRequest",
+    entityId: request.id,
+    metadata: { title: data.title, city: data.city, categoryId: data.categoryId },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
   return c.json({ data: serializeRequest(request) }, 201);
 });
 
@@ -458,6 +468,15 @@ requestRoutes.patch("/:id", requireAuth, async (c) => {
     });
   });
 
+  logAudit({
+    userId,
+    action: "request.updated",
+    entityType: "ServiceRequest",
+    entityId: requestId,
+    metadata: { title: data.title },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
   return c.json({ data: serializeRequest(request) });
 });
 
@@ -510,6 +529,15 @@ requestRoutes.patch("/:id/offers/:offerId", requireAuth, async (c) => {
       data: { status: OfferStatus.WITHDRAWN },
       include: { offerer: true },
     });
+    logAudit({
+      userId,
+      action: "offer.withdrawn",
+      entityType: "Offer",
+      entityId: offer.id,
+      metadata: { requestId },
+      ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+      userAgent: c.req.header("user-agent"),
+    });
     return c.json({ data: serializeOffer(withdrawn) });
   }
 
@@ -558,6 +586,16 @@ requestRoutes.patch("/:id/offers/:offerId", requireAuth, async (c) => {
     }
 
     return next;
+  });
+
+  logAudit({
+    userId,
+    action: parsed.status === OfferStatus.ACCEPTED ? "offer.accepted" : "offer.declined",
+    entityType: "Offer",
+    entityId: offer.id,
+    metadata: { requestId, offererId: offer.offererId },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
   });
 
   const responseLabel =
@@ -664,6 +702,15 @@ requestRoutes.patch("/:id/status", requireAuth, async (c) => {
     });
   });
 
+  logAudit({
+    userId: ownerId,
+    action: parsed.status === ServiceRequestStatus.COMPLETED ? "request.completed" : "request.cancelled",
+    entityType: "ServiceRequest",
+    entityId: requestId,
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
+  });
+
   const acceptedOffer = request.offers[0];
   if (acceptedOffer) {
     await prisma.notification.create({
@@ -732,6 +779,16 @@ requestRoutes.patch("/:id/progress", requireAuth, async (c) => {
       offers: { where: { status: OfferStatus.ACCEPTED }, include: { offerer: true } },
       _count: { select: { offers: true } },
     },
+  });
+
+  logAudit({
+    userId: providerId,
+    action: "request.progress_updated",
+    entityType: "ServiceRequest",
+    entityId: requestId,
+    metadata: { progressStatus: parsed.status },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
   });
 
   const progressBody = (() => {
@@ -812,6 +869,16 @@ requestRoutes.post("/:id/reviews", requireAuth, async (c) => {
       body: body ? body : undefined,
     },
     include: { author: true, request: true },
+  });
+
+  logAudit({
+    userId: authorId,
+    action: "review.created",
+    entityType: "Review",
+    entityId: review.id,
+    metadata: { requestId, subjectId, rating: parsed.rating },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
   });
 
   await refreshUserRating(subjectId);
@@ -930,6 +997,16 @@ requestRoutes.post("/:id/offers", requireAuth, async (c) => {
       message: parsed.message,
     },
     include: { offerer: true },
+  });
+
+  logAudit({
+    userId: offererId,
+    action: "offer.created",
+    entityType: "Offer",
+    entityId: offer.id,
+    metadata: { requestId: request.id, priceCents: offer.priceCents },
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
+    userAgent: c.req.header("user-agent"),
   });
 
   const offerer = await prisma.user.findUnique({ where: { id: offererId } });
