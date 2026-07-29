@@ -542,6 +542,14 @@ struct RequestCard: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, minHeight: 36, alignment: .topLeading)
 
+                if !request.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(request.description)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+
                 Label(request.categoryName, systemImage: request.categorySymbol)
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(request.accentTint)
@@ -561,6 +569,11 @@ struct RequestCard: View {
                     Label("\(request.offerCount)", systemImage: "tray.and.arrow.down")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel("\(request.offerCount) offers")
+                    Label("\(request.viewCount)", systemImage: "eye")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("\(request.viewCount) visitors")
                 }
             }
             .padding(.horizontal, 9)

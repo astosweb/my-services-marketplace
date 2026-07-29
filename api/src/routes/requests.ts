@@ -296,42 +296,31 @@ requestRoutes.post("/:id/views", viewRateLimit, async (c) => {
   });
   if (!existingRequest) throw notFound("Request not found");
 
-  const shouldIncrement = viewerUserId !== existingRequest.ownerId;
-  const request = shouldIncrement
-    ? await prisma.serviceRequest.update({
-        where: { id: requestId },
-        // Preserve updatedAt — view increments aren't content edits.
-        data: { viewCount: { increment: 1 }, updatedAt: existingRequest.updatedAt },
-        include: {
-          category: true,
-          owner: true,
-          photos: true,
-          offers: {
-            where: viewerUserId
-              ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
-              : { status: OfferStatus.ACCEPTED },
-            include: { offerer: true },
-            orderBy: { createdAt: "desc" },
-          },
-          _count: { select: { offers: true } },
-        },
-      })
-    : await prisma.serviceRequest.findUniqueOrThrow({
-        where: { id: requestId },
-        include: {
-          category: true,
-          owner: true,
-          photos: true,
-          offers: {
-            where: viewerUserId
-              ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
-              : { status: OfferStatus.ACCEPTED },
-            include: { offerer: true },
-            orderBy: { createdAt: "desc" },
-          },
-          _count: { select: { offers: true } },
-        },
-      });
+  // Avoid update+include: adapter-pg runs parallel relation queries on one tx client (pg deprecation).
+  if (viewerUserId !== existingRequest.ownerId) {
+    await prisma.serviceRequest.update({
+      where: { id: requestId },
+      // Preserve updatedAt — view increments aren't content edits.
+      data: { viewCount: { increment: 1 }, updatedAt: existingRequest.updatedAt },
+    });
+  }
+
+  const request = await prisma.serviceRequest.findUniqueOrThrow({
+    where: { id: requestId },
+    include: {
+      category: true,
+      owner: true,
+      photos: true,
+      offers: {
+        where: viewerUserId
+          ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
+          : { status: OfferStatus.ACCEPTED },
+        include: { offerer: true },
+        orderBy: { createdAt: "desc" },
+      },
+      _count: { select: { offers: true } },
+    },
+  });
 
   return c.json({ data: serializeRequest(request, viewerUserId) });
 });
