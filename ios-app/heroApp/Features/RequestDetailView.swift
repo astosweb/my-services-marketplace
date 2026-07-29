@@ -31,6 +31,25 @@ struct RequestDetailView: View {
     @State private var pendingWithdrawOffer: Offer?
     @State private var isEditPresented = false
     @State private var fullscreenPhoto: RequestPhoto?
+    @State private var selectedTab: DetailTab = .details
+
+    private enum DetailTab: String, CaseIterable, Identifiable {
+        case details
+        case activity
+        case location
+        case offers
+
+        var id: Self { self }
+
+        var label: String {
+            switch self {
+            case .details: "Details"
+            case .activity: "Activity"
+            case .location: "Location"
+            case .offers: "Offers"
+            }
+        }
+    }
 
     init(request: ServiceRequest) {
         _request = State(initialValue: request)
@@ -105,6 +124,19 @@ struct RequestDetailView: View {
         auth.user != nil && !isOwner && !canOpenConversation
     }
 
+    private var showJobActions: Bool {
+        canOpenConversation || nextProviderProgress != nil || canOwnerComplete || canOwnerCancel
+    }
+
+    private var availableTabs: [DetailTab] {
+        DetailTab.allCases.filter { tab in
+            switch tab {
+            case .details, .activity, .offers: true
+            case .location: request.isMappable
+            }
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -112,35 +144,22 @@ struct RequestDetailView: View {
                     gallery
                 }
                 overviewCard
+
+                Picker("Section", selection: $selectedTab) {
+                    ForEach(availableTabs) { tab in
+                        Text(tab.label).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+
                 if let successMessage {
                     Label(successMessage, systemImage: "checkmark.circle.fill")
                         .font(.footnote)
                         .foregroundStyle(.green)
                 }
-                requesterCard
-                if canMessageOwner {
-                    messageOwnerCard
-                }
-                if request.isMappable {
-                    locationCard
-                }
-                if let accepted = request.acceptedOffer {
-                    acceptedOfferCard(accepted)
-                }
-                if canOpenConversation || nextProviderProgress != nil || canOwnerComplete || canOwnerCancel {
-                    jobActionsCard
-                }
-                if canLeaveReview {
-                    reviewCard
-                }
-                if isOwner {
-                    ownerOffersSection
-                } else if let viewerOffer = request.viewerOffer {
-                    viewerOfferCard(viewerOffer)
-                }
-                if canSendOffer {
-                    sendOfferCard
-                }
+
+                tabContent
+
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.footnote)
@@ -161,6 +180,11 @@ struct RequestDetailView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Edit") { isEditPresented = true }
                 }
+            }
+        }
+        .onChange(of: request.isMappable) {
+            if !availableTabs.contains(selectedTab) {
+                selectedTab = .details
             }
         }
         .sheet(isPresented: $isEditPresented) {
@@ -355,39 +379,101 @@ struct RequestDetailView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-
-            Divider().opacity(0.35)
-
-            engagementSection
-
-            Divider().opacity(0.35)
-
-            activitySection
         }
         .detailCard()
     }
 
-    private var engagementSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Engagement")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .details:
+            detailsTab
+        case .activity:
+            activityTab
+        case .location:
+            locationCard
+        case .offers:
+            offersTab
+        }
+    }
 
-            HStack(alignment: .top, spacing: 12) {
-                engagementStat(
-                    title: "Offers",
-                    value: "\(isOwner ? ownerOffers.count : request.offerCount)",
-                    symbol: "tray.and.arrow.down"
-                )
+    @ViewBuilder
+    private var detailsTab: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            engagementCard
+            if canMessageOwner {
+                messageOwnerCard
+            }
+            if let accepted = request.acceptedOffer {
+                acceptedOfferCard(accepted)
+            }
+            if showJobActions {
+                jobActionsCard
+            }
+            if canLeaveReview {
+                reviewCard
+            }
+        }
+    }
 
-                Spacer(minLength: 8)
+    private var engagementCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            engagementStat(
+                title: "Offers",
+                value: "\(isOwner ? ownerOffers.count : request.offerCount)",
+                symbol: "tray.and.arrow.down"
+            )
 
-                engagementStat(
-                    title: "Visitors",
-                    value: "\(request.viewCount)",
-                    symbol: "eye"
-                )
+            Spacer(minLength: 8)
+
+            engagementStat(
+                title: "Visitors",
+                value: "\(request.viewCount)",
+                symbol: "eye"
+            )
+        }
+        .detailCard()
+    }
+
+    private var activityTab: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            metaRow(
+                title: "Created",
+                value: request.createdAt.formatted(date: .abbreviated, time: .shortened),
+                detail: request.createdAt.formatted(.relative(presentation: .named)),
+                symbol: "plus.circle"
+            )
+            metaRow(
+                title: "Updated",
+                value: request.updatedAt.formatted(date: .abbreviated, time: .shortened),
+                detail: request.updatedAt.formatted(.relative(presentation: .named)),
+                symbol: "arrow.triangle.2.circlepath"
+            )
+
+            Divider().opacity(0.35)
+
+            requesterRow
+        }
+        .detailCard()
+    }
+
+    @ViewBuilder
+    private var offersTab: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if isOwner {
+                ownerOffersSection
+            } else if let viewerOffer = request.viewerOffer {
+                viewerOfferCard(viewerOffer)
+            }
+            if canSendOffer {
+                sendOfferCard
+            }
+            if !isOwner, request.viewerOffer == nil, !canSendOffer {
+                Text("No offer yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .detailCard()
             }
         }
     }
@@ -410,28 +496,6 @@ struct RequestDetailView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) \(value)")
-    }
-
-    private var activitySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Activity")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-
-            metaRow(
-                title: "Created",
-                value: request.createdAt.formatted(date: .abbreviated, time: .shortened),
-                detail: request.createdAt.formatted(.relative(presentation: .named)),
-                symbol: "plus.circle"
-            )
-            metaRow(
-                title: "Updated",
-                value: request.updatedAt.formatted(date: .abbreviated, time: .shortened),
-                detail: request.updatedAt.formatted(.relative(presentation: .named)),
-                symbol: "arrow.triangle.2.circlepath"
-            )
-        }
     }
 
     private func metaRow(
@@ -470,7 +534,7 @@ struct RequestDetailView: View {
 
     // MARK: - Requester
 
-    private var requesterCard: some View {
+    private var requesterRow: some View {
         HStack(spacing: 10) {
             AsyncImage(url: request.requester.avatarUrl) { image in
                 image
@@ -504,7 +568,6 @@ struct RequestDetailView: View {
             }
             Spacer(minLength: 0)
         }
-        .detailCard()
         .accessibilityElement(children: .combine)
     }
 
