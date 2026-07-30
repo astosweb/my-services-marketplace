@@ -391,11 +391,13 @@ struct RequestDetailView: View {
                 if let progress = progressLabel {
                     badge(progress, tint: .blue)
                 }
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
                 Label(request.categoryName, systemImage: request.categorySymbol)
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(request.accentTint)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .layoutPriority(-1)
             }
 
             Text(request.title)
@@ -473,17 +475,19 @@ struct RequestDetailView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: symbol)
-                .font(.body.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(emphasized ? request.accentTint : .secondary)
-                .frame(width: 20)
+                .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(value)
-                    .font(.subheadline.weight(emphasized ? .semibold : .medium))
+                    .font(.caption.weight(emphasized ? .semibold : .medium))
                     .foregroundStyle(emphasized ? request.accentTint : .primary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -1136,6 +1140,7 @@ struct RequestDetailView: View {
             .sensoryFeedback(.selection, trigger: reviewRating)
 
             TextField("Share a short comment (optional)", text: $reviewBody, axis: .vertical)
+                .font(.subheadline)
                 .lineLimit(2...4)
                 .padding(12)
                 .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
@@ -1324,17 +1329,18 @@ struct RequestDetailView: View {
             } else {
                 HStack(spacing: 8) {
                     Text("€")
-                        .font(.title3.bold())
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(.secondary)
                     TextField("Your price", text: $offerPriceEuros)
                         .keyboardType(.decimalPad)
-                        .font(.title3.bold())
+                        .font(.body.weight(.semibold))
                 }
                 .padding(12)
                 .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
             }
 
             TextField("Add a short message (optional)", text: $offerMessage, axis: .vertical)
+                .font(.subheadline)
                 .lineLimit(2...4)
                 .padding(12)
                 .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
@@ -1426,10 +1432,10 @@ struct RequestDetailView: View {
 
             if let priceCents = offer.priceCents {
                 Text(priceText(priceCents))
-                    .font(.title2.bold())
+                    .font(.title3.bold())
             } else {
                 Text("Interest registered")
-                    .font(.title3.bold())
+                    .font(.headline)
             }
 
             if let message = offer.message, !message.isEmpty {
@@ -1692,13 +1698,15 @@ struct RequestDetailView: View {
                 Image(systemName: symbol)
             }
             Text(title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
-        .font(.caption2.weight(.bold))
-        .textCase(.uppercase)
+        .font(.caption2.weight(.semibold))
         .foregroundStyle(tint)
-        .padding(.horizontal, 7)
+        .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(tint.opacity(0.14), in: .capsule)
+        .layoutPriority(1)
     }
 
     private func offerStatusTint(_ status: OfferStatus) -> Color {
@@ -1715,7 +1723,7 @@ struct RequestDetailView: View {
         case .accepted: "Accepted"
         case .onTheWay: "On the way"
         case .started: "Started"
-        case .providerDone: "Awaiting confirmation"
+        case .providerDone: "Ready"
         case .ownerConfirmed: "Confirmed"
         }
     }
@@ -1731,7 +1739,7 @@ struct RequestDetailView: View {
 
     private var pricingLabel: String {
         switch request.pricingMode {
-        case .providerOffers: "Providers send offers"
+        case .providerOffers: "Open offers"
         case .ownerFixedPrice: "Fixed price"
         }
     }
