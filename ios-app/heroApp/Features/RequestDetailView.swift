@@ -591,28 +591,23 @@ struct RequestDetailView: View {
     // MARK: - Tabs
 
     private var tabPicker: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(availableTabs) { tab in
                 Button {
                     withAnimation(.snappy(duration: 0.2)) {
                         selectedTab = tab
                     }
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 3) {
                         Image(systemName: tab.symbol)
+                            .imageScale(.small)
                         Text(tab.label)
-                        if tab == .offers, let badge = offersTabBadge {
-                            Text("\(badge)")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(Color.accentColor, in: .capsule)
-                        }
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 6)
                     .padding(.vertical, 9)
                     .frame(maxWidth: .infinity)
                     .background(
@@ -629,6 +624,17 @@ struct RequestDetailView: View {
                                     : Color.clear
                             )
                     )
+                    .overlay(alignment: .topTrailing) {
+                        if tab == .offers, let badge = offersTabBadge {
+                            Text("\(badge)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Color.accentColor, in: .capsule)
+                                .offset(x: 2, y: -5)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
