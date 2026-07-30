@@ -518,13 +518,14 @@ struct RequestCard: View {
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                if !request.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(request.description)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
+                Text(request.description)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2, reservesSpace: true)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                Spacer(minLength: 0)
 
                 HStack(spacing: 4) {
                     Text(request.budget ?? "Open")
@@ -545,7 +546,9 @@ struct RequestCard: View {
             .padding(.horizontal, 9)
             .padding(.top, 8)
             .padding(.bottom, 9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(.rect(cornerRadius: 14))
         .overlay(
@@ -686,12 +689,17 @@ private struct SkeletonRequestCard: View {
                 RoundedRectangle(cornerRadius: 4)
                     .frame(height: 11)
                 RoundedRectangle(cornerRadius: 4)
-                    .frame(width: 72, height: 9)
+                    .frame(height: 9)
+                RoundedRectangle(cornerRadius: 4)
+                    .frame(width: 120, height: 9)
+                Spacer(minLength: 0)
                 RoundedRectangle(cornerRadius: 4)
                     .frame(width: 56, height: 9)
             }
             .padding(9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .foregroundStyle(.quaternary)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 14))
         .opacity(isPulsing ? 0.55 : 1)

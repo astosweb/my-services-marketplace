@@ -176,10 +176,15 @@ struct ConversationDetailView: View {
     @State private var errorMessage: String?
     @State private var feedbackTrigger = 0
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var fullscreenImage: ChatImagePreview?
     let conversation: Conversation
 
     var body: some View {
         VStack(spacing: 0) {
+            chatParticipantHeader
+
+            Divider()
+
             if isLoading && messages.isEmpty {
                 Spacer()
                 ProgressView("Loading messages")
@@ -193,20 +198,36 @@ struct ConversationDetailView: View {
                     Button("Retry") { Task { await load() } }
                         .buttonStyle(.borderedProminent)
                 }
+            } else if messages.isEmpty {
+                ContentUnavailableView(
+                    "No Messages Yet",
+                    systemImage: "bubble.left",
+                    description: Text("Say hello to \(conversation.participant.profileName).")
+                )
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 10) {
-                            ForEach(messages) { message in
-                                messageBubble(message)
-                                    .id(message.id)
+                        LazyVStack(spacing: 2) {
+                            ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                                messageBubble(
+                                    message,
+                                    showSenderName: shouldShowSenderName(at: index),
+                                    isGroupedWithNext: isGroupedWithNext(at: index)
+                                )
+                                .id(message.id)
+                                .padding(.top, shouldShowSenderName(at: index) && index > 0 ? 10 : 0)
                             }
                         }
-                        .padding()
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
                     }
+                    .defaultScrollAnchor(.bottom)
+                    .scrollDismissesKeyboard(.interactively)
                     .onChange(of: messages.count) {
                         if let id = messages.last?.id {
-                            withAnimation { proxy.scrollTo(id, anchor: .bottom) }
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo(id, anchor: .bottom)
+                            }
                         }
                     }
                 }
@@ -217,69 +238,179 @@ struct ConversationDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
                     .padding(.horizontal)
+                    .padding(.top, 4)
                     .accessibilityAddTraits(.isStaticText)
             }
 
-            HStack(alignment: .bottom, spacing: 10) {
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    Image(systemName: "photo")
-                        .font(.title3)
-                }
-                .disabled(isSending)
-                .accessibilityLabel("Attach photo")
-                .onChange(of: selectedPhoto) {
-                    Task { await sendAttachment() }
-                }
-
-                TextField("Message", text: $draft, axis: .vertical)
-                    .lineLimit(1...5)
-                    .textFieldStyle(.roundedBorder)
-                Button {
-                    Task { await send() }
-                } label: {
-                    if isSending {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.title)
-                    }
-                }
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
-                .accessibilityLabel("Send message")
-            }
-            .padding()
-            .background(.bar)
+            messageComposer
         }
-        .navigationTitle(conversation.participant.profileName)
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle(conversation.requestTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $fullscreenImage) { item in
+            ChatFullscreenImageViewer(url: item.url)
+        }
         .task { await load() }
         .sensoryFeedback(.success, trigger: feedbackTrigger)
     }
 
-    private func messageBubble(_ message: Message) -> some View {
+    private var chatParticipantHeader: some View {
+        HStack(spacing: 12) {
+            avatar(for: conversation.participant, size: 40)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(conversation.participant.profileName)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(conversation.requestTitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.bar)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Chat with \(conversation.participant.profileName), \(conversation.requestTitle)")
+    }
+
+    private var messageComposer: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                Image(systemName: "photo")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 36, height: 36)
+            }
+            .disabled(isSending)
+            .accessibilityLabel("Attach photo")
+            .onChange(of: selectedPhoto) {
+                Task { await sendAttachment() }
+            }
+
+            TextField("Message", text: $draft, axis: .vertical)
+                .lineLimit(1...10)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 22))
+                .accessibilityLabel("Message")
+
+            Button {
+                Task { await send() }
+            } label: {
+                if isSending {
+                    ProgressView()
+                        .frame(width: 36, height: 36)
+                } else {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 34))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(
+                            draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? Color.secondary
+                                : Color.accentColor
+                        )
+                }
+            }
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
+            .accessibilityLabel("Send message")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.bar)
+    }
+
+    private func shouldShowSenderName(at index: Int) -> Bool {
+        guard messages.indices.contains(index) else { return false }
+        let message = messages[index]
         let isMine = message.sender.id == auth.user?.id
-        return HStack {
-            if isMine { Spacer(minLength: 50) }
-            VStack(alignment: isMine ? .trailing : .leading, spacing: 6) {
-                if let attachment = message.attachment {
-                    if attachment.mimeType.hasPrefix("image/") {
-                        AsyncImage(url: attachment.url) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                        } placeholder: {
-                            ProgressView()
+        if isMine { return false }
+        if index == 0 { return true }
+        return messages[index - 1].sender.id != message.sender.id
+    }
+
+    private func isGroupedWithNext(at index: Int) -> Bool {
+        guard messages.indices.contains(index),
+              messages.indices.contains(index + 1)
+        else { return false }
+        return messages[index].sender.id == messages[index + 1].sender.id
+    }
+
+    private func messageBubble(
+        _ message: Message,
+        showSenderName: Bool,
+        isGroupedWithNext: Bool
+    ) -> some View {
+        let isMine = message.sender.id == auth.user?.id
+        let bubbleShape = UnevenRoundedRectangle(
+            topLeadingRadius: 18,
+            bottomLeadingRadius: isMine || isGroupedWithNext ? 18 : 6,
+            bottomTrailingRadius: !isMine || isGroupedWithNext ? 18 : 6,
+            topTrailingRadius: 18,
+            style: .continuous
+        )
+
+        return HStack(alignment: .bottom, spacing: 8) {
+            if isMine {
+                Spacer(minLength: 56)
+            } else {
+                if isGroupedWithNext {
+                    Color.clear.frame(width: 28, height: 28)
+                } else {
+                    avatar(for: message.sender, size: 28)
+                }
+            }
+
+            VStack(alignment: isMine ? .trailing : .leading, spacing: 4) {
+                if showSenderName {
+                    Text(message.sender.profileName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+                }
+
+                VStack(alignment: isMine ? .trailing : .leading, spacing: 6) {
+                    if let attachment = message.attachment {
+                        if attachment.mimeType.hasPrefix("image/") {
+                            Button {
+                                fullscreenImage = ChatImagePreview(url: attachment.url)
+                            } label: {
+                                AsyncImage(url: attachment.url) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                } placeholder: {
+                                    ProgressView()
+                                        .frame(width: 160, height: 120)
+                                }
+                                .frame(maxWidth: 240, maxHeight: 240)
+                                .clipShape(.rect(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Photo")
+                            .accessibilityHint("Shows full image")
+                        } else {
+                            Label(attachment.name, systemImage: "paperclip")
+                                .font(.caption)
                         }
-                        .frame(maxWidth: 220, maxHeight: 220)
-                        .clipShape(.rect(cornerRadius: 12))
-                    } else {
-                        Label(attachment.name, systemImage: "paperclip")
-                            .font(.caption)
+                    }
+                    if !message.body.isEmpty {
+                        Text(message.body)
+                            .font(.body)
+                            .foregroundStyle(isMine ? Color.white : Color.primary)
+                            .multilineTextAlignment(.leading)
                     }
                 }
-                if !message.body.isEmpty {
-                    Text(message.body)
-                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    isMine ? Color.accentColor : Color(.secondarySystemFill),
+                    in: bubbleShape
+                )
+
                 HStack(spacing: 4) {
                     Text(message.createdAt, style: .time)
                     if isMine {
@@ -287,16 +418,13 @@ struct ConversationDetailView: View {
                     }
                 }
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(
-                isMine ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.12),
-                in: .rect(cornerRadius: 16)
-            )
-            if !isMine { Spacer(minLength: 50) }
+
+            if !isMine { Spacer(minLength: 56) }
         }
+        .padding(.bottom, isGroupedWithNext ? 2 : 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(isMine ? "You" : message.sender.profileName): \(message.body)")
     }
@@ -833,38 +961,118 @@ struct UserProfileView: View {
     }
 }
 
+private struct ChatImagePreview: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
+}
+
+private struct ChatFullscreenImageViewer: View {
+    @Environment(\.dismiss) private var dismiss
+    let url: URL
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .scaleEffect(scale)
+                        .gesture(
+                            MagnifyGesture()
+                                .onChanged { value in
+                                    scale = max(1, min(lastScale * value.magnification, 4))
+                                }
+                                .onEnded { _ in
+                                    lastScale = scale
+                                    if scale < 1.05 {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            scale = 1
+                                            lastScale = 1
+                                        }
+                                    }
+                                }
+                        )
+                        .onTapGesture(count: 2) {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                if scale > 1 {
+                                    scale = 1
+                                    lastScale = 1
+                                } else {
+                                    scale = 2.5
+                                    lastScale = 2.5
+                                }
+                            }
+                        }
+                case .failure:
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .accessibilityLabel("Couldn’t load image")
+                default:
+                    ProgressView()
+                        .tint(.white)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.white)
+                    .padding(16)
+            }
+            .accessibilityLabel("Close")
+        }
+        .statusBarHidden()
+    }
+}
+
 @ViewBuilder
-private func avatar(for user: OfferUser) -> some View {
+private func avatar(for user: OfferUser, size: CGFloat = 44) -> some View {
     if let url = user.avatarUrl {
         AsyncImage(url: url) { image in
             image.resizable().scaledToFill()
         } placeholder: {
             Image(systemName: "person.fill")
+                .font(.system(size: size * 0.4))
         }
-        .frame(width: 44, height: 44)
+        .frame(width: size, height: size)
         .clipShape(.circle)
     } else {
         Image(systemName: "person.fill")
+            .font(.system(size: size * 0.4))
             .foregroundStyle(.secondary)
-            .frame(width: 44, height: 44)
+            .frame(width: size, height: size)
             .background(.thinMaterial, in: .circle)
     }
 }
 
 @ViewBuilder
-private func avatar(for user: User) -> some View {
+private func avatar(for user: User, size: CGFloat = 44) -> some View {
     if let url = user.avatarUrl {
         AsyncImage(url: url) { image in
             image.resizable().scaledToFill()
         } placeholder: {
             Image(systemName: "person.fill")
+                .font(.system(size: size * 0.4))
         }
-        .frame(width: 44, height: 44)
+        .frame(width: size, height: size)
         .clipShape(.circle)
     } else {
         Image(systemName: "person.fill")
+            .font(.system(size: size * 0.4))
             .foregroundStyle(.secondary)
-            .frame(width: 44, height: 44)
+            .frame(width: size, height: size)
             .background(.thinMaterial, in: .circle)
     }
 }
