@@ -168,9 +168,6 @@ struct RequestDetailView: View {
                     progressTrackerCard
                 }
 
-                if let successMessage {
-                    feedbackBanner(successMessage, symbol: "checkmark.circle.fill", tint: .green)
-                }
                 if let errorMessage {
                     feedbackBanner(errorMessage, symbol: "exclamationmark.triangle.fill", tint: .red)
                 }
@@ -286,6 +283,19 @@ struct RequestDetailView: View {
             }
             Button("Keep offer", role: .cancel) {
                 pendingWithdrawOffer = nil
+            }
+        }
+        .alert(
+            "Success",
+            isPresented: Binding(
+                get: { successMessage != nil },
+                set: { if !$0 { successMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { successMessage = nil }
+        } message: {
+            if let successMessage {
+                Text(successMessage)
             }
         }
         .sensoryFeedback(.success, trigger: successMessage)
