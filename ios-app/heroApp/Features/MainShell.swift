@@ -234,29 +234,12 @@ private struct MyRequestsView: View {
 
 private struct NotificationsToolbarModifier: ViewModifier {
     @Environment(AuthSession.self) private var auth
-    var showsMessages = true
     @State private var isNotificationsPresented = false
-    @State private var isMessagesPresented = false
 
     func body(content: Content) -> some View {
         content
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if showsMessages {
-                        Button {
-                            isMessagesPresented = true
-                        } label: {
-                            Image(systemName: auth.messageUnreadCount > 0
-                                ? "bubble.left.and.bubble.right.fill"
-                                : "bubble.left.and.bubble.right")
-                        }
-                        .badge(auth.messageUnreadCount)
-                        .accessibilityLabel(
-                            auth.messageUnreadCount > 0
-                                ? "Messages, \(auth.messageUnreadCount) unread"
-                                : "Messages"
-                        )
-                    }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isNotificationsPresented = true
                     } label: {
@@ -268,18 +251,6 @@ private struct NotificationsToolbarModifier: ViewModifier {
                             ? "Notifications, \(auth.notificationUnreadCount) unread"
                             : "Notifications"
                     )
-                }
-            }
-            .sheet(isPresented: $isMessagesPresented, onDismiss: {
-                Task { await auth.refreshInboxBadges() }
-            }) {
-                NavigationStack {
-                    ConversationsView()
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Done") { isMessagesPresented = false }
-                            }
-                        }
                 }
             }
             .sheet(isPresented: $isNotificationsPresented, onDismiss: {
@@ -294,8 +265,8 @@ private struct NotificationsToolbarModifier: ViewModifier {
 }
 
 extension View {
-    func notificationsToolbar(showsMessages: Bool = true) -> some View {
-        modifier(NotificationsToolbarModifier(showsMessages: showsMessages))
+    func notificationsToolbar() -> some View {
+        modifier(NotificationsToolbarModifier())
     }
 }
 

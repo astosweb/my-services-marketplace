@@ -80,7 +80,7 @@ struct ConversationsView: View {
             }
         }
         .navigationTitle("Messages")
-        .notificationsToolbar(showsMessages: false)
+        .notificationsToolbar()
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(showArchived ? "Inbox" : "Archived") {
