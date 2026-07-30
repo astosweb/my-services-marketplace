@@ -414,7 +414,7 @@ struct ConversationDetailView: View {
                 HStack(spacing: 4) {
                     Text(message.createdAt, style: .time)
                     if isMine {
-                        Text(message.status == .read ? "Read" : "Sent")
+                        messageStatusTicks(message.status)
                     }
                 }
                 .font(.caption2)
@@ -426,7 +426,53 @@ struct ConversationDetailView: View {
         }
         .padding(.bottom, isGroupedWithNext ? 2 : 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(isMine ? "You" : message.sender.profileName): \(message.body)")
+        .accessibilityLabel(messageAccessibilityLabel(message, isMine: isMine))
+    }
+
+    @ViewBuilder
+    private func messageStatusTicks(_ status: MessageStatus) -> some View {
+        let tickColor: Color = status == .read
+            ? Color(red: 0.33, green: 0.73, blue: 0.95)
+            : Color.secondary.opacity(0.75)
+
+        Group {
+            switch status {
+            case .sending:
+                Image(systemName: "clock")
+            case .sent:
+                Image(systemName: "checkmark")
+            case .delivered, .read:
+                ZStack(alignment: .leading) {
+                    Image(systemName: "checkmark")
+                    Image(systemName: "checkmark")
+                        .offset(x: 4)
+                }
+                .frame(width: 12, alignment: .leading)
+            }
+        }
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(tickColor)
+        .accessibilityLabel(messageStatusAccessibilityLabel(status))
+    }
+
+    private func messageStatusAccessibilityLabel(_ status: MessageStatus) -> String {
+        switch status {
+        case .sending: "Sending"
+        case .sent: "Sent"
+        case .delivered: "Delivered"
+        case .read: "Read"
+        }
+    }
+
+    private func messageAccessibilityLabel(_ message: Message, isMine: Bool) -> String {
+        let sender = isMine ? "You" : message.sender.profileName
+        let body = message.body.isEmpty
+            ? (message.attachment?.mimeType.hasPrefix("image/") == true ? "Photo" : "Attachment")
+            : message.body
+        if isMine {
+            return "\(sender): \(body), \(messageStatusAccessibilityLabel(message.status))"
+        }
+        return "\(sender): \(body)"
     }
 
     private func load() async {
