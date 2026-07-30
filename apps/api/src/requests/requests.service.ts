@@ -10,6 +10,7 @@ import { ensureCategoryCatalog } from "../lib/category-catalog.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKeys } from "../lib/owned-keys.js";
 import {
+  profileName,
   serializeMessage,
   serializeOffer,
   serializeRequest,
@@ -39,13 +40,14 @@ const providerProgressOrder = [
 export class RequestsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async ensureConversation(requestId: string, ownerId: string, participantId: string) {
+  private async ensureConversation(requestId: string, userA: string, userB: string) {
+    if (userA === userB) throw badRequest("Cannot message yourself");
     const existing = await this.prisma.conversation.findFirst({
       where: {
         requestId,
         AND: [
-          { participants: { some: { userId: ownerId } } },
-          { participants: { some: { userId: participantId } } },
+          { participants: { some: { userId: userA } } },
+          { participants: { some: { userId: userB } } },
         ],
       },
     });
@@ -53,47 +55,33 @@ export class RequestsService {
     return this.prisma.conversation.create({
       data: {
         requestId,
-        participants: { create: [{ userId: ownerId }, { userId: participantId }] },
+        participants: { create: [{ userId: userA }, { userId: userB }] },
       },
     });
   }
 
-  private async assertCanOpenRequestChat(requestId: string, userId: string) {
+  private async assertCanOpenRequestChat(
+    requestId: string,
+    userId: string,
+    peerUserId?: string,
+  ) {
     const request = await this.prisma.serviceRequest.findUnique({
       where: { id: requestId },
-      select: {
-        id: true,
-        title: true,
-        ownerId: true,
-        offers: {
-          where: {
-            OR: [
-              { status: OfferStatus.ACCEPTED },
-              {
-                offererId: userId,
-                status: { in: [OfferStatus.PENDING, OfferStatus.ACCEPTED] },
-              },
-            ],
-          },
-          select: { offererId: true, status: true },
-        },
-      },
+      select: { id: true, title: true, ownerId: true },
     });
     if (!request) throw notFound("Request not found");
-    if (request.ownerId === userId) {
-      const accepted = request.offers.find((offer) => offer.status === OfferStatus.ACCEPTED);
-      if (!accepted) throw badRequest("No accepted provider to chat with");
-      return { request, peerUserId: accepted.offererId };
-    }
-    const ownOffer = request.offers.find(
-      (offer) =>
-        offer.offererId === userId &&
-        (offer.status === OfferStatus.PENDING || offer.status === OfferStatus.ACCEPTED),
-    );
-    if (!ownOffer) {
-      throw forbidden("Only users with a pending or accepted offer can message the request owner");
-    }
-    return { request, peerUserId: request.ownerId };
+
+    const peer = peerUserId ?? (request.ownerId === userId ? undefined : request.ownerId);
+    if (!peer) throw badRequest("peerUserId is required");
+    if (peer === userId) throw badRequest("Cannot message yourself");
+
+    const peerUser = await this.prisma.user.findUnique({
+      where: { id: peer },
+      select: { id: true },
+    });
+    if (!peerUser) throw notFound("User not found");
+
+    return { request, peerUserId: peer };
   }
 
   private findUserConversation(requestId: string, userId: string, peerUserId?: string) {
@@ -576,7 +564,7 @@ export class RequestsService {
         _count: { select: { offers: true } },
       },
     });
-    const providerName = acceptedOffer.offerer.displayName;
+    const providerName = profileName(acceptedOffer.offerer);
     const progressBody =
       data.status === JobProgressStatus.ON_THE_WAY
         ? `${providerName} is on the way.`
@@ -643,7 +631,7 @@ export class RequestsService {
         userId: subjectId,
         kind: NotificationKind.REVIEW,
         title: "New review",
-        body: `${review.author.displayName} left you a ${data.rating}-star review.`,
+        body: `${profileName(review.author)} left you a ${data.rating}-star review.`,
         contextTag: request.title,
         payload: { requestId, reviewId: review.id },
       },
@@ -651,21 +639,25 @@ export class RequestsService {
     return serializeReview(review);
   }
 
-  async conversation(requestId: string, userId: string) {
-    const request = await this.prisma.serviceRequest.findUnique({
-      where: { id: requestId },
-      select: {
-        ownerId: true,
-        offers: {
-          where: { status: OfferStatus.ACCEPTED },
-          select: { offererId: true },
-          take: 1,
+  async conversation(requestId: string, userId: string, peerUserId?: string) {
+    let resolvedPeer = peerUserId;
+    if (!resolvedPeer) {
+      const request = await this.prisma.serviceRequest.findUnique({
+        where: { id: requestId },
+        select: {
+          ownerId: true,
+          offers: {
+            where: { status: OfferStatus.ACCEPTED },
+            select: { offererId: true },
+            take: 1,
+          },
         },
-      },
-    });
-    if (!request) throw notFound("Request not found");
-    const peerUserId = request.ownerId === userId ? request.offers[0]?.offererId : request.ownerId;
-    const conversation = await this.findUserConversation(requestId, userId, peerUserId);
+      });
+      if (!request) throw notFound("Request not found");
+      resolvedPeer =
+        request.ownerId === userId ? request.offers[0]?.offererId : request.ownerId;
+    }
+    const conversation = await this.findUserConversation(requestId, userId, resolvedPeer);
     if (!conversation) return { id: null, messages: [] };
     return {
       id: conversation.id,
@@ -675,14 +667,14 @@ export class RequestsService {
     };
   }
 
-  async openConversation(requestId: string, userId: string) {
-    const { request, peerUserId } = await this.assertCanOpenRequestChat(requestId, userId);
-    await this.ensureConversation(
-      request.id,
-      request.ownerId,
-      request.ownerId === userId ? peerUserId : userId,
+  async openConversation(requestId: string, userId: string, peerUserId?: string) {
+    const { request, peerUserId: peer } = await this.assertCanOpenRequestChat(
+      requestId,
+      userId,
+      peerUserId,
     );
-    const conversation = await this.findUserConversation(request.id, userId, peerUserId);
+    await this.ensureConversation(request.id, userId, peer);
+    const conversation = await this.findUserConversation(request.id, userId, peer);
     if (!conversation) throw notFound("Conversation not found");
     return {
       id: conversation.id,
@@ -729,8 +721,8 @@ export class RequestsService {
         kind: NotificationKind.NEW_OFFER,
         title: isFixedPrice ? "New interest on your request" : "New offer on your request",
         body: isFixedPrice
-          ? `${offer.offerer.displayName} is interested.`
-          : `${offer.offerer.displayName} offered €${(data.priceCents! / 100).toFixed(0)}.`,
+          ? `${profileName(offer.offerer)} is interested.`
+          : `${profileName(offer.offerer)} offered €${(data.priceCents! / 100).toFixed(0)}.`,
         contextTag: request.title,
         payload: { requestId, offerId: offer.id },
       },
@@ -740,10 +732,7 @@ export class RequestsService {
 
   async sendMessage(requestId: string, senderId: string, data: SendRequestMessageDto) {
     const { request, peerUserId } = await this.assertCanOpenRequestChat(requestId, senderId);
-    if (request.ownerId === senderId) {
-      throw badRequest("Owners should message via the accepted-provider conversation");
-    }
-    const conversation = await this.ensureConversation(request.id, request.ownerId, senderId);
+    const conversation = await this.ensureConversation(request.id, senderId, peerUserId);
     const message = await this.prisma.$transaction(async (transaction) => {
       const created = await transaction.message.create({
         data: { conversationId: conversation.id, senderId, body: data.body },
@@ -759,7 +748,7 @@ export class RequestsService {
       data: {
         userId: peerUserId,
         kind: NotificationKind.NEW_MESSAGE,
-        title: `${message.sender.displayName} sent you a message`,
+        title: `${profileName(message.sender)} sent you a message`,
         body: data.body.length > 120 ? `${data.body.slice(0, 117)}...` : data.body,
         contextTag: request.title,
         payload: {

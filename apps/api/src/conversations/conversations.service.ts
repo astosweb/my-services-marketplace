@@ -4,6 +4,7 @@ import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKey } from "../lib/owned-keys.js";
 import {
   messagePreviewText,
+  profileName,
   serializeConversationInbox,
   serializeMessage,
 } from "../lib/serializers.js";
@@ -171,7 +172,7 @@ export class ConversationsService {
         data: {
           userId: recipientId,
           kind: NotificationKind.NEW_MESSAGE,
-          title: `${message.sender.displayName} sent you a message`,
+          title: `${profileName(message.sender)} sent you a message`,
           body: preview,
           contextTag: conversation.request.title,
           payload: {

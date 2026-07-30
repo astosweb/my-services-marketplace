@@ -20,6 +20,8 @@ import {
   CreateRequestDto,
   CreateReviewDto,
   MineRequestQueryDto,
+  OpenConversationDto,
+  RequestConversationQueryDto,
   RequestListQueryDto,
   SendRequestMessageDto,
   UpdateOfferStatusDto,
@@ -161,8 +163,12 @@ export class RequestsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Get the user's conversation for a request" })
-  async conversation(@Param("id") id: string, @CurrentUserId() userId: string) {
-    return { data: await this.requestsService.conversation(id, userId) };
+  async conversation(
+    @Param("id") id: string,
+    @CurrentUserId() userId: string,
+    @Query() query: RequestConversationQueryDto,
+  ) {
+    return { data: await this.requestsService.conversation(id, userId, query.peerUserId) };
   }
 
   @Post(":id/conversation")
@@ -170,8 +176,19 @@ export class RequestsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Open an authorized request conversation" })
-  async openConversation(@Param("id") id: string, @CurrentUserId() userId: string) {
-    return { data: await this.requestsService.openConversation(id, userId) };
+  async openConversation(
+    @Param("id") id: string,
+    @CurrentUserId() userId: string,
+    @Query() query: RequestConversationQueryDto,
+    @Body() data?: OpenConversationDto,
+  ) {
+    return {
+      data: await this.requestsService.openConversation(
+        id,
+        userId,
+        data?.peerUserId ?? query.peerUserId,
+      ),
+    };
   }
 
   @Post(":id/messages")

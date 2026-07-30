@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, MaxLength } from "class-validator";
+import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, Length, MaxLength } from "class-validator";
 
 export class RegisterDto {
   @ApiProperty({ example: "user@example.com" })
@@ -58,6 +58,17 @@ class ProfileFieldsDto {
   @IsString()
   @Length(1, 100)
   displayName!: string;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  businessName!: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  preferBusinessName!: boolean;
 
   @ApiPropertyOptional({ nullable: true, maxLength: 1000 })
   @IsOptional()

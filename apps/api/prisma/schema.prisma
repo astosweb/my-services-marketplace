@@ -65,8 +65,10 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String?
-  displayName  String
-  bio          String?
+  displayName         String
+  businessName        String?
+  preferBusinessName  Boolean  @default(true)
+  bio                 String?
   avatarKey    String?
   rating       Float    @default(0)
   reviewCount  Int      @default(0)

@@ -213,3 +213,17 @@ export class SendRequestMessageDto {
   @MaxLength(5000)
   body!: string;
 }
+
+export class RequestConversationQueryDto {
+  @ApiPropertyOptional({ description: "Other participant user id" })
+  @IsOptional()
+  @IsString()
+  peerUserId?: string;
+}
+
+export class OpenConversationDto {
+  @ApiPropertyOptional({ description: "Other participant user id" })
+  @IsOptional()
+  @IsString()
+  peerUserId?: string;
+}

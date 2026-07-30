@@ -22,6 +22,7 @@ struct RequestDetailView: View {
     @State private var isSubmittingReview = false
     @State private var hasSubmittedReview = false
     @State private var conversationId: String?
+    @State private var conversationPeerOverride: OfferUser?
     @State private var isOpeningChat = false
     @State private var errorMessage: String?
     @State private var successMessage: String?
@@ -207,7 +208,7 @@ struct RequestDetailView: View {
                     categoryId: request.categoryId,
                     categoryName: request.categoryName,
                     categorySymbol: request.categorySymbol,
-                    participant: conversationPeer,
+                    participant: conversationPeerOverride ?? conversationPeer,
                     lastMessage: nil,
                     updatedAt: Date(),
                     unreadCount: 0,
@@ -805,45 +806,66 @@ struct RequestDetailView: View {
     // MARK: - Requester
 
     private var requesterRow: some View {
-        HStack(spacing: 12) {
-            AsyncImage(url: request.requester.avatarUrl) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
-                ZStack {
-                    request.accentTint.opacity(0.15)
-                    Image(systemName: "person.fill")
-                        .font(.body)
-                        .foregroundStyle(request.accentTint)
+        NavigationLink {
+            userProfileDestination(for: request.requester)
+        } label: {
+            HStack(spacing: 12) {
+                AsyncImage(url: request.requester.avatarUrl) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    ZStack {
+                        request.accentTint.opacity(0.15)
+                        Image(systemName: "person.fill")
+                            .font(.body)
+                            .foregroundStyle(request.accentTint)
+                    }
                 }
-            }
-            .frame(width: 48, height: 48)
-            .clipShape(.circle)
-            .overlay(Circle().strokeBorder(Color.black.opacity(0.06)))
+                .frame(width: 48, height: 48)
+                .clipShape(.circle)
+                .overlay(Circle().strokeBorder(Color.black.opacity(0.06)))
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(request.requester.displayName)
-                    .font(.subheadline.weight(.semibold))
-                HStack(spacing: 8) {
-                    Label(
-                        String(format: "%.1f", request.requester.rating),
-                        systemImage: "star.fill"
-                    )
-                    .foregroundStyle(.orange)
-                    Text("\(request.requester.reviewCount) reviews")
-                        .foregroundStyle(.secondary)
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-                    Text("Since \(request.requester.memberSince.formatted(.dateTime.year()))")
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(request.requester.profileName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    HStack(spacing: 8) {
+                        Label(
+                            String(format: "%.1f", request.requester.rating),
+                            systemImage: "star.fill"
+                        )
+                        .foregroundStyle(.orange)
+                        Text("\(request.requester.reviewCount) reviews")
+                            .foregroundStyle(.secondary)
+                        Text("·")
+                            .foregroundStyle(.tertiary)
+                        Text("Since \(request.requester.memberSince.formatted(.dateTime.year()))")
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.caption)
+                    .lineLimit(1)
                 }
-                .font(.caption)
-                .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.tertiary)
             }
-            Spacer(minLength: 0)
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityHint("View profile")
+    }
+
+    private func userProfileDestination(for user: OfferUser) -> some View {
+        UserProfileView(
+            userId: user.id,
+            requestId: request.id,
+            requestTitle: request.title,
+            categoryId: request.categoryId,
+            categoryName: request.categoryName,
+            categorySymbol: request.categorySymbol
+        )
     }
 
     // MARK: - Message owner
@@ -860,7 +882,7 @@ struct RequestDetailView: View {
                     .background(Color.accentColor.gradient, in: .circle)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Message \(request.requester.displayName)")
+                    Text("Message \(request.requester.profileName)")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                     Text("Ask a question before offering")
@@ -1079,36 +1101,49 @@ struct RequestDetailView: View {
 
     private func ownerOfferRow(_ offer: Offer) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                AsyncImage(url: offer.offerer.avatarUrl) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    ZStack {
-                        Color(.tertiarySystemFill)
-                        Image(systemName: "person.fill")
+            HStack(alignment: .top, spacing: 12) {
+                NavigationLink {
+                    userProfileDestination(for: offer.offerer)
+                } label: {
+                    HStack(spacing: 12) {
+                        AsyncImage(url: offer.offerer.avatarUrl) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            ZStack {
+                                Color(.tertiarySystemFill)
+                                Image(systemName: "person.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(width: 40, height: 40)
+                        .clipShape(.circle)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(offer.offerer.profileName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Label(
+                                String(
+                                    format: "%.1f · %d reviews",
+                                    offer.offerer.rating,
+                                    offer.offerer.reviewCount
+                                ),
+                                systemImage: "star.fill"
+                            )
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.orange)
+                        }
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.tertiary)
                     }
                 }
-                .frame(width: 40, height: 40)
-                .clipShape(.circle)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(offer.offerer.displayName)
-                        .font(.subheadline.weight(.semibold))
-                    Label(
-                        String(
-                            format: "%.1f · %d reviews",
-                            offer.offerer.rating,
-                            offer.offerer.reviewCount
-                        ),
-                        systemImage: "star.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                }
+                .buttonStyle(.plain)
+                .accessibilityHint("View profile")
 
                 Spacer(minLength: 0)
 
@@ -1235,33 +1270,44 @@ struct RequestDetailView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.green)
 
-            HStack(spacing: 12) {
-                AsyncImage(url: offer.provider.avatarUrl) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    ZStack {
-                        Color.green.opacity(0.15)
-                        Image(systemName: "person.fill")
-                            .foregroundStyle(.green)
+            NavigationLink {
+                userProfileDestination(for: offer.provider)
+            } label: {
+                HStack(spacing: 12) {
+                    AsyncImage(url: offer.provider.avatarUrl) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        ZStack {
+                            Color.green.opacity(0.15)
+                            Image(systemName: "person.fill")
+                                .foregroundStyle(.green)
+                        }
                     }
-                }
-                .frame(width: 44, height: 44)
-                .clipShape(.circle)
+                    .frame(width: 44, height: 44)
+                    .clipShape(.circle)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(offer.provider.displayName)
-                        .font(.subheadline.weight(.semibold))
-                    if let priceCents = offer.priceCents {
-                        Text(priceText(priceCents))
-                            .font(.headline)
-                            .foregroundStyle(.green)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(offer.provider.profileName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        if let priceCents = offer.priceCents {
+                            Text(priceText(priceCents))
+                                .font(.headline)
+                                .foregroundStyle(.green)
+                        }
                     }
-                }
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                }
             }
+            .buttonStyle(.plain)
+            .accessibilityHint("View profile")
 
             if let message = offer.message, !message.isEmpty {
                 Text(message)
@@ -1507,14 +1553,27 @@ struct RequestDetailView: View {
         isSubmittingReview = false
     }
 
-    private func openConversation(createIfNeeded: Bool = false) async {
+    private func openConversation(createIfNeeded: Bool = false, peer: OfferUser? = nil) async {
         isOpeningChat = true
         errorMessage = nil
+        let peerUser = peer ?? conversationPeer
+        conversationPeerOverride = peerUser
         do {
-            let response: APIEnvelope<RequestConversationPayload> = try await auth.api.send(
-                createIfNeeded ? "POST" : "GET",
-                path: "requests/\(request.id)/conversation"
-            )
+            let peerUserId = peerUser.id
+            let response: APIEnvelope<RequestConversationPayload>
+            if createIfNeeded {
+                response = try await auth.api.send(
+                    "POST",
+                    path: "requests/\(request.id)/conversation",
+                    query: [URLQueryItem(name: "peerUserId", value: peerUserId)],
+                    body: OpenConversationBody(peerUserId: peerUserId)
+                )
+            } else {
+                response = try await auth.api.send(
+                    path: "requests/\(request.id)/conversation",
+                    query: [URLQueryItem(name: "peerUserId", value: peerUserId)]
+                )
+            }
             if let id = response.data.id {
                 conversationId = id
             } else if createIfNeeded {

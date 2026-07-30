@@ -21,6 +21,8 @@ struct APIErrorBody: Decodable {
 struct User: Codable, Identifiable, Hashable, Sendable {
     let id: String
     var displayName: String
+    var businessName: String?
+    var preferBusinessName: Bool
     var bio: String?
     let avatarUrl: URL?
     let rating: Double
@@ -28,14 +30,28 @@ struct User: Codable, Identifiable, Hashable, Sendable {
     let memberSince: Date
     let email: String?
 
+    var profileName: String {
+        let business = businessName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if preferBusinessName, !business.isEmpty { return business }
+        return displayName
+    }
+
+    var secondaryProfileName: String? {
+        let business = businessName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !business.isEmpty else { return nil }
+        return preferBusinessName ? displayName : business
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, displayName, bio, avatarUrl, rating, reviewCount, memberSince, email
+        case id, displayName, businessName, preferBusinessName, bio, avatarUrl, rating, reviewCount, memberSince, email
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         displayName = try c.decode(String.self, forKey: .displayName)
+        businessName = try c.decodeIfPresent(String.self, forKey: .businessName)
+        preferBusinessName = try c.decodeIfPresent(Bool.self, forKey: .preferBusinessName) ?? true
         bio = try c.decodeIfPresent(String.self, forKey: .bio)
         avatarUrl = try c.decodeIfPresent(URL.self, forKey: .avatarUrl).map(APIConfiguration.resolveMediaURL)
         rating = try c.decode(Double.self, forKey: .rating)
@@ -68,22 +84,34 @@ struct RefreshRequest: Encodable {
 
 struct ProfileUpdate: Encodable {
     let displayName: String?
+    let businessName: String?
+    let preferBusinessName: Bool?
     let bio: String?
     let avatarKey: String?
 
-    init(displayName: String? = nil, bio: String? = nil, avatarKey: String? = nil) {
+    init(
+        displayName: String? = nil,
+        businessName: String? = nil,
+        preferBusinessName: Bool? = nil,
+        bio: String? = nil,
+        avatarKey: String? = nil
+    ) {
         self.displayName = displayName
+        self.businessName = businessName
+        self.preferBusinessName = preferBusinessName
         self.bio = bio
         self.avatarKey = avatarKey
     }
 
     enum CodingKeys: String, CodingKey {
-        case displayName, bio, avatarKey
+        case displayName, businessName, preferBusinessName, bio, avatarKey
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(displayName, forKey: .displayName)
+        try container.encodeIfPresent(businessName, forKey: .businessName)
+        try container.encodeIfPresent(preferBusinessName, forKey: .preferBusinessName)
         try container.encodeIfPresent(bio, forKey: .bio)
         try container.encodeIfPresent(avatarKey, forKey: .avatarKey)
     }
@@ -227,20 +255,36 @@ struct RequestPhoto: Codable, Identifiable, Hashable, Sendable {
 struct OfferUser: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let displayName: String
+    let businessName: String?
+    let preferBusinessName: Bool
     let bio: String?
     let avatarUrl: URL?
     let rating: Double
     let reviewCount: Int
     let memberSince: Date
 
+    var profileName: String {
+        let business = businessName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if preferBusinessName, !business.isEmpty { return business }
+        return displayName
+    }
+
+    var secondaryProfileName: String? {
+        let business = businessName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !business.isEmpty else { return nil }
+        return preferBusinessName ? displayName : business
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, displayName, bio, avatarUrl, rating, reviewCount, memberSince
+        case id, displayName, businessName, preferBusinessName, bio, avatarUrl, rating, reviewCount, memberSince
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         displayName = try c.decode(String.self, forKey: .displayName)
+        businessName = try c.decodeIfPresent(String.self, forKey: .businessName)
+        preferBusinessName = try c.decodeIfPresent(Bool.self, forKey: .preferBusinessName) ?? true
         bio = try c.decodeIfPresent(String.self, forKey: .bio)
         avatarUrl = try c.decodeIfPresent(URL.self, forKey: .avatarUrl).map(APIConfiguration.resolveMediaURL)
         rating = try c.decode(Double.self, forKey: .rating)
@@ -395,12 +439,35 @@ struct CreateReviewBody: Encodable {
     let body: String?
 }
 
+struct ReviewRequestRef: Codable, Hashable, Sendable {
+    let id: String
+    let title: String
+}
+
 struct Review: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let rating: Int
     let body: String?
     let createdAt: Date
     let author: OfferUser
+    let request: ReviewRequestRef?
+}
+
+struct OpenConversationBody: Encodable {
+    let peerUserId: String?
+
+    init(peerUserId: String? = nil) {
+        self.peerUserId = peerUserId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case peerUserId
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(peerUserId, forKey: .peerUserId)
+    }
 }
 
 struct UploadKeysResponse: Decodable, Sendable {

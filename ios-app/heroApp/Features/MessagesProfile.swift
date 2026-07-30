@@ -102,7 +102,7 @@ struct ConversationsView: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
-                    Text(conversation.participant.displayName)
+                    Text(conversation.participant.profileName)
                         .font(.headline)
                     Spacer()
                     Text(conversation.updatedAt, style: .relative)
@@ -250,7 +250,7 @@ struct ConversationDetailView: View {
             .padding()
             .background(.bar)
         }
-        .navigationTitle(conversation.participant.displayName)
+        .navigationTitle(conversation.participant.profileName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .sensoryFeedback(.success, trigger: feedbackTrigger)
@@ -298,7 +298,7 @@ struct ConversationDetailView: View {
             if !isMine { Spacer(minLength: 50) }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(isMine ? "You" : message.sender.displayName): \(message.body)")
+        .accessibilityLabel("\(isMine ? "You" : message.sender.profileName): \(message.body)")
     }
 
     private func load() async {
@@ -388,6 +388,8 @@ struct ProfileView: View {
     @State private var profile: User?
     @State private var stats: ProfileStats?
     @State private var displayName = ""
+    @State private var businessName = ""
+    @State private var preferBusinessName = true
     @State private var bio = ""
     @State private var isLoading = true
     @State private var isSaving = false
@@ -434,8 +436,13 @@ struct ProfileView: View {
                         .accessibilityLabel("Change profile photo")
 
                         VStack(alignment: .leading) {
-                            Text(profile?.displayName ?? "")
+                            Text(profile?.profileName ?? "")
                                 .font(.title2.bold())
+                            if let secondary = profile?.secondaryProfileName {
+                                Text(secondary)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                             Text(profile?.email ?? "")
                                 .foregroundStyle(.secondary)
                             Label(
@@ -460,6 +467,11 @@ struct ProfileView: View {
                 Section("Edit Profile") {
                     TextField("Display name", text: $displayName)
                         .textContentType(.name)
+                    TextField("Business name", text: $businessName)
+                        .textContentType(.organizationName)
+                    if !businessName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Toggle("Show business name publicly", isOn: $preferBusinessName)
+                    }
                     TextField("Bio", text: $bio, axis: .vertical)
                         .lineLimit(3...8)
                 }
@@ -539,6 +551,8 @@ struct ProfileView: View {
             let profileResponse: APIEnvelope<User> = try await auth.api.send(path: "auth/me")
             profile = profileResponse.data
             displayName = profileResponse.data.displayName
+            businessName = profileResponse.data.businessName ?? ""
+            preferBusinessName = profileResponse.data.preferBusinessName
             bio = profileResponse.data.bio ?? ""
             auth.updateUser(profileResponse.data)
 
@@ -560,6 +574,8 @@ struct ProfileView: View {
                 path: "auth/me",
                 body: ProfileUpdate(
                     displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    businessName: businessName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    preferBusinessName: preferBusinessName,
                     bio: bio.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
             )
@@ -609,6 +625,211 @@ struct ProfileView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+struct UserProfileView: View {
+    @Environment(AuthSession.self) private var auth
+
+    let userId: String
+    var requestId: String?
+    var requestTitle: String?
+    var categoryId: String?
+    var categoryName: String?
+    var categorySymbol: String?
+
+    @State private var profile: OfferUser?
+    @State private var reviews: [Review] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var isOpeningChat = false
+    @State private var conversationId: String?
+
+    private var isSelf: Bool {
+        auth.user?.id == userId
+    }
+
+    private var canMessage: Bool {
+        auth.user != nil && !isSelf && requestId != nil
+    }
+
+    var body: some View {
+        Group {
+            if isLoading && profile == nil {
+                ProgressView("Loading profile")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage, profile == nil {
+                ContentUnavailableView {
+                    Label("Couldn’t Load Profile", systemImage: "wifi.exclamationmark")
+                } description: {
+                    Text(errorMessage)
+                } actions: {
+                    Button("Retry") { Task { await load() } }
+                        .buttonStyle(.borderedProminent)
+                }
+            } else if let profile {
+                List {
+                    Section {
+                        HStack(spacing: 16) {
+                            avatar(for: profile)
+                                .scaleEffect(1.35)
+                                .frame(width: 60, height: 60)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(profile.profileName)
+                                    .font(.title2.bold())
+                                if let secondary = profile.secondaryProfileName {
+                                    Text(secondary)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Label(
+                                    String(format: "%.1f · %d reviews", profile.rating, profile.reviewCount),
+                                    systemImage: "star.fill"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                                Text("Member since \(profile.memberSince.formatted(.dateTime.year()))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 8)
+
+                        if let bio = profile.bio, !bio.isEmpty {
+                            Text(bio)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if canMessage {
+                        Section {
+                            Button {
+                                Task { await openConversation() }
+                            } label: {
+                                if isOpeningChat {
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity)
+                                } else {
+                                    Label("Message \(profile.profileName)", systemImage: "bubble.left.and.bubble.right.fill")
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                            .disabled(isOpeningChat)
+                        }
+                    }
+
+                    if let errorMessage {
+                        Section {
+                            Label(errorMessage, systemImage: "exclamationmark.circle.fill")
+                                .foregroundStyle(.red)
+                        }
+                    }
+
+                    Section("Reviews") {
+                        if reviews.isEmpty {
+                            Text("No reviews yet")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(reviews) { review in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text(review.author.profileName)
+                                            .font(.subheadline.weight(.semibold))
+                                        Spacer(minLength: 0)
+                                        Label("\(review.rating)", systemImage: "star.fill")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.orange)
+                                    }
+                                    if let body = review.body, !body.isEmpty {
+                                        Text(body)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    HStack(spacing: 6) {
+                                        if let title = review.request?.title {
+                                            Text(title)
+                                                .lineLimit(1)
+                                        }
+                                        Text(review.createdAt.formatted(date: .abbreviated, time: .omitted))
+                                    }
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle(profile?.profileName ?? "Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+        .navigationDestination(item: $conversationId) { id in
+            if let profile {
+                ConversationDetailView(
+                    conversation: Conversation(
+                        id: id,
+                        requestId: requestId ?? "",
+                        requestTitle: requestTitle ?? "Request",
+                        categoryId: categoryId ?? "",
+                        categoryName: categoryName ?? "",
+                        categorySymbol: categorySymbol ?? "person.fill",
+                        participant: profile,
+                        lastMessage: nil,
+                        updatedAt: Date(),
+                        unreadCount: 0,
+                        isPinned: false,
+                        isArchived: false
+                    )
+                )
+            }
+        }
+    }
+
+    private func load() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            async let profileResponse: APIEnvelope<OfferUser> = auth.api.send(
+                path: "users/\(userId)",
+                authenticated: false
+            )
+            async let reviewsResponse: APIEnvelope<[Review]> = auth.api.send(
+                path: "users/\(userId)/reviews",
+                authenticated: false
+            )
+            let (loadedProfile, loadedReviews) = try await (profileResponse, reviewsResponse)
+            profile = loadedProfile.data
+            reviews = loadedReviews.data
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    private func openConversation() async {
+        guard let requestId else { return }
+        isOpeningChat = true
+        errorMessage = nil
+        do {
+            let response: APIEnvelope<RequestConversationPayload> = try await auth.api.send(
+                "POST",
+                path: "requests/\(requestId)/conversation",
+                query: [URLQueryItem(name: "peerUserId", value: userId)],
+                body: OpenConversationBody(peerUserId: userId)
+            )
+            if let id = response.data.id {
+                conversationId = id
+            } else {
+                errorMessage = "Couldn’t open chat."
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isOpeningChat = false
     }
 }
 

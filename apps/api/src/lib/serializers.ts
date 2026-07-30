@@ -34,10 +34,19 @@ const cityLabels: Record<string, string> = {
   NARVA: "Narva",
 };
 
+export function profileName(user: Pick<User, "displayName" | "businessName" | "preferBusinessName">) {
+  const business = user.businessName?.trim();
+  if (user.preferBusinessName && business) return business;
+  return user.displayName;
+}
+
 export function serializeUser(user: User) {
   return {
     id: user.id,
     displayName: user.displayName,
+    businessName: user.businessName,
+    preferBusinessName: user.preferBusinessName,
+    profileName: profileName(user),
     bio: user.bio,
     avatarUrl: user.avatarKey ? mediaUrlForKey(user.avatarKey) : null,
     rating: user.rating,
