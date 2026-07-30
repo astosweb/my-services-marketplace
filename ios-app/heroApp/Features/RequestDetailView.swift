@@ -38,7 +38,6 @@ struct RequestDetailView: View {
     private enum DetailTab: String, CaseIterable, Identifiable {
         case details
         case activity
-        case location
         case offers
 
         var id: Self { self }
@@ -47,7 +46,6 @@ struct RequestDetailView: View {
             switch self {
             case .details: "Details"
             case .activity: "Activity"
-            case .location: "Location"
             case .offers: "Offers"
             }
         }
@@ -56,7 +54,6 @@ struct RequestDetailView: View {
             switch self {
             case .details: "doc.text"
             case .activity: "clock.arrow.circlepath"
-            case .location: "map"
             case .offers: "tray.and.arrow.down"
             }
         }
@@ -147,15 +144,6 @@ struct RequestDetailView: View {
         request.description.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var availableTabs: [DetailTab] {
-        DetailTab.allCases.filter { tab in
-            switch tab {
-            case .details, .activity, .offers: true
-            case .location: request.isMappable
-            }
-        }
-    }
-
     private var offersTabBadge: Int? {
         let count = isOwner ? ownerOffers.count : request.offerCount
         return count > 0 ? count : nil
@@ -196,11 +184,6 @@ struct RequestDetailView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Edit") { isEditPresented = true }
                 }
-            }
-        }
-        .onChange(of: request.isMappable) {
-            if !availableTabs.contains(selectedTab) {
-                selectedTab = .details
             }
         }
         .sheet(isPresented: $isEditPresented) {
@@ -451,6 +434,14 @@ struct RequestDetailView: View {
                     factChip("\(request.viewCount) views", symbol: "eye")
                 }
             }
+
+            Divider().opacity(0.35)
+
+            Text("Posted by")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            requesterRow
         }
         .detailCard()
     }
@@ -591,23 +582,28 @@ struct RequestDetailView: View {
     // MARK: - Tabs
 
     private var tabPicker: some View {
-        HStack(spacing: 4) {
-            ForEach(availableTabs) { tab in
+        HStack(spacing: 6) {
+            ForEach(DetailTab.allCases) { tab in
                 Button {
                     withAnimation(.snappy(duration: 0.2)) {
                         selectedTab = tab
                     }
                 } label: {
-                    HStack(spacing: 3) {
+                    HStack(spacing: 5) {
                         Image(systemName: tab.symbol)
-                            .imageScale(.small)
                         Text(tab.label)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                        if tab == .offers, let badge = offersTabBadge {
+                            Text("\(badge)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Color.accentColor, in: .capsule)
+                        }
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .frame(maxWidth: .infinity)
                     .background(
@@ -624,17 +620,6 @@ struct RequestDetailView: View {
                                     : Color.clear
                             )
                     )
-                    .overlay(alignment: .topTrailing) {
-                        if tab == .offers, let badge = offersTabBadge {
-                            Text("\(badge)")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(Color.accentColor, in: .capsule)
-                                .offset(x: 2, y: -5)
-                        }
-                    }
                 }
                 .buttonStyle(.plain)
             }
@@ -651,8 +636,6 @@ struct RequestDetailView: View {
             detailsTab
         case .activity:
             activityTab
-        case .location:
-            locationCard
         case .offers:
             offersTab
         }
@@ -661,6 +644,9 @@ struct RequestDetailView: View {
     @ViewBuilder
     private var detailsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if request.isMappable {
+                locationCard
+            }
             if canMessageOwner {
                 messageOwnerCard
             }
@@ -673,7 +659,7 @@ struct RequestDetailView: View {
             if canLeaveReview {
                 reviewCard
             }
-            if !canMessageOwner, request.acceptedOffer == nil, !showJobActions, !canLeaveReview {
+            if !request.isMappable, !canMessageOwner, request.acceptedOffer == nil, !showJobActions, !canLeaveReview {
                 emptyState(
                     symbol: "checkmark.circle",
                     title: "You're all set",
@@ -727,13 +713,6 @@ struct RequestDetailView: View {
                     )
                 }
             }
-
-            Divider().opacity(0.35)
-
-            Text("Posted by")
-                .font(.subheadline.weight(.semibold))
-
-            requesterRow
         }
         .detailCard()
     }
