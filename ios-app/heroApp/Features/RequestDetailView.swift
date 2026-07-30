@@ -412,29 +412,6 @@ struct RequestDetailView: View {
                 }
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    factChip(
-                        request.budget ?? "Open budget",
-                        symbol: "eurosign.circle",
-                        emphasized: request.budget != nil
-                    )
-                    factChip(request.location, symbol: "mappin.and.ellipse")
-                    if let scheduledAt = request.scheduledAt {
-                        factChip(
-                            scheduledAt.formatted(date: .abbreviated, time: .shortened),
-                            symbol: "calendar"
-                        )
-                    }
-                    factChip(pricingLabel, symbol: "tag")
-                    factChip(
-                        "\(isOwner ? ownerOffers.count : request.offerCount) offers",
-                        symbol: "tray.and.arrow.down"
-                    )
-                    factChip("\(request.viewCount) views", symbol: "eye")
-                }
-            }
-
             Divider().opacity(0.35)
 
             Text("Posted by")
@@ -446,17 +423,68 @@ struct RequestDetailView: View {
         .detailCard()
     }
 
-    private func factChip(_ title: String, symbol: String, emphasized: Bool = false) -> some View {
-        Label(title, systemImage: symbol)
-            .font(.caption.weight(emphasized ? .semibold : .medium))
-            .foregroundStyle(emphasized ? request.accentTint : .secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(
-                emphasized ? request.accentTint.opacity(0.12) : Color(.tertiarySystemFill),
-                in: .capsule
+    private var factsGrid: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: 10),
+                GridItem(.flexible(), spacing: 10)
+            ],
+            spacing: 10
+        ) {
+            factCell(
+                "Budget",
+                value: request.budget ?? "Open",
+                symbol: "eurosign.circle",
+                emphasized: request.budget != nil
             )
-            .lineLimit(1)
+            factCell("Location", value: request.location, symbol: "mappin.and.ellipse")
+            if let scheduledAt = request.scheduledAt {
+                factCell(
+                    "Scheduled",
+                    value: scheduledAt.formatted(date: .abbreviated, time: .shortened),
+                    symbol: "calendar"
+                )
+            }
+            factCell("Pricing", value: pricingLabel, symbol: "tag")
+            factCell(
+                "Offers",
+                value: "\(isOwner ? ownerOffers.count : request.offerCount)",
+                symbol: "tray.and.arrow.down"
+            )
+            factCell("Views", value: "\(request.viewCount)", symbol: "eye")
+        }
+        .detailCard()
+    }
+
+    private func factCell(
+        _ label: String,
+        value: String,
+        symbol: String,
+        emphasized: Bool = false
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(emphasized ? request.accentTint : .secondary)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.subheadline.weight(emphasized ? .semibold : .medium))
+                    .foregroundStyle(emphasized ? request.accentTint : .primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label) \(value)")
     }
 
     // MARK: - Progress tracker
@@ -644,6 +672,7 @@ struct RequestDetailView: View {
     @ViewBuilder
     private var detailsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
+            factsGrid
             if request.isMappable {
                 locationCard
             }
@@ -658,15 +687,6 @@ struct RequestDetailView: View {
             }
             if canLeaveReview {
                 reviewCard
-            }
-            if !request.isMappable, !canMessageOwner, request.acceptedOffer == nil, !showJobActions, !canLeaveReview {
-                emptyState(
-                    symbol: "checkmark.circle",
-                    title: "You're all set",
-                    detail: isOwner
-                        ? "Check Offers for proposals, or Activity for request history."
-                        : "Use the Offers tab to send a proposal or check your existing one."
-                )
             }
         }
     }
