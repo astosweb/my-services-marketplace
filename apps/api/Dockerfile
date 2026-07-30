@@ -13,7 +13,7 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV DATABASE_URL="postgresql://neondb_owner:npg_SqdKyQcD5YU0@ep-dry-frost-a2lasvip-pooler.eu-central-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN pnpm build && pnpm prune --prod
 
 FROM node:24-bookworm-slim AS runner
