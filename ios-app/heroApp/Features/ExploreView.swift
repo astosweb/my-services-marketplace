@@ -537,10 +537,10 @@ struct RequestCard: View {
             thumbnail
             VStack(alignment: .leading, spacing: 5) {
                 Text(request.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, minHeight: 36, alignment: .topLeading)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 if !request.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text(request.description)
@@ -549,16 +549,6 @@ struct RequestCard: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                 }
-
-                Label(request.categoryName, systemImage: request.categorySymbol)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(request.accentTint)
-                    .lineLimit(1)
-
-                Label(distance.map { "\(request.city) · \($0)" } ?? request.city, systemImage: "mappin")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
 
                 HStack(spacing: 4) {
                     Text(request.budget ?? "Open")
@@ -591,7 +581,7 @@ struct RequestCard: View {
     }
 
     private var thumbnail: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: .topLeading) {
             Group {
                 if let url = request.photos.first?.url {
                     AsyncImage(url: url) { image in
@@ -613,6 +603,7 @@ struct RequestCard: View {
             .frame(maxWidth: .infinity)
             .frame(height: 96)
             .clipped()
+            .accessibilityHidden(true)
 
             if request.isPremium {
                 Image(systemName: "sparkles")
@@ -623,8 +614,17 @@ struct RequestCard: View {
                     .padding(6)
                     .accessibilityLabel("Boosted")
             }
+
+            Label(request.categoryName, systemImage: request.categorySymbol)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(request.accentTint)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(.regularMaterial, in: .capsule)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(6)
         }
-        .accessibilityHidden(true)
     }
 }
 
