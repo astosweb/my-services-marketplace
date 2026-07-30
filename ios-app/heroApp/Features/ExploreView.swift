@@ -96,18 +96,16 @@ struct ExploreView: View {
     @State private var isNewRequestPresented = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            filterBar
-            Divider()
-                .opacity(0.4)
+        Group {
             switch layout {
             case .list: listLayout
             case .map: mapLayout
             }
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Explore")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: ServiceRequest.self) { RequestDetailView(request: $0) }
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search requests")
         .notificationsToolbar()
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -117,6 +115,26 @@ struct ExploreView: View {
                     Image(systemName: layout.toggleSymbol)
                 }
                 .accessibilityLabel(layout.toggleLabel)
+            }
+            ToolbarItem(placement: .principal) {
+                Menu {
+                    Picker("City", selection: $selectedCity) {
+                        ForEach(EstonianCity.allCases) { city in
+                            Text(city.displayName).tag(city)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text(selectedCity.displayName)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.headline)
+                }
+                .accessibilityLabel("City, \(selectedCity.displayName)")
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -152,96 +170,42 @@ struct ExploreView: View {
         .sensoryFeedback(.selection, trigger: selectedRequestID)
     }
 
-    // MARK: - Filter bar
-
-    private var filterBar: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 10) {
-                Menu {
-                    Picker("City", selection: $selectedCity) {
-                        ForEach(EstonianCity.allCases) { city in
-                            Text(city.displayName).tag(city)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "mappin.and.ellipse")
-                        Text(selectedCity.displayName)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 11)
-                    .background(Color(.secondarySystemBackground), in: .capsule)
+    private var categoryChips: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                chip(title: "All", symbol: "square.grid.2x2", isSelected: selectedCategoryID == nil) {
+                    selectedCategoryID = nil
                 }
-                .accessibilityLabel("City, \(selectedCity.displayName)")
-
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField("Search requests or category", text: $searchText)
-                        .autocorrectionDisabled()
-                        .submitLabel(.search)
-                    if !searchText.isEmpty {
-                        Button {
-                            searchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Clear search")
+                ForEach(categories) { category in
+                    chip(
+                        title: category.name,
+                        symbol: category.symbol,
+                        isSelected: selectedCategoryID == category.id
+                    ) {
+                        selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
                     }
                 }
-                .font(.subheadline)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .background(Color(.secondarySystemBackground), in: .capsule)
-
-                Menu {
-                    Picker("Sort by", selection: $sort) {
-                        ForEach(ExploreSort.allCases) { option in
-                            Label(option.rawValue, systemImage: option.symbol)
-                                .tag(option)
-                        }
-                    }
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 42, height: 42)
-                        .background(Color(.secondarySystemBackground), in: .circle)
-                }
-                .accessibilityLabel("Sort and filter")
             }
             .padding(.horizontal, 16)
-
-            if !categories.isEmpty {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 8) {
-                        chip(title: "All", symbol: "square.grid.2x2", isSelected: selectedCategoryID == nil) {
-                            selectedCategoryID = nil
-                        }
-                        ForEach(categories) { category in
-                            chip(
-                                title: category.name,
-                                symbol: category.symbol,
-                                isSelected: selectedCategoryID == category.id
-                            ) {
-                                selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-                .scrollIndicators(.hidden)
-            }
         }
+        .scrollIndicators(.hidden)
         .padding(.top, 4)
         .padding(.bottom, 12)
         .background(.bar)
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("Sort by", selection: $sort) {
+                ForEach(ExploreSort.allCases) { option in
+                    Label(option.rawValue, systemImage: option.symbol)
+                        .tag(option)
+                }
+            }
+        } label: {
+            Label(sort.rawValue, systemImage: sort.symbol)
+        }
+        .accessibilityLabel("Sort by, \(sort.rawValue)")
     }
 
     private func chip(title: String, symbol: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -275,7 +239,7 @@ struct ExploreView: View {
                 HStack {
                     Text(resultSummary)
                     Spacer()
-                    Label(sort.rawValue, systemImage: sort.symbol)
+                    sortMenu
                 }
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
@@ -331,6 +295,11 @@ struct ExploreView: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .refreshable { await load() }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !categories.isEmpty {
+                categoryChips
+            }
+        }
     }
 
     // MARK: - Map layout
@@ -353,11 +322,18 @@ struct ExploreView: View {
         }
         .overlay(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 8) {
-                Label(mapSummary, systemImage: "mappin.and.ellipse")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.regularMaterial, in: .capsule)
+                HStack(spacing: 8) {
+                    Label(mapSummary, systemImage: "mappin.and.ellipse")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: .capsule)
+                    sortMenu
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: .capsule)
+                }
                 Button {
                     withAnimation(.easeInOut) {
                         selectedRequestID = nil
