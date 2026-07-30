@@ -5,6 +5,7 @@ import {
   OfferStatus,
   PrismaClient,
   ServiceRequestStatus,
+  UserRole,
 } from "../src/generated/prisma/client.js";
 import { hashPassword } from "../src/lib/auth.js";
 import { categoryCatalog } from "../src/lib/category-catalog.js";
@@ -128,6 +129,25 @@ async function main() {
     });
   }
 
+  await prisma.user.upsert({
+    where: { id: "seed_user_admin" },
+    create: {
+      id: "seed_user_admin",
+      email: "admin@hero.test",
+      displayName: "Hero Admin",
+      bio: "Marketplace operations admin",
+      role: UserRole.ADMIN,
+      passwordHash,
+    },
+    update: {
+      displayName: "Hero Admin",
+      bio: "Marketplace operations admin",
+      role: UserRole.ADMIN,
+      isDisabled: false,
+      passwordHash,
+    },
+  });
+
   for (const request of seedRequests) {
     await prisma.serviceRequest.upsert({
       where: { id: request.id },
@@ -194,7 +214,7 @@ async function main() {
   });
 
   console.info(
-    `Seeded ${categoryCatalog.length} categories, ${seedUsers.length} users, ${seedRequests.length} requests`,
+    `Seeded ${categoryCatalog.length} categories, ${seedUsers.length + 1} users (incl. admin@hero.test), ${seedRequests.length} requests`,
   );
 }
 

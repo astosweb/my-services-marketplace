@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { OfferStatus, ServiceRequestStatus, type User } from "../generated/prisma/client.js";
+import {
+  OfferStatus,
+  ServiceRequestStatus,
+  UserRole,
+  type User,
+} from "../generated/prisma/client.js";
 import {
   createPasswordResetToken,
   createRefreshTokenValue,
@@ -12,7 +17,7 @@ import {
   verifyPassword,
 } from "../lib/auth.js";
 import { env } from "../lib/env.js";
-import { conflict, notFound, unauthorized } from "../lib/errors.js";
+import { conflict, forbidden, notFound, unauthorized } from "../lib/errors.js";
 import { serializeMe } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
@@ -27,6 +32,10 @@ import type {
 @Injectable()
 export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private assertActiveUser(user: User) {
+    if (user.isDisabled) throw forbidden("Account is disabled");
+  }
 
   private async issueTokens(userId: string) {
     const refreshToken = createRefreshTokenValue();
@@ -65,6 +74,20 @@ export class AuthService {
     if (!user?.passwordHash || !(await verifyPassword(data.password, user.passwordHash))) {
       throw unauthorized("Invalid email or password");
     }
+    this.assertActiveUser(user);
+    return this.authPayload(user, await this.issueTokens(user.id));
+  }
+
+  async adminLogin(data: LoginDto) {
+    const email = data.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user?.passwordHash || !(await verifyPassword(data.password, user.passwordHash))) {
+      throw unauthorized("Invalid email or password");
+    }
+    this.assertActiveUser(user);
+    if (user.role !== UserRole.ADMIN) {
+      throw forbidden("Admin access required");
+    }
     return this.authPayload(user, await this.issueTokens(user.id));
   }
 
@@ -79,6 +102,10 @@ export class AuthService {
       if (stored.expiresAt < new Date()) {
         await transaction.refreshToken.deleteMany({ where: { id: stored.id } });
         throw unauthorized("Invalid or expired refresh token");
+      }
+      if (stored.user.isDisabled) {
+        await transaction.refreshToken.deleteMany({ where: { userId: stored.userId } });
+        throw forbidden("Account is disabled");
       }
       const removed = await transaction.refreshToken.deleteMany({ where: { id: stored.id } });
       if (removed.count !== 1) {

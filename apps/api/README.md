@@ -127,6 +127,24 @@ All JSON success responses preserve the `{ "data": ... }` envelope. List endpoin
 - `POST /uploads/avatars`
 - `GET /uploads/*`
 
+### Admin
+
+Admin-only routes require a JWT for a user with `role=ADMIN`. Sign in with
+`POST /admin/auth/login` (non-admins are rejected). Seeded admin:
+`admin@hero.test` / `password123`.
+
+- `POST /admin/auth/login`
+- `GET /admin/me`
+- `GET /admin/dashboard`
+- `GET|PATCH|DELETE /admin/users/:id`
+- `POST /admin/users/:id/revoke-sessions`
+- `GET|PATCH|DELETE /admin/requests/:id`
+- `GET /admin/offers`
+- `GET|DELETE /admin/reviews/:id`
+- `GET|POST|PATCH|DELETE /admin/categories`
+
+Web UI lives in `apps/admin` (Next.js on port 3001).
+
 Message attachments are private and require either a short-lived signed URL or authorized
 conversation access. Request photos and avatars are public.
 

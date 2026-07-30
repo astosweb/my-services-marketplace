@@ -61,6 +61,16 @@ export function serializeMe(user: User) {
   return {
     ...serializeUser(user),
     email: user.email,
+    role: user.role,
+    isDisabled: user.isDisabled,
+  };
+}
+
+export function serializeAdminUser(user: User) {
+  return {
+    ...serializeMe(user),
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
   };
 }
 

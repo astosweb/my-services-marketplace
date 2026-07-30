@@ -61,6 +61,11 @@ enum NotificationKind {
   SYSTEM
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -70,6 +75,8 @@ model User {
   preferBusinessName  Boolean  @default(true)
   bio                 String?
   avatarKey    String?
+  role         UserRole @default(USER)
+  isDisabled   Boolean  @default(false)
   rating       Float    @default(0)
   reviewCount  Int      @default(0)
   createdAt    DateTime @default(now())
