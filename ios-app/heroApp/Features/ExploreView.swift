@@ -104,7 +104,19 @@ struct ExploreView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: ServiceRequest.self) { RequestDetailView(request: $0) }
+        .navigationDestination(for: ServiceRequest.self) { item in
+            RequestDetailView(request: item) { updated in
+                withAnimation {
+                    if updated.status == .open {
+                        if let index = requests.firstIndex(where: { $0.id == updated.id }) {
+                            requests[index] = updated
+                        }
+                    } else {
+                        requests.removeAll { $0.id == updated.id }
+                    }
+                }
+            }
+        }
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search requests")
         .notificationsToolbar()
         .toolbar {
@@ -409,6 +421,7 @@ struct ExploreView: View {
     private var visibleRequests: [ServiceRequest] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let filtered = requests.filter { request in
+            guard request.status == .open else { return false }
             guard selectedCategoryID == nil || request.categoryId == selectedCategoryID else { return false }
             guard !query.isEmpty else { return true }
             return request.title.lowercased().contains(query)
@@ -494,7 +507,9 @@ struct ExploreView: View {
                 ],
                 authenticated: false
             )
-            withAnimation { requests = response.data }
+            withAnimation {
+                requests = response.data.filter { $0.status == .open }
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

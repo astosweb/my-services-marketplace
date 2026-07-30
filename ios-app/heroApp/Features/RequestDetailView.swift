@@ -36,6 +36,8 @@ struct RequestDetailView: View {
     @State private var galleryPage: Int? = 0
     @State private var isDescriptionExpanded = false
 
+    private var onUpdated: ((ServiceRequest) -> Void)?
+
     private enum DetailTab: String, CaseIterable, Identifiable {
         case details
         case activity
@@ -60,8 +62,14 @@ struct RequestDetailView: View {
         }
     }
 
-    init(request: ServiceRequest) {
+    init(request: ServiceRequest, onUpdated: ((ServiceRequest) -> Void)? = nil) {
         _request = State(initialValue: request)
+        self.onUpdated = onUpdated
+    }
+
+    private func applyRequest(_ updated: ServiceRequest) {
+        request = updated
+        onUpdated?(updated)
     }
 
     private var isOwner: Bool {
@@ -190,7 +198,7 @@ struct RequestDetailView: View {
         .sheet(isPresented: $isEditPresented) {
             NavigationStack {
                 NewRequestView(existing: request, onUpdated: { updated in
-                    request = updated
+                    applyRequest(updated)
                     successMessage = "Request updated."
                     errorMessage = nil
                 })
@@ -1492,7 +1500,7 @@ struct RequestDetailView: View {
                 path: "requests/\(request.id)",
                 authenticated: auth.user != nil
             )
-            request = response.data
+            applyRequest(response.data)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -1592,7 +1600,7 @@ struct RequestDetailView: View {
                 path: "requests/\(request.id)/status",
                 body: UpdateRequestStatusBody(status: status)
             )
-            request = response.data
+            applyRequest(response.data)
             successMessage = status == .completed ? "Job marked completed." : "Request cancelled."
             if isOwner { await loadOwnerOffers() }
         } catch {
@@ -1611,7 +1619,7 @@ struct RequestDetailView: View {
                 path: "requests/\(request.id)/progress",
                 body: UpdateProgressBody(status: status)
             )
-            request = response.data
+            applyRequest(response.data)
             successMessage = progressActionLabel(status)
         } catch {
             errorMessage = error.localizedDescription
