@@ -2,6 +2,7 @@ import type {
   Category,
   Conversation,
   ConversationParticipant,
+  JobProgressEvent,
   Message,
   Notification,
   Offer,
@@ -24,6 +25,7 @@ type RequestWithRelations = ServiceRequest & {
   owner: User;
   photos: RequestPhoto[];
   offers?: (Offer & { offerer: User })[];
+  progressEvents?: JobProgressEvent[];
   _count?: { offers: number };
 };
 
@@ -101,6 +103,26 @@ export function serializeRequest(request: RequestWithRelations, viewerUserId?: s
       }
     : null;
 
+  const progressEvents =
+    request.progressEvents?.length
+      ? request.progressEvents
+          .slice()
+          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+          .map((event) => ({
+            id: event.id,
+            status: event.status,
+            createdAt: event.createdAt.toISOString(),
+          }))
+      : request.progressStatus && request.progressUpdatedAt
+        ? [
+            {
+              id: `${request.id}-${request.progressStatus}`,
+              status: request.progressStatus,
+              createdAt: request.progressUpdatedAt.toISOString(),
+            },
+          ]
+        : [];
+
   return {
     id: request.id,
     categoryId: request.categoryId,
@@ -121,6 +143,7 @@ export function serializeRequest(request: RequestWithRelations, viewerUserId?: s
     status: request.status,
     progressStatus: request.progressStatus,
     progressUpdatedAt: request.progressUpdatedAt?.toISOString() ?? null,
+    progressEvents,
     completedAt: request.completedAt?.toISOString() ?? null,
     cancelledAt: request.cancelledAt?.toISOString() ?? null,
     isPremium: request.isPremium,

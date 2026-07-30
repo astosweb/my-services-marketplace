@@ -226,6 +226,12 @@ enum JobProgressStatus: String, Codable, Sendable {
     case ownerConfirmed = "OWNER_CONFIRMED"
 }
 
+struct JobProgressEvent: Codable, Identifiable, Hashable, Sendable {
+    let id: String
+    let status: JobProgressStatus
+    let createdAt: Date
+}
+
 enum OfferStatus: String, Codable, Sendable {
     case pending = "PENDING"
     case accepted = "ACCEPTED"
@@ -348,6 +354,7 @@ struct ServiceRequest: Codable, Identifiable, Hashable, Sendable {
     let status: ServiceRequestStatus
     let progressStatus: JobProgressStatus?
     let progressUpdatedAt: Date?
+    let progressEvents: [JobProgressEvent]
     let completedAt: Date?
     let cancelledAt: Date?
     let isPremium: Bool
@@ -359,6 +366,47 @@ struct ServiceRequest: Codable, Identifiable, Hashable, Sendable {
     let requester: OfferUser
     let acceptedOffer: AcceptedOffer?
     let viewerOffer: Offer?
+
+    enum CodingKeys: String, CodingKey {
+        case id, categoryId, categoryName, categorySymbol, title, description, city
+        case latitude, longitude, location, budgetCents, budget, scheduledAt, pricingMode
+        case status, progressStatus, progressUpdatedAt, progressEvents, completedAt, cancelledAt
+        case isPremium, offerCount, viewCount, createdAt, updatedAt, photos, requester
+        case acceptedOffer, viewerOffer
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        categoryId = try c.decode(String.self, forKey: .categoryId)
+        categoryName = try c.decode(String.self, forKey: .categoryName)
+        categorySymbol = try c.decode(String.self, forKey: .categorySymbol)
+        title = try c.decode(String.self, forKey: .title)
+        description = try c.decode(String.self, forKey: .description)
+        city = try c.decode(String.self, forKey: .city)
+        latitude = try c.decode(Double.self, forKey: .latitude)
+        longitude = try c.decode(Double.self, forKey: .longitude)
+        location = try c.decode(String.self, forKey: .location)
+        budgetCents = try c.decodeIfPresent(Int.self, forKey: .budgetCents)
+        budget = try c.decodeIfPresent(String.self, forKey: .budget)
+        scheduledAt = try c.decodeIfPresent(Date.self, forKey: .scheduledAt)
+        pricingMode = try c.decode(RequestPricingMode.self, forKey: .pricingMode)
+        status = try c.decode(ServiceRequestStatus.self, forKey: .status)
+        progressStatus = try c.decodeIfPresent(JobProgressStatus.self, forKey: .progressStatus)
+        progressUpdatedAt = try c.decodeIfPresent(Date.self, forKey: .progressUpdatedAt)
+        progressEvents = try c.decodeIfPresent([JobProgressEvent].self, forKey: .progressEvents) ?? []
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        cancelledAt = try c.decodeIfPresent(Date.self, forKey: .cancelledAt)
+        isPremium = try c.decode(Bool.self, forKey: .isPremium)
+        offerCount = try c.decode(Int.self, forKey: .offerCount)
+        viewCount = try c.decode(Int.self, forKey: .viewCount)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        photos = try c.decode([RequestPhoto].self, forKey: .photos)
+        requester = try c.decode(OfferUser.self, forKey: .requester)
+        acceptedOffer = try c.decodeIfPresent(AcceptedOffer.self, forKey: .acceptedOffer)
+        viewerOffer = try c.decodeIfPresent(Offer.self, forKey: .viewerOffer)
+    }
 }
 
 struct PageMeta: Decodable, Sendable {

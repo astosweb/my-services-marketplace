@@ -154,6 +154,28 @@ async function main() {
     },
   });
 
+  const electricalProgressAt = new Date();
+  await prisma.jobProgressEvent.deleteMany({ where: { requestId: "seed_req_electrical" } });
+  await prisma.jobProgressEvent.createMany({
+    data: [
+      {
+        requestId: "seed_req_electrical",
+        status: JobProgressStatus.ACCEPTED,
+        createdAt: new Date(electricalProgressAt.getTime() - 3 * 60 * 60 * 1000),
+      },
+      {
+        requestId: "seed_req_electrical",
+        status: JobProgressStatus.ON_THE_WAY,
+        createdAt: new Date(electricalProgressAt.getTime() - 2 * 60 * 60 * 1000),
+      },
+      {
+        requestId: "seed_req_electrical",
+        status: JobProgressStatus.STARTED,
+        createdAt: electricalProgressAt,
+      },
+    ],
+  });
+
   await prisma.offer.upsert({
     where: { id: "seed_offer_electrical_moonika" },
     create: {

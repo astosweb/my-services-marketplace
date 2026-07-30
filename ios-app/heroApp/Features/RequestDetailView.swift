@@ -698,44 +698,133 @@ struct RequestDetailView: View {
                 .font(.subheadline.weight(.semibold))
 
             VStack(alignment: .leading, spacing: 0) {
-                timelineRow(
-                    title: "Created",
-                    value: request.createdAt.formatted(date: .abbreviated, time: .shortened),
-                    detail: request.createdAt.formatted(.relative(presentation: .named)),
-                    symbol: "plus.circle.fill",
-                    tint: .green,
-                    isLast: false
-                )
-                timelineRow(
-                    title: "Last updated",
-                    value: request.updatedAt.formatted(date: .abbreviated, time: .shortened),
-                    detail: request.updatedAt.formatted(.relative(presentation: .named)),
-                    symbol: "arrow.triangle.2.circlepath.circle.fill",
-                    tint: .blue,
-                    isLast: request.completedAt == nil && request.cancelledAt == nil
-                )
-                if let completedAt = request.completedAt {
+                ForEach(Array(timelineEntries.enumerated()), id: \.element.id) { index, entry in
                     timelineRow(
-                        title: "Completed",
-                        value: completedAt.formatted(date: .abbreviated, time: .shortened),
-                        detail: completedAt.formatted(.relative(presentation: .named)),
-                        symbol: "checkmark.seal.fill",
-                        tint: .green,
-                        isLast: true
-                    )
-                } else if let cancelledAt = request.cancelledAt {
-                    timelineRow(
-                        title: "Cancelled",
-                        value: cancelledAt.formatted(date: .abbreviated, time: .shortened),
-                        detail: cancelledAt.formatted(.relative(presentation: .named)),
-                        symbol: "xmark.circle.fill",
-                        tint: .red,
-                        isLast: true
+                        title: entry.title,
+                        value: entry.value,
+                        detail: entry.detail,
+                        symbol: entry.symbol,
+                        tint: entry.tint,
+                        isLast: index == timelineEntries.count - 1
                     )
                 }
             }
         }
         .detailCard()
+    }
+
+    private struct TimelineEntry: Identifiable {
+        let id: String
+        let title: String
+        let value: String
+        let detail: String?
+        let symbol: String
+        let tint: Color
+        let date: Date
+    }
+
+    private var timelineEntries: [TimelineEntry] {
+        var entries: [TimelineEntry] = [
+            TimelineEntry(
+                id: "created",
+                title: "Created",
+                value: request.createdAt.formatted(date: .abbreviated, time: .shortened),
+                detail: request.createdAt.formatted(.relative(presentation: .named)),
+                symbol: "plus.circle.fill",
+                tint: .green,
+                date: request.createdAt
+            )
+        ]
+
+        if request.updatedAt.timeIntervalSince(request.createdAt) > 1 {
+            entries.append(
+                TimelineEntry(
+                    id: "updated",
+                    title: "Last updated",
+                    value: request.updatedAt.formatted(date: .abbreviated, time: .shortened),
+                    detail: request.updatedAt.formatted(.relative(presentation: .named)),
+                    symbol: "pencil.circle.fill",
+                    tint: .blue,
+                    date: request.updatedAt
+                )
+            )
+        }
+
+        for event in request.progressEvents {
+            entries.append(
+                TimelineEntry(
+                    id: event.id,
+                    title: progressTimelineLabel(event.status),
+                    value: event.createdAt.formatted(date: .abbreviated, time: .shortened),
+                    detail: event.createdAt.formatted(.relative(presentation: .named)),
+                    symbol: progressTimelineSymbol(event.status),
+                    tint: progressTimelineTint(event.status),
+                    date: event.createdAt
+                )
+            )
+        }
+
+        if let completedAt = request.completedAt {
+            // Owner confirmed already appears as a progress event; keep Completed only when no such event.
+            let hasOwnerConfirmed = request.progressEvents.contains { $0.status == .ownerConfirmed }
+            if !hasOwnerConfirmed {
+                entries.append(
+                    TimelineEntry(
+                        id: "completed",
+                        title: "Completed",
+                        value: completedAt.formatted(date: .abbreviated, time: .shortened),
+                        detail: completedAt.formatted(.relative(presentation: .named)),
+                        symbol: "checkmark.seal.fill",
+                        tint: .green,
+                        date: completedAt
+                    )
+                )
+            }
+        } else if let cancelledAt = request.cancelledAt {
+            entries.append(
+                TimelineEntry(
+                    id: "cancelled",
+                    title: "Cancelled",
+                    value: cancelledAt.formatted(date: .abbreviated, time: .shortened),
+                    detail: cancelledAt.formatted(.relative(presentation: .named)),
+                    symbol: "xmark.circle.fill",
+                    tint: .red,
+                    date: cancelledAt
+                )
+            )
+        }
+
+        return entries.sorted { $0.date < $1.date }
+    }
+
+    private func progressTimelineLabel(_ status: JobProgressStatus) -> String {
+        switch status {
+        case .accepted: "Offer accepted"
+        case .onTheWay: "Provider on the way"
+        case .started: "Job started"
+        case .providerDone: "Ready for confirmation"
+        case .ownerConfirmed: "Owner confirmed"
+        }
+    }
+
+    private func progressTimelineSymbol(_ status: JobProgressStatus) -> String {
+        switch status {
+        case .accepted: "person.2.fill"
+        case .onTheWay: "car.fill"
+        case .started: "wrench.and.screwdriver.fill"
+        case .providerDone: "flag.checkered"
+        case .ownerConfirmed: "checkmark.seal.fill"
+        }
+    }
+
+    private func progressTimelineTint(_ status: JobProgressStatus) -> Color {
+        switch status {
+        case .accepted: .blue
+        case .onTheWay: .orange
+        case .started: .teal
+        case .providerDone: .indigo
+        case .ownerConfirmed: .green
+        }
     }
 
     private func timelineRow(

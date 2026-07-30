@@ -121,14 +121,26 @@ model ServiceRequest {
 
   owner        User           @relation("RequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   category     Category       @relation(fields: [categoryId], references: [id])
-  photos        RequestPhoto[]
-  offers        Offer[]
-  conversations Conversation[]
-  reviews       Review[]
+  photos         RequestPhoto[]
+  offers         Offer[]
+  conversations  Conversation[]
+  reviews        Review[]
+  progressEvents JobProgressEvent[]
 
   @@index([city, status])
   @@index([categoryId])
   @@index([ownerId])
+}
+
+model JobProgressEvent {
+  id        String            @id @default(cuid())
+  requestId String
+  status    JobProgressStatus
+  createdAt DateTime          @default(now())
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
 }
 
 model RequestPhoto {

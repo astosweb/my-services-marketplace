@@ -36,6 +36,18 @@ const providerProgressOrder = [
   JobProgressStatus.PROVIDER_DONE,
 ] as const;
 
+const requestDetailInclude = {
+  category: true,
+  owner: true,
+  photos: true,
+  progressEvents: { orderBy: { createdAt: "asc" as const } },
+  offers: {
+    where: { status: OfferStatus.ACCEPTED },
+    include: { offerer: true },
+  },
+  _count: { select: { offers: true } },
+};
+
 @Injectable()
 export class RequestsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -187,6 +199,7 @@ export class RequestsService {
         category: true,
         owner: true,
         photos: true,
+        progressEvents: { orderBy: { createdAt: "asc" } },
         offers: {
           where: viewerUserId
             ? { OR: [{ status: OfferStatus.ACCEPTED }, { offererId: viewerUserId }] }
@@ -382,17 +395,31 @@ export class RequestsService {
     }
     const updated = await this.prisma.$transaction(async (transaction) => {
       if (data.status === OfferStatus.ACCEPTED) {
+        const existingRequest = await transaction.serviceRequest.findUnique({
+          where: { id: requestId },
+          select: { updatedAt: true },
+        });
+        if (!existingRequest) throw notFound("Request not found");
+        const now = new Date();
         const changed = await transaction.serviceRequest.updateMany({
           where: { id: requestId, status: ServiceRequestStatus.OPEN },
           data: {
             status: ServiceRequestStatus.IN_PROGRESS,
             progressStatus: JobProgressStatus.ACCEPTED,
-            progressUpdatedAt: new Date(),
+            progressUpdatedAt: now,
+            updatedAt: existingRequest.updatedAt,
             cancelledAt: null,
             completedAt: null,
           },
         });
         if (!changed.count) throw badRequest("Request is not open for offers");
+        await transaction.jobProgressEvent.create({
+          data: {
+            requestId,
+            status: JobProgressStatus.ACCEPTED,
+            createdAt: now,
+          },
+        });
       }
       const next = await transaction.offer.update({
         where: { id: offer.id },
@@ -445,7 +472,7 @@ export class RequestsService {
   async updateStatus(requestId: string, ownerId: string, data: UpdateRequestStatusDto) {
     const existing = await this.prisma.serviceRequest.findUnique({
       where: { id: requestId },
-      select: { ownerId: true, title: true, status: true, progressStatus: true },
+      select: { ownerId: true, title: true, status: true, progressStatus: true, updatedAt: true },
     });
     if (!existing) throw notFound("Request not found");
     if (existing.ownerId !== ownerId) {
@@ -480,7 +507,7 @@ export class RequestsService {
           data: { status: OfferStatus.DECLINED },
         });
       }
-      return transaction.serviceRequest.update({
+      await transaction.serviceRequest.update({
         where: { id: requestId },
         data:
           data.status === ServiceRequestStatus.COMPLETED
@@ -489,21 +516,32 @@ export class RequestsService {
                 progressStatus: JobProgressStatus.OWNER_CONFIRMED,
                 progressUpdatedAt: now,
                 completedAt: now,
+                updatedAt: existing.updatedAt,
               }
             : {
                 status: data.status,
                 progressUpdatedAt: now,
                 cancelledAt: now,
+                updatedAt: existing.updatedAt,
               },
+      });
+      if (data.status === ServiceRequestStatus.COMPLETED) {
+        await transaction.jobProgressEvent.create({
+          data: {
+            requestId,
+            status: JobProgressStatus.OWNER_CONFIRMED,
+            createdAt: now,
+          },
+        });
+      }
+      return transaction.serviceRequest.findUniqueOrThrow({
+        where: { id: requestId },
         include: {
-          category: true,
-          owner: true,
-          photos: true,
+          ...requestDetailInclude,
           offers: {
             where: { status: OfferStatus.ACCEPTED },
             include: { offerer: true },
           },
-          _count: { select: { offers: true } },
         },
       });
     });
@@ -534,7 +572,13 @@ export class RequestsService {
       where: { requestId, offererId: providerId, status: OfferStatus.ACCEPTED },
       include: {
         request: {
-          select: { title: true, ownerId: true, status: true, progressStatus: true },
+          select: {
+            title: true,
+            ownerId: true,
+            status: true,
+            progressStatus: true,
+            updatedAt: true,
+          },
         },
         offerer: true,
       },
@@ -550,19 +594,33 @@ export class RequestsService {
     if (providerProgressOrder.indexOf(data.status) !== currentIndex + 1) {
       throw badRequest("Progress can only advance one step at a time");
     }
-    const request = await this.prisma.serviceRequest.update({
-      where: { id: requestId },
-      data: { progressStatus: data.status, progressUpdatedAt: new Date() },
-      include: {
-        category: true,
-        owner: true,
-        photos: true,
-        offers: {
-          where: { status: OfferStatus.ACCEPTED },
-          include: { offerer: true },
+    const now = new Date();
+    const request = await this.prisma.$transaction(async (transaction) => {
+      await transaction.serviceRequest.update({
+        where: { id: requestId },
+        data: {
+          progressStatus: data.status,
+          progressUpdatedAt: now,
+          updatedAt: acceptedOffer.request.updatedAt,
         },
-        _count: { select: { offers: true } },
-      },
+      });
+      await transaction.jobProgressEvent.create({
+        data: {
+          requestId,
+          status: data.status,
+          createdAt: now,
+        },
+      });
+      return transaction.serviceRequest.findUniqueOrThrow({
+        where: { id: requestId },
+        include: {
+          ...requestDetailInclude,
+          offers: {
+            where: { status: OfferStatus.ACCEPTED },
+            include: { offerer: true },
+          },
+        },
+      });
     });
     const providerName = profileName(acceptedOffer.offerer);
     const progressBody =
