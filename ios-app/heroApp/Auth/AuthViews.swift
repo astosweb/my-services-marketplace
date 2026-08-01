@@ -44,41 +44,62 @@ private struct AuthShell<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                VStack(spacing: 12) {
-                    Image(systemName: "hand.raised.fingers.spread.fill")
-                        .font(.system(size: 42))
-                        .foregroundStyle(.tint)
+            VStack(spacing: 32) {
+                VStack(spacing: 16) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 56, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(colors: [.accentColor, .accentColor.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
                         .symbolEffect(.bounce, options: .nonRepeating)
                         .accessibilityHidden(true)
+                    
                     Text(title)
-                        .font(.largeTitle.bold())
+                        .font(.system(.largeTitle, design: .rounded).bold())
                         .accessibilityAddTraits(.isHeader)
+                    
                     Text(subtitle)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
+                .padding(.top, 24)
+
                 content
-                    .padding(20)
-                    .background(.regularMaterial, in: .rect(cornerRadius: 24))
-                    .shadow(color: .black.opacity(0.06), radius: 18, y: 8)
+                    .padding(24)
+                    .background(
+                        .ultraThinMaterial,
+                        in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 24, y: 12)
             }
-            .frame(maxWidth: 520)
-            .padding(.horizontal, 20)
+            .frame(maxWidth: 480)
+            .padding(.horizontal, 24)
             .padding(.vertical, 36)
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
         .background {
-            LinearGradient(
-                colors: [
-                    Color.accentColor.opacity(0.18),
-                    Color.clear,
-                    Color.accentColor.opacity(0.08)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                
+                Circle()
+                    .fill(Color.accentColor.opacity(0.15))
+                    .frame(width: 300, height: 300)
+                    .blur(radius: 60)
+                    .offset(x: -100, y: -200)
+                
+                Circle()
+                    .fill(Color.purple.opacity(0.15))
+                    .frame(width: 300, height: 300)
+                    .blur(radius: 60)
+                    .offset(x: 150, y: 100)
+            }
             .ignoresSafeArea()
         }
     }
@@ -137,8 +158,10 @@ private struct LoginView: View {
 
                 HStack {
                     Button("Forgot password?", action: showForgot)
+                        .fontWeight(.medium)
                     Spacer()
                     Button("Create account", action: showRegister)
+                        .fontWeight(.medium)
                 }
                 .font(.callout)
 
@@ -210,10 +233,12 @@ private struct RegisterView: View {
                     keyboard: .emailAddress
                 )
                 AuthPasswordField(title: "Password", text: $password, visible: $passwordVisible)
-                SecureField("Confirm password", text: $confirmPassword)
-                    .textContentType(.newPassword)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityLabel("Confirm password")
+                AuthTextField(
+                    title: "Confirm password",
+                    text: $confirmPassword,
+                    contentType: .newPassword,
+                    isSecure: true
+                )
 
                 if let message = validationMessage ?? auth.errorMessage {
                     AuthNotice(message, kind: .error)
@@ -407,7 +432,13 @@ private struct AuthTextField: View {
         .keyboardType(keyboard)
         .textInputAutocapitalization(keyboard == .emailAddress ? .never : .sentences)
         .autocorrectionDisabled(keyboard == .emailAddress)
-        .textFieldStyle(.roundedBorder)
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
         .accessibilityLabel(title)
     }
 }
@@ -433,18 +464,19 @@ private struct AuthPasswordField: View {
             Button {
                 visible.toggle()
             } label: {
-                Image(systemName: visible ? "eye.slash" : "eye")
+                Image(systemName: visible ? "eye.slash.fill" : "eye.fill")
+                    .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(visible ? "Hide password" : "Show password")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(.background, in: .rect(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.quaternary)
-        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
     }
@@ -460,15 +492,27 @@ private struct AuthPrimaryButton: View {
             Group {
                 if isLoading {
                     ProgressView()
+                        .tint(.white)
                 } else {
                     Text(title)
+                        .font(.system(.headline, design: .rounded).bold())
                 }
             }
+            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                LinearGradient(
+                    colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: Color.accentColor.opacity(0.3), radius: 10, y: 5)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
         .disabled(isLoading)
+        .opacity(isLoading ? 0.7 : 1.0)
         .accessibilityLabel(title)
         .accessibilityHint(isLoading ? "Loading" : "Double tap to submit")
     }
