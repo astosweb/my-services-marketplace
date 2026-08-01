@@ -5,6 +5,7 @@ import {
   OfferStatus,
   PrismaClient,
   ServiceRequestStatus,
+  UserRole,
 } from "../src/generated/prisma/client.js";
 import { hashPassword } from "../src/lib/auth.js";
 import { categoryCatalog } from "../src/lib/category-catalog.js";
@@ -117,7 +118,7 @@ async function main() {
   for (const user of seedUsers) {
     await prisma.user.upsert({
       where: { id: user.id },
-      create: { ...user, passwordHash },
+      create: { ...user, passwordHash, role: UserRole.USER },
       update: {
         displayName: user.displayName,
         bio: user.bio,
@@ -127,6 +128,24 @@ async function main() {
       },
     });
   }
+
+  await prisma.user.upsert({
+    where: { id: "seed_user_admin" },
+    create: {
+      id: "seed_user_admin",
+      email: "admin@hero.test",
+      displayName: "Hero Admin",
+      bio: "Marketplace operations admin",
+      role: UserRole.ADMIN,
+      passwordHash,
+    },
+    update: {
+      displayName: "Hero Admin",
+      bio: "Marketplace operations admin",
+      role: UserRole.ADMIN,
+      passwordHash,
+    },
+  });
 
   for (const request of seedRequests) {
     await prisma.serviceRequest.upsert({
@@ -194,7 +213,7 @@ async function main() {
   });
 
   console.info(
-    `Seeded ${categoryCatalog.length} categories, ${seedUsers.length} users, ${seedRequests.length} requests`,
+    `Seeded ${categoryCatalog.length} categories, ${seedUsers.length + 1} users, ${seedRequests.length} requests`,
   );
 }
 
