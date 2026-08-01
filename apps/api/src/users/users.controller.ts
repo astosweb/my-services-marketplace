@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UpdateProfileDto } from "../auth/auth.dto.js";
+import { UserReviewsQueryDto } from "./users.dto.js";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
@@ -14,8 +15,8 @@ export class UsersController {
 
   @Get(":id/reviews")
   @ApiOperation({ summary: "List reviews received by a user" })
-  async reviews(@Param("id") id: string) {
-    return { data: await this.usersService.reviews(id) };
+  async reviews(@Param("id") id: string, @Query() query: UserReviewsQueryDto) {
+    return this.usersService.reviews(id, query);
   }
 
   @Get(":id")

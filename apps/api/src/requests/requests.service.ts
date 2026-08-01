@@ -6,7 +6,6 @@ import {
   RequestPricingMode,
   ServiceRequestStatus,
 } from "../generated/prisma/client.js";
-import { ensureCategoryCatalog } from "../lib/category-catalog.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKeys } from "../lib/owned-keys.js";
 import {
@@ -54,21 +53,28 @@ export class RequestsService {
 
   private async ensureConversation(requestId: string, userA: string, userB: string) {
     if (userA === userB) throw badRequest("Cannot message yourself");
-    const existing = await this.prisma.conversation.findFirst({
-      where: {
-        requestId,
-        AND: [
-          { participants: { some: { userId: userA } } },
-          { participants: { some: { userId: userB } } },
-        ],
-      },
-    });
-    if (existing) return existing;
-    return this.prisma.conversation.create({
-      data: {
-        requestId,
-        participants: { create: [{ userId: userA }, { userId: userB }] },
-      },
+
+    return this.prisma.$transaction(async (tx) => {
+      // Acquire lock to serialize conversation creation for this request
+      await tx.$executeRaw`SELECT 1 FROM "ServiceRequest" WHERE id = ${requestId} FOR UPDATE`;
+
+      const existing = await tx.conversation.findFirst({
+        where: {
+          requestId,
+          AND: [
+            { participants: { some: { userId: userA } } },
+            { participants: { some: { userId: userB } } },
+          ],
+        },
+      });
+      if (existing) return existing;
+
+      return tx.conversation.create({
+        data: {
+          requestId,
+          participants: { create: [{ userId: userA }, { userId: userB }] },
+        },
+      });
     });
   }
 
@@ -235,7 +241,7 @@ export class RequestsService {
       throw badRequest("Fixed price is required");
     }
     if (data.photoKeys?.length) assertOwnedObjectKeys(data.photoKeys, ownerId, "requests");
-    await ensureCategoryCatalog(this.prisma);
+    // ensureCategoryCatalog(this.prisma) is handled at startup by CategoriesService
     if (!(await this.prisma.category.findUnique({ where: { id: data.categoryId } }))) {
       throw badRequest("Category not found");
     }
@@ -293,7 +299,7 @@ export class RequestsService {
     if (existing._count.offers > 0) {
       throw conflict("Cannot edit a request that already has offers");
     }
-    await ensureCategoryCatalog(this.prisma);
+    // ensureCategoryCatalog(this.prisma) is handled at startup by CategoriesService
     if (!(await this.prisma.category.findUnique({ where: { id: data.categoryId } }))) {
       throw badRequest("Category not found");
     }

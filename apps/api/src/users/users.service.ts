@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { UpdateProfileDto } from "../auth/auth.dto.js";
+import type { UserReviewsQueryDto } from "./users.dto.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKey } from "../lib/owned-keys.js";
 import { serializeMe, serializeReview, serializeUser } from "../lib/serializers.js";
@@ -15,17 +16,23 @@ export class UsersService {
     return serializeUser(user);
   }
 
-  async reviews(id: string) {
+  async reviews(id: string, query: UserReviewsQueryDto) {
     const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
     if (!user) throw notFound("User not found");
-    return (
-      await this.prisma.review.findMany({
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
         where: { subjectId: id },
         include: { author: true, request: true },
         orderBy: { createdAt: "desc" },
-        take: 50,
-      })
-    ).map(serializeReview);
+        take: query.limit,
+        skip: query.offset,
+      }),
+      this.prisma.review.count({ where: { subjectId: id } }),
+    ]);
+    return {
+      data: reviews.map(serializeReview),
+      meta: { total, limit: query.limit, offset: query.offset },
+    };
   }
 
   async update(id: string, userId: string, data: UpdateProfileDto) {

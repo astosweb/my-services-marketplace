@@ -1,5 +1,7 @@
 import { MiddlewareConsumer, Module, type NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 import { AuthModule } from "./auth/auth.module.js";
 import { CategoriesModule } from "./categories/categories.module.js";
@@ -37,6 +39,10 @@ import { UsersModule } from "./users/users.module.js";
         },
       },
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 100, // 100 requests per minute
+    }]),
     PrismaModule,
     CommonModule,
     AuthModule,
@@ -49,6 +55,12 @@ import { UsersModule } from "./users/users.module.js";
     UsersModule,
     DevicesModule,
     ...(env.REDIS_URL ? [JobsModule] : []),
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {
