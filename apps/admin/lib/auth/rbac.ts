@@ -4,9 +4,9 @@ import { getDefaultPermissionsForRole } from "@monorepo/shared";
 
 /** Permissions come from the API role catalog — no local Prisma RBAC. */
 export async function getPermissionsForRoleId(
-  _roleId: string,
+  roleId: string,
 ): Promise<string[]> {
-  return getDefaultPermissionsForRole("ADMIN");
+  return getDefaultPermissionsForRole(roleId || "ADMIN");
 }
 
 export async function getPermissionsForRoleName(

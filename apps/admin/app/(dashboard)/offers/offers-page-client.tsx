@@ -1,11 +1,16 @@
 "use client";
 
+import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, Handshake, Trash2 } from "lucide-react";
 import type { OfferStatus } from "@monorepo/shared";
+
 import { DataPagination } from "@/components/data-pagination";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Select,
   SelectContent,
@@ -13,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -36,12 +42,19 @@ function formatEuro(cents: number | null) {
 }
 
 export function OffersPageClient() {
-  const { filters, query, setFilter, setPage, setLimit } = useListParams<{
-    status?: string;
-  }>({});
+  const { search, filters, query, setSearch, setFilter, setPage, setLimit } =
+    useListParams<{ status?: string }>({});
   const { data, isLoading, error } = useOffers(query);
   const updateOffer = useUpdateOffer();
   const deleteOffer = useDeleteOffer();
+
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTargetId) return;
+    await deleteOffer.mutateAsync(deleteTargetId);
+    setDeleteTargetId(null);
+  };
 
   if (isLoading) {
     return (
@@ -66,104 +79,135 @@ export function OffersPageClient() {
   const items = data?.items ?? [];
 
   return (
-    <div className="flex flex-col gap-4 px-4 lg:px-6">
-      <Select
-        value={filters.status ?? "all"}
-        onValueChange={(value) =>
-          setFilter("status", value === "all" ? undefined : value)
-        }
-      >
-        <SelectTrigger className="w-44">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
-          {STATUSES.map((status) => (
-            <SelectItem key={status} value={status}>
-              {status}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Offers Management"
+        description="Review proposals submitted by service providers across all active requests."
+      />
+
+      <div className="flex flex-col gap-3 px-4 lg:px-6 sm:flex-row sm:items-center">
+        <Input
+          placeholder="Search by provider or request…"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="max-w-sm"
+        />
+        <Select
+          value={filters.status ?? "all"}
+          onValueChange={(value) =>
+            setFilter("status", value === "all" ? undefined : value)
+          }
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {status}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {items.length === 0 ? (
-        <EmptyState title="No offers" description="Nothing to show yet." />
+        <div className="px-4 lg:px-6">
+          <EmptyState
+            icon={Handshake}
+            title="No offers found"
+            description="Nothing matches your current query."
+          />
+        </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Request</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="w-28" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((offer) => (
-                <TableRow key={offer.id}>
-                  <TableCell className="max-w-56 truncate font-medium">
-                    {offer.request?.title ?? offer.requestId}
-                  </TableCell>
-                  <TableCell>{offer.offerer.profileName}</TableCell>
-                  <TableCell>{formatEuro(offer.priceCents)}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={offer.status}
-                      onValueChange={(status) =>
-                        void updateOffer.mutateAsync({
-                          id: offer.id,
-                          status: status as OfferStatus,
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-36">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STATUSES.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {formatDistanceToNow(new Date(offer.createdAt), {
-                      addSuffix: true,
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Delete offer"
-                      onClick={() => {
-                        if (window.confirm("Delete this offer?")) {
-                          void deleteOffer.mutateAsync(offer.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </TableCell>
+        <div className="px-4 lg:px-6">
+          <div className="overflow-hidden rounded-lg border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Request</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {items.map((offer) => (
+                  <TableRow key={offer.id}>
+                    <TableCell className="max-w-56 truncate font-medium">
+                      {offer.request?.title ?? offer.requestId}
+                    </TableCell>
+                    <TableCell>{offer.offerer.profileName}</TableCell>
+                    <TableCell className="font-semibold">
+                      {formatEuro(offer.priceCents)}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={offer.status}
+                        onValueChange={(status) =>
+                          void updateOffer.mutateAsync({
+                            id: offer.id,
+                            status: status as OfferStatus,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-32 border-none p-0 focus:ring-0">
+                          <StatusBadge status={offer.status} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatDistanceToNow(new Date(offer.createdAt), {
+                        addSuffix: true,
+                      })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Delete offer"
+                        onClick={() => setDeleteTargetId(offer.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
       {data?.meta ? (
-        <DataPagination
-          pagination={data.meta}
-          onPageChange={setPage}
-          onLimitChange={setLimit}
-        />
+        <div className="px-4 lg:px-6">
+          <DataPagination
+            pagination={data.meta}
+            onPageChange={setPage}
+            onLimitChange={setLimit}
+          />
+        </div>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete Offer"
+        description="Are you sure you want to delete this offer? This cannot be undone."
+        confirmText="Delete Offer"
+        isLoading={deleteOffer.isPending}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 }

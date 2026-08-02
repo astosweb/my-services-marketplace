@@ -1,6 +1,8 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import * as React from "react";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -10,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissionsCatalog, useRoles } from "@/lib/api/marketplace";
 
@@ -19,9 +22,12 @@ export function RolesPageClient() {
 
   if (roles.isLoading || permissions.isLoading) {
     return (
-      <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">
-        <Skeleton className="h-48" />
-        <Skeleton className="h-48" />
+      <div className="flex flex-col gap-4">
+        <PageHeader title="Roles & Permissions" description="Loading access control policies…" />
+        <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">
+          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -43,41 +49,59 @@ export function RolesPageClient() {
   }
 
   return (
-    <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">
-      {(roles.data ?? []).map((role) => (
-        <Card key={role.name}>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Roles & Permissions"
+        description="Inspect RBAC roles, permission assignments, and catalog defined in backend services."
+      />
+
+      <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">
+        {(roles.data ?? []).map((role) => (
+          <Card key={role.name} className="shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ShieldCheck className="size-5 text-emerald-600 dark:text-emerald-400" />
+                  Role: {role.name}
+                </CardTitle>
+                <CardDescription className="pt-1">
+                  System role — permissions enforced dynamically by NestJS API
+                </CardDescription>
+              </div>
+              <Badge variant="secondary" className="font-mono text-xs">
+                {role.permissions.length} PERMISSIONS
+              </Badge>
+            </CardHeader>
+            <CardContent className="pt-4 flex flex-wrap gap-1.5">
+              {role.permissions.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No admin permissions granted</p>
+              ) : (
+                role.permissions.map((permission) => (
+                  <Badge key={permission} variant="outline" className="font-mono text-xs">
+                    {permission}
+                  </Badge>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        ))}
+
+        <Card className="lg:col-span-2 shadow-xs">
           <CardHeader>
-            <CardTitle>{role.name}</CardTitle>
+            <CardTitle>Permission Catalog</CardTitle>
             <CardDescription>
-              System role — permissions are assigned by the API
+              Complete catalog of granular permission definitions exposed by backend API guards
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            {role.permissions.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No admin permissions</p>
-            ) : (
-              role.permissions.map((permission) => (
-                <Badge key={permission} variant="outline">
-                  {permission}
-                </Badge>
-              ))
-            )}
+            {(permissions.data ?? []).map((permission) => (
+              <Badge key={permission.name} variant="secondary" className="font-mono text-xs py-1 px-2.5">
+                {permission.name}
+              </Badge>
+            ))}
           </CardContent>
         </Card>
-      ))}
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Permission catalog</CardTitle>
-          <CardDescription>All permissions the API can grant</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {(permissions.data ?? []).map((permission) => (
-            <Badge key={permission.name} variant="secondary">
-              {permission.name}
-            </Badge>
-          ))}
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }

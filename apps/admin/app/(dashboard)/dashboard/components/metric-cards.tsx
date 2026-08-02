@@ -3,7 +3,6 @@
 import {
   ClipboardList,
   Handshake,
-  MessageSquare,
   Star,
   Users,
 } from "lucide-react";
