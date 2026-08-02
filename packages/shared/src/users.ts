@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { UserRole, UserStatus } from "./auth";
-
+import type { AuditLogDto } from "./marketplace";
 
 export type UserDto = {
   id: string;
@@ -60,9 +60,58 @@ export type UserDetailReviewDto = {
   request: { id: string; title: string } | null;
 };
 
+export type UserDetailSessionDto = {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  isExpired: boolean;
+};
+
+export type UserDetailDeviceDto = {
+  id: string;
+  platform: string;
+  tokenPreview: string;
+  createdAt: string;
+};
+
+export type UserDetailNotificationDto = {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+};
+
+export type UserDetailConversationDto = {
+  id: string;
+  requestId: string;
+  requestTitle: string;
+  requestStatus: string;
+  messageCount: number;
+  lastMessageAt: string | null;
+  otherParticipants: Array<{
+    id: string;
+    profileName: string;
+    avatarUrl: string | null;
+  }>;
+};
+
 export type UserDetailDto = UserDto & {
   preferBusinessName: boolean;
   memberSince: string;
+  hasPassword: boolean;
+  lastLoginAt: string | null;
+  sessionCount: number;
+  deviceCount: number;
+  notificationCount: number;
+  conversationCount: number;
+  pendingPasswordReset: { createdAt: string; expiresAt: string } | null;
+  sessions: UserDetailSessionDto[];
+  devices: UserDetailDeviceDto[];
+  auditLogs: AuditLogDto[];
+  notifications: UserDetailNotificationDto[];
+  conversations: UserDetailConversationDto[];
   requests: UserDetailRequestDto[];
   offers: UserDetailOfferDto[];
   reviewsReceived: UserDetailReviewDto[];

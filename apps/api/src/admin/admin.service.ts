@@ -187,13 +187,27 @@ export class AdminService {
   }
 
   async getUser(id: string) {
+    const now = new Date();
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: { _count: { select: userCountsSelect } },
     });
     if (!user) throw notFound("User not found");
 
-    const [requests, offers, reviewsReceived, reviewsGiven] = await Promise.all([
+    const [
+      requests,
+      offers,
+      reviewsReceived,
+      reviewsGiven,
+      refreshTokens,
+      deviceTokens,
+      passwordResetTokens,
+      auditLogs,
+      notifications,
+      conversationParticipants,
+      notificationCount,
+      conversationCount,
+    ] = await Promise.all([
       this.prisma.serviceRequest.findMany({
         where: { ownerId: id },
         include: requestListInclude,
@@ -221,12 +235,125 @@ export class AdminService {
         orderBy: { createdAt: "desc" },
         take: 20,
       }),
+      this.prisma.refreshToken.findMany({
+        where: { userId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.deviceToken.findMany({
+        where: { userId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.passwordResetToken.findMany({
+        where: { userId: id, expiresAt: { gt: now } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      }),
+      this.prisma.auditLog.findMany({
+        where: {
+          OR: [
+            { actorId: id },
+            { resource: "user", resourceId: id },
+          ],
+        },
+        include: { actor: true },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.notification.findMany({
+        where: { userId: id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      this.prisma.conversationParticipant.findMany({
+        where: { userId: id },
+        include: {
+          conversation: {
+            include: {
+              request: { select: { id: true, title: true, status: true } },
+              participants: { include: { user: true } },
+              messages: { orderBy: { createdAt: "desc" }, take: 1 },
+              _count: { select: { messages: true } },
+            },
+          },
+        },
+        take: 20,
+      }),
+      this.prisma.notification.count({ where: { userId: id } }),
+      this.prisma.conversationParticipant.count({ where: { userId: id } }),
     ]);
+
+    const sessions = refreshTokens.map((token) => ({
+      id: token.id,
+      createdAt: token.createdAt.toISOString(),
+      expiresAt: token.expiresAt.toISOString(),
+      isExpired: token.expiresAt < now,
+    }));
+    const activeSession = sessions.find((session) => !session.isExpired);
+    const pendingReset = passwordResetTokens[0] ?? null;
+
+    const conversations = conversationParticipants
+      .map((participant) => participant.conversation)
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .map((conversation) => {
+        const lastMessage = conversation.messages[0];
+        return {
+          id: conversation.id,
+          requestId: conversation.requestId,
+          requestTitle: conversation.request.title,
+          requestStatus: conversation.request.status,
+          messageCount: conversation._count.messages,
+          lastMessageAt: lastMessage ? lastMessage.createdAt.toISOString() : null,
+          otherParticipants: conversation.participants
+            .filter((p) => p.userId !== id)
+            .map((p) => serializeUser(p.user)),
+        };
+      });
 
     return {
       ...this.adminUser(user, user._count),
       preferBusinessName: user.preferBusinessName,
       memberSince: user.createdAt.toISOString(),
+      hasPassword: Boolean(user.passwordHash),
+      lastLoginAt: activeSession?.createdAt ?? sessions[0]?.createdAt ?? null,
+      sessionCount: sessions.length,
+      deviceCount: deviceTokens.length,
+      notificationCount,
+      conversationCount,
+      pendingPasswordReset: pendingReset
+        ? {
+            createdAt: pendingReset.createdAt.toISOString(),
+            expiresAt: pendingReset.expiresAt.toISOString(),
+          }
+        : null,
+      sessions,
+      devices: deviceTokens.map((device) => ({
+        id: device.id,
+        platform: device.platform,
+        tokenPreview: device.token.length <= 4 ? "••••" : `…${device.token.slice(-4)}`,
+        createdAt: device.createdAt.toISOString(),
+      })),
+      auditLogs: auditLogs.map((log) => ({
+        id: log.id,
+        actorId: log.actorId,
+        actorName: profileName(log.actor),
+        actorEmail: log.actor.email,
+        action: log.action,
+        resource: log.resource,
+        resourceId: log.resourceId,
+        details: (log.details as Record<string, unknown> | null) ?? null,
+        createdAt: log.createdAt.toISOString(),
+      })),
+      notifications: notifications.map((notification) => ({
+        id: notification.id,
+        kind: notification.kind,
+        title: notification.title,
+        body: notification.body,
+        isRead: notification.isRead,
+        createdAt: notification.createdAt.toISOString(),
+      })),
+      conversations,
       requests: requests.map((request) => {
         const serialized = serializeRequest(request);
         return {
@@ -265,16 +392,38 @@ export class AdminService {
 
   async updateUser(id: string, adminId: string, data: AdminUpdateUserDto) {
     if (Object.keys(data).length === 0) throw badRequest("No fields to update");
-    const existing = await this.prisma.user.findUnique({ where: { id }, select: { role: true } });
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      select: { role: true, displayName: true, bio: true, businessName: true },
+    });
     if (!existing) throw notFound("User not found");
     if (id === adminId && data.role && data.role !== existing.role) {
       throw forbidden("You cannot change your own role");
     }
-    return this.adminUser(await this.prisma.user.update({ where: { id }, data }));
+    const updated = await this.prisma.user.update({ where: { id }, data });
+    await this.logAudit(adminId, "USER_UPDATED", "user", id, {
+      changes: data,
+      previous: {
+        role: existing.role,
+        displayName: existing.displayName,
+        bio: existing.bio,
+        businessName: existing.businessName,
+      },
+    });
+    return this.adminUser(updated);
   }
 
   async deleteUser(id: string, adminId: string) {
     if (id === adminId) throw forbidden("You cannot delete your own account");
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, displayName: true },
+    });
+    if (!existing) throw notFound("User not found");
+    await this.logAudit(adminId, "USER_DELETED", "user", id, {
+      email: existing.email,
+      displayName: existing.displayName,
+    });
     const { count } = await this.prisma.user.deleteMany({ where: { id } });
     if (!count) throw notFound("User not found");
   }

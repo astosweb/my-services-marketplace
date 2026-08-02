@@ -7,11 +7,18 @@ import {
   AlertTriangle,
   ArrowLeft,
   Ban,
+  Bell,
   Briefcase,
   Edit2,
   FileText,
   HandCoins,
+  KeyRound,
   Mail,
+  MessageSquare,
+  MonitorSmartphone,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
   Star,
   Trash2,
   User,
@@ -380,6 +387,36 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                   </span>
                 </div>
                 <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Prefer business name</span>
+                  <span className="font-medium text-right">
+                    {user.preferBusinessName ? "Yes" : "No"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Password</span>
+                  <span className="font-medium text-right flex items-center gap-1">
+                    {user.hasPassword ? (
+                      <>
+                        <ShieldCheck className="size-3 text-emerald-600" /> Set
+                      </>
+                    ) : (
+                      <>
+                        <ShieldAlert className="size-3 text-amber-600" /> Missing
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Last login</span>
+                  <span className="font-medium text-right">
+                    {user.lastLoginAt
+                      ? formatDistanceToNow(new Date(user.lastLoginAt), {
+                          addSuffix: true,
+                        })
+                      : "Never"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground">Joined</span>
                   <span className="font-medium text-right">
                     {format(new Date(user.createdAt), "PPP")}
@@ -428,10 +465,27 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
               <p className="text-[11px] text-muted-foreground">Reviews</p>
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg border p-3 text-center space-y-1">
+              <KeyRound className="size-4 mx-auto text-muted-foreground" />
+              <p className="text-lg font-semibold tabular-nums">
+                {user.sessionCount}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Sessions</p>
+            </div>
+            <div className="rounded-lg border p-3 text-center space-y-1">
+              <Smartphone className="size-4 mx-auto text-muted-foreground" />
+              <p className="text-lg font-semibold tabular-nums">
+                {user.deviceCount}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Devices</p>
+            </div>
+          </div>
         </div>
 
         <Tabs defaultValue="requests" className="w-full min-w-0">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
             <TabsTrigger value="requests">
               Requests ({user.requests.length})
             </TabsTrigger>
@@ -443,6 +497,18 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
             </TabsTrigger>
             <TabsTrigger value="given">
               Given ({user.reviewsGiven.length})
+            </TabsTrigger>
+            <TabsTrigger value="sessions">
+              Sessions ({user.sessionCount})
+            </TabsTrigger>
+            <TabsTrigger value="devices">
+              Devices ({user.deviceCount})
+            </TabsTrigger>
+            <TabsTrigger value="activity">
+              Activity
+            </TabsTrigger>
+            <TabsTrigger value="conversations">
+              Conversations ({user.conversationCount})
             </TabsTrigger>
           </TabsList>
 
@@ -757,6 +823,287 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                           {formatDistanceToNow(new Date(review.createdAt), {
                             addSuffix: true,
                           })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sessions" className="space-y-4 pt-3">
+            {user.pendingPasswordReset ? (
+              <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+                <KeyRound className="size-4 mt-0.5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-medium">Pending password reset</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Requested{" "}
+                    {formatDistanceToNow(
+                      new Date(user.pendingPasswordReset.createdAt),
+                      { addSuffix: true },
+                    )}
+                    · expires{" "}
+                    {format(
+                      new Date(user.pendingPasswordReset.expiresAt),
+                      "PPP p",
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {user.sessions.length === 0 ? (
+              <EmptyState
+                icon={KeyRound}
+                title="No sessions"
+                description="No refresh tokens / login sessions recorded for this user."
+              />
+            ) : (
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Session ID</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {user.sessions.map((session) => (
+                      <TableRow key={session.id}>
+                        <TableCell className="font-mono text-xs max-w-[180px] truncate">
+                          {session.id}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {format(new Date(session.createdAt), "PPP p")}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                          {format(new Date(session.expiresAt), "PPP p")}
+                        </TableCell>
+                        <TableCell>
+                          {session.isExpired ? (
+                            <Badge variant="secondary">Expired</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-emerald-700 border-emerald-500/40">
+                              Active
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="devices" className="pt-3">
+            {user.devices.length === 0 ? (
+              <EmptyState
+                icon={MonitorSmartphone}
+                title="No devices"
+                description="No push notification devices registered for this user."
+              />
+            ) : (
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Platform</TableHead>
+                      <TableHead>Token</TableHead>
+                      <TableHead>Registered</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {user.devices.map((device) => (
+                      <TableRow key={device.id}>
+                        <TableCell className="font-medium capitalize">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Smartphone className="size-3.5 text-muted-foreground" />
+                            {device.platform}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {device.tokenPreview}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                          {formatDistanceToNow(new Date(device.createdAt), {
+                            addSuffix: true,
+                          })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="activity" className="space-y-4 pt-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                  <ShieldAlert className="size-4 text-primary" /> Admin Audit
+                  Trail
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Actions by this user as admin, or admin actions targeting this
+                  account.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {user.auditLogs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-2">
+                    No administrative actions recorded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {user.auditLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="rounded-md border p-2.5 text-xs space-y-1 bg-muted/20"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[10px]"
+                          >
+                            {log.action}
+                          </Badge>
+                          <span className="text-muted-foreground text-[11px] shrink-0">
+                            {format(new Date(log.createdAt), "PPP p")}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground">
+                          By{" "}
+                          <span className="font-medium text-foreground">
+                            {log.actorName}
+                          </span>
+                          {log.actorEmail ? ` (${log.actorEmail})` : null}
+                          {" · "}
+                          <span className="font-mono">
+                            {log.resource}/{log.resourceId}
+                          </span>
+                        </p>
+                        {log.details && Object.keys(log.details).length > 0 ? (
+                          <pre className="mt-1 rounded bg-muted p-1.5 font-mono text-[10px] overflow-x-auto">
+                            {JSON.stringify(log.details, null, 2)}
+                          </pre>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                  <Bell className="size-4" /> Notifications
+                  <span className="text-muted-foreground font-normal">
+                    ({user.notificationCount})
+                  </span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Recent in-app notifications sent to this user.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {user.notifications.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-2">
+                    No notifications yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {user.notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="flex items-start justify-between gap-3 rounded-md border p-2.5 text-xs"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="secondary" className="text-[10px]">
+                              {notification.kind}
+                            </Badge>
+                            {!notification.isRead ? (
+                              <Badge variant="outline" className="text-[10px]">
+                                Unread
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="font-medium">{notification.title}</p>
+                          <p className="text-muted-foreground line-clamp-2">
+                            {notification.body}
+                          </p>
+                        </div>
+                        <span className="text-muted-foreground shrink-0 whitespace-nowrap">
+                          {formatDistanceToNow(
+                            new Date(notification.createdAt),
+                            { addSuffix: true },
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="conversations" className="pt-3">
+            {user.conversations.length === 0 ? (
+              <EmptyState
+                icon={MessageSquare}
+                title="No conversations"
+                description="This user has not participated in any conversations."
+              />
+            ) : (
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Request</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Participants</TableHead>
+                      <TableHead>Messages</TableHead>
+                      <TableHead>Last activity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {user.conversations.map((conversation) => (
+                      <TableRow key={conversation.id}>
+                        <TableCell className="font-medium max-w-[220px]">
+                          <Link
+                            href={`/conversations?search=${encodeURIComponent(conversation.requestTitle)}`}
+                            className="hover:underline truncate block"
+                          >
+                            {conversation.requestTitle}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={conversation.requestStatus} />
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                          {conversation.otherParticipants.length > 0
+                            ? conversation.otherParticipants
+                                .map((p) => p.profileName)
+                                .join(", ")
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="tabular-nums text-sm">
+                          {conversation.messageCount}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                          {conversation.lastMessageAt
+                            ? formatDistanceToNow(
+                                new Date(conversation.lastMessageAt),
+                                { addSuffix: true },
+                              )
+                            : "—"}
                         </TableCell>
                       </TableRow>
                     ))}
