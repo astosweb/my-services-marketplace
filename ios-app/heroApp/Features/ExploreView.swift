@@ -250,14 +250,6 @@ struct ExploreView: View {
     private var listLayout: some View {
         ScrollView {
             LazyVStack(spacing: 10) {
-                HStack {
-                    Text(resultSummary)
-                    Spacer()
-                    sortMenu
-                }
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-
                 if isLoading && requests.isEmpty {
                     LazyVGrid(columns: listColumns, spacing: 10) {
                         ForEach(0..<6, id: \.self) { _ in SkeletonRequestCard() }
@@ -453,11 +445,6 @@ struct ExploreView: View {
 
     private var mappableRequests: [ServiceRequest] {
         visibleRequests.filter(\.isMappable)
-    }
-
-    private var resultSummary: String {
-        let count = visibleRequests.count
-        return count == 1 ? "1 open request" : "\(count) open requests"
     }
 
     private var mapSummary: String {
