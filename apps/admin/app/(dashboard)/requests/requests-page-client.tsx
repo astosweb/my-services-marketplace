@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ClipboardList, Edit2, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ClipboardList, Edit2, MessagesSquare, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -233,6 +234,17 @@ export function RequestsPageClient() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          aria-label={`View conversations for ${request.title}`}
+                          title="View Conversations"
+                        >
+                          <Link href={`/conversations?search=${encodeURIComponent(request.title)}`}>
+                            <MessagesSquare className="size-4 text-primary" />
+                          </Link>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"

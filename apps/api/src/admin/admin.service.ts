@@ -3,7 +3,9 @@ import { Prisma, ServiceRequestStatus, UserRole, type User } from "../generated/
 import { ADMIN_PERMISSIONS, permissionsForRole } from "../lib/admin-permissions.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import {
+  mediaUrlForKey,
   messagePreviewText,
+  profileName,
   serializeCategory,
   serializeMe,
   serializeOffer,
@@ -437,6 +439,39 @@ export class AdminService {
         };
       }),
       meta: { total, limit: query.limit ?? 50, offset: query.offset ?? 0 },
+    };
+  }
+
+  async getConversationMessages(conversationId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        request: { select: { id: true, title: true, status: true } },
+        participants: { include: { user: true } },
+        messages: {
+          include: { sender: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+    if (!conversation) throw notFound("Conversation not found");
+
+    return {
+      id: conversation.id,
+      requestId: conversation.requestId,
+      requestTitle: conversation.request.title,
+      requestStatus: conversation.request.status,
+      participants: conversation.participants.map((p) => serializeUser(p.user)),
+      messages: conversation.messages.map((message) => ({
+        id: message.id,
+        senderId: message.senderId,
+        senderName: profileName(message.sender),
+        senderAvatar: message.sender.avatarKey ? mediaUrlForKey(message.sender.avatarKey) : null,
+        body: message.body,
+        attachmentKey: message.attachmentKey,
+        attachmentUrl: message.attachmentKey ? mediaUrlForKey(message.attachmentKey) : null,
+        createdAt: message.createdAt.toISOString(),
+      })),
     };
   }
 

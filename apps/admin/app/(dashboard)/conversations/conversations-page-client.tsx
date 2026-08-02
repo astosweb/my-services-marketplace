@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, Eye, MessagesSquare } from "lucide-react";
-import type { ConversationDto } from "@monorepo/shared";
+import { AlertTriangle, Eye, MessageSquare, MessagesSquare, User } from "lucide-react";
 
 import { DataPagination } from "@/components/data-pagination";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -29,14 +31,19 @@ import {
 } from "@/components/ui/table";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useListParams } from "@/hooks/use-list-params";
-import { useConversations } from "@/lib/api/marketplace";
+import { useConversationMessages, useConversations } from "@/lib/api/marketplace";
 
 export function ConversationsPageClient() {
   const { search, query, setSearch, setPage, setLimit } = useListParams({});
   const { data, isLoading, error } = useConversations(query);
 
-  const [activeConversation, setActiveConversation] =
-    React.useState<ConversationDto | null>(null);
+  const [activeConversationId, setActiveConversationId] = React.useState<string | null>(null);
+
+  const {
+    data: detail,
+    isLoading: isDetailLoading,
+    error: detailError,
+  } = useConversationMessages(activeConversationId);
 
   if (isLoading) {
     return (
@@ -64,7 +71,7 @@ export function ConversationsPageClient() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Moderation & Conversations"
-        description="Monitor user communications, negotiate service terms, and inspect message threads."
+        description="Monitor user communications, click any row to inspect complete message history."
       />
 
       <div className="flex flex-col gap-3 px-4 lg:px-6 sm:flex-row sm:items-center">
@@ -100,7 +107,11 @@ export function ConversationsPageClient() {
               </TableHeader>
               <TableBody>
                 {items.map((conversation) => (
-                  <TableRow key={conversation.id}>
+                  <TableRow
+                    key={conversation.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setActiveConversationId(conversation.id)}
+                  >
                     <TableCell className="max-w-56 truncate font-medium">
                       {conversation.requestTitle}
                     </TableCell>
@@ -122,12 +133,12 @@ export function ConversationsPageClient() {
                         addSuffix: true,
                       })}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon"
                         aria-label="Inspect conversation"
-                        onClick={() => setActiveConversation(conversation)}
+                        onClick={() => setActiveConversationId(conversation.id)}
                       >
                         <Eye className="size-4 text-muted-foreground" />
                       </Button>
@@ -150,56 +161,111 @@ export function ConversationsPageClient() {
         </div>
       ) : null}
 
-      {/* Conversation Thread Inspection Modal */}
+      {/* Full Conversation Message Thread Modal */}
       <Dialog
-        open={Boolean(activeConversation)}
-        onOpenChange={(open) => !open && setActiveConversation(null)}
+        open={Boolean(activeConversationId)}
+        onOpenChange={(open) => !open && setActiveConversationId(null)}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Conversation Details</DialogTitle>
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <MessageSquare className="size-5 text-primary" />
+                Conversation History
+              </DialogTitle>
+              {detail ? <StatusBadge status={detail.requestStatus} /> : null}
+            </div>
             <DialogDescription>
-              Request: {activeConversation?.requestTitle}
+              Request: <span className="font-semibold text-foreground">{detail?.requestTitle ?? "Loading..."}</span>
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 pt-2">
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Participants
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {activeConversation?.participants.map((p) => (
-                  <Badge key={p.id} variant="secondary">
-                    {p.profileName}
-                  </Badge>
-                ))}
-              </div>
+          {isDetailLoading ? (
+            <div className="space-y-4 py-6">
+              <Skeleton className="h-12 w-3/4" />
+              <Skeleton className="h-12 w-2/3 ml-auto" />
+              <Skeleton className="h-12 w-1/2" />
             </div>
+          ) : detailError ? (
+            <div className="py-6 text-center text-sm text-destructive">
+              Could not load full message thread.
+            </div>
+          ) : detail ? (
+            <div className="flex flex-col gap-4 flex-1 overflow-hidden pt-2">
+              {/* Participants Bar */}
+              <div className="flex items-center gap-2 bg-muted/40 p-2.5 rounded-lg border text-xs">
+                <span className="font-semibold text-muted-foreground uppercase tracking-wider">
+                  Participants:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {detail.participants.map((p) => (
+                    <div key={p.id} className="flex items-center gap-1 bg-background px-2 py-0.5 rounded-md border">
+                      <Avatar className="size-4">
+                        <AvatarImage src={p.avatarUrl || undefined} />
+                        <AvatarFallback><User className="size-3" /></AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-foreground">{p.profileName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Recent Message Preview
-              </h4>
-              <ScrollArea className="h-40 rounded-md border p-3 bg-muted/30">
-                {activeConversation?.lastMessage ? (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-foreground">
-                      Sender ID: {activeConversation.lastMessage.senderId}
+              {/* Chat Thread Messages */}
+              <ScrollArea className="flex-1 pr-4 h-[350px]">
+                <div className="flex flex-col gap-3 py-2">
+                  {detail.messages.length === 0 ? (
+                    <p className="text-center text-muted-foreground text-sm py-8">
+                      No messages exchanged in this conversation thread yet.
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {activeConversation.lastMessage.body}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground pt-1">
-                      {new Date(activeConversation.lastMessage.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No messages yet.</p>
-                )}
+                  ) : (
+                    detail.messages.map((message, index) => {
+                      const isFirstParticipant =
+                        message.senderId === detail.participants[0]?.id;
+                      return (
+                        <div
+                          key={message.id || index}
+                          className={`flex items-start gap-2.5 max-w-[85%] ${
+                            isFirstParticipant ? "self-start" : "self-end flex-row-reverse"
+                          }`}
+                        >
+                          <Avatar className="size-8 shrink-0 mt-0.5">
+                            <AvatarImage src={message.senderAvatar || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {message.senderName.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div
+                            className={`flex flex-col gap-1 p-3 rounded-2xl text-sm ${
+                              isFirstParticipant
+                                ? "bg-muted text-foreground rounded-tl-xs"
+                                : "bg-primary text-primary-foreground rounded-tr-xs"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-4 text-[11px] opacity-80 font-medium">
+                              <span>{message.senderName}</span>
+                              <span>
+                                {formatDistanceToNow(new Date(message.createdAt), {
+                                  addSuffix: true,
+                                })}
+                              </span>
+                            </div>
+                            {message.body ? (
+                              <p className="whitespace-pre-wrap leading-relaxed">{message.body}</p>
+                            ) : null}
+                            {message.attachmentUrl || message.attachmentKey ? (
+                              <div className="mt-1.5 p-2 rounded-lg bg-black/10 dark:bg-white/10 text-xs font-mono">
+                                📎 Attachment: {message.attachmentKey || message.attachmentUrl}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </ScrollArea>
             </div>
-          </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

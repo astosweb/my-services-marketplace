@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type {
   ConversationDto,
+  ConversationDetailDto,
   OfferDto,
   OfferStatus,
   Paginated,
@@ -145,6 +146,17 @@ export function useConversations(params: ListParams) {
         `/admin/conversations${apiQuery(query)}`,
       ),
     placeholderData: (previous) => previous,
+  });
+}
+
+export function useConversationMessages(conversationId: string | null) {
+  return useQuery({
+    queryKey: ["admin", "conversations", conversationId, "messages"],
+    queryFn: () =>
+      api.get<ConversationDetailDto>(
+        `/admin/conversations/${conversationId}/messages`,
+      ),
+    enabled: Boolean(conversationId),
   });
 }
 

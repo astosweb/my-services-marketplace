@@ -15,7 +15,7 @@ import { OfferStatus } from "../generated/prisma/client.js";
 import { spacesPublicUrl } from "./env.js";
 import { isPrivateUploadKey, signedPrivateUploadUrl } from "./upload-access.js";
 
-function mediaUrlForKey(key: string) {
+export function mediaUrlForKey(key: string) {
   if (isPrivateUploadKey(key)) return signedPrivateUploadUrl(key);
   return spacesPublicUrl(key);
 }

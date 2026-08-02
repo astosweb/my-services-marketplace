@@ -89,6 +89,30 @@ export type ConversationDto = {
   createdAt: string;
 };
 
+export type ConversationMessageDto = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string | null;
+  body: string | null;
+  attachmentKey: string | null;
+  attachmentUrl: string | null;
+  createdAt: string;
+};
+
+export type ConversationDetailDto = {
+  id: string;
+  requestId: string;
+  requestTitle: string;
+  requestStatus: string;
+  participants: Array<{
+    id: string;
+    profileName: string;
+    avatarUrl: string | null;
+  }>;
+  messages: ConversationMessageDto[];
+};
+
 export type RoleDto = {
   name: string;
   permissions: string[];

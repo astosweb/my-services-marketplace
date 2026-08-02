@@ -157,6 +157,12 @@ export class AdminController {
     return this.adminService.listConversations(query);
   }
 
+  @Get("conversations/:id/messages")
+  @ApiOperation({ summary: "Get complete message history for a conversation" })
+  async getConversationMessages(@Param("id") id: string) {
+    return { data: await this.adminService.getConversationMessages(id) };
+  }
+
   @Get("roles")
   @ApiOperation({ summary: "System roles and their permissions" })
   @ApiOkResponse({ description: "Read-only role catalog" })
