@@ -103,7 +103,7 @@ export function useUpdateRequest() {
       scheduledAt?: string;
     }) => api.patch<ServiceRequestDetailDto>(`/admin/requests/${id}`, input),
     successMessage: "Request updated",
-    invalidate: [queryKeys.requests(), queryKeys.dashboard],
+    invalidate: [queryKeys.requests(), queryKeys.users(), queryKeys.dashboard],
   });
 }
 
@@ -112,7 +112,7 @@ export function useApproveRequest() {
     mutationFn: ({ id, note }: { id: string } & AdminApproveRequestInput) =>
       api.post<ServiceRequestDetailDto>(`/admin/requests/${id}/approve`, { note }),
     successMessage: "Request approved successfully",
-    invalidate: [queryKeys.requests(), queryKeys.dashboard],
+    invalidate: [queryKeys.requests(), queryKeys.users(), queryKeys.dashboard],
   });
 }
 
@@ -121,7 +121,7 @@ export function useRejectRequest() {
     mutationFn: ({ id, reason }: { id: string } & AdminRejectRequestInput) =>
       api.post<ServiceRequestDetailDto>(`/admin/requests/${id}/reject`, { reason }),
     successMessage: "Request rejected successfully",
-    invalidate: [queryKeys.requests(), queryKeys.dashboard],
+    invalidate: [queryKeys.requests(), queryKeys.users(), queryKeys.dashboard],
   });
 }
 
@@ -130,7 +130,7 @@ export function useDeleteRequest() {
     mutationFn: (id: string) =>
       api.delete<{ deleted: true }>(`/admin/requests/${id}`),
     successMessage: "Request deleted",
-    invalidate: [queryKeys.requests(), queryKeys.dashboard],
+    invalidate: [queryKeys.requests(), queryKeys.users(), queryKeys.dashboard],
   });
 }
 
@@ -149,7 +149,12 @@ export function useUpdateOffer() {
     mutationFn: ({ id, status }: { id: string; status: OfferStatus }) =>
       api.patch<OfferDto>(`/admin/offers/${id}`, { status }),
     successMessage: "Offer updated",
-    invalidate: [queryKeys.offers(), queryKeys.requests(), queryKeys.dashboard],
+    invalidate: [
+      queryKeys.offers(),
+      queryKeys.requests(),
+      queryKeys.users(),
+      queryKeys.dashboard,
+    ],
   });
 }
 
@@ -158,7 +163,7 @@ export function useDeleteOffer() {
     mutationFn: (id: string) =>
       api.delete<{ deleted: true }>(`/admin/offers/${id}`),
     successMessage: "Offer deleted",
-    invalidate: [queryKeys.offers(), queryKeys.dashboard],
+    invalidate: [queryKeys.offers(), queryKeys.users(), queryKeys.dashboard],
   });
 }
 

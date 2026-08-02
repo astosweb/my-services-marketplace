@@ -5,9 +5,9 @@ Native SwiftUI client for the Hero marketplace API.
 ## API configuration
 
 `HERO_API_BASE_URL` is set via the Xcode build setting of the same name and merged into
-`heroApp/Info.plist`. It defaults to `http://192.168.1.122:3000` (Mac LAN IP + API port).
-Override per configuration or in CI with the deployed HTTPS API URL. For Simulator-only
-work you can switch it back to `http://127.0.0.1:3000`.
+`heroApp/Info.plist`. It defaults to `http://127.0.0.1:3000` (Simulator → local API).
+Override per configuration or in CI with the deployed HTTPS API URL. For a physical device
+on the same network, switch it to your Mac's LAN IP (e.g. `http://192.168.x.x:3000`).
 
 Local-network HTTP is allowed for development via
 `NSAppTransportSecurity` → `NSAllowsLocalNetworking` in `Info.plist`. Production API URLs should

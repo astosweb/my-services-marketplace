@@ -24,11 +24,18 @@ export type UserDto = {
 export type UserDetailRequestDto = {
   id: string;
   title: string;
+  description: string;
   status: string;
   city: string;
+  location: string;
   budget: string | null;
+  budgetCents: number | null;
+  pricingMode: "PROVIDER_OFFERS" | "OWNER_FIXED_PRICE";
+  isPremium: boolean;
+  scheduledAt: string | null;
   offerCount: number;
   createdAt: string;
+  categoryId: string;
   categoryName: string;
   categorySymbol: string;
 };

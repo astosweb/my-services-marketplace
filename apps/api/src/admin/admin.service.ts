@@ -232,11 +232,18 @@ export class AdminService {
         return {
           id: serialized.id,
           title: serialized.title,
+          description: serialized.description,
           status: serialized.status,
           city: serialized.city,
+          location: serialized.location,
           budget: serialized.budget,
+          budgetCents: serialized.budgetCents,
+          pricingMode: serialized.pricingMode,
+          isPremium: serialized.isPremium,
+          scheduledAt: serialized.scheduledAt,
           offerCount: serialized.offerCount,
           createdAt: serialized.createdAt,
+          categoryId: serialized.categoryId,
           categoryName: serialized.categoryName,
           categorySymbol: serialized.categorySymbol,
         };
