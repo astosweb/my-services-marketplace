@@ -1,0 +1,16 @@
+{
+  "name": "my-services-marketplace",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "scripts": {
+    "dev:api": "pnpm --filter @hero/api dev",
+    "dev:admin": "pnpm --filter admin-panel dev",
+    "build:api": "pnpm --filter @hero/api build",
+    "build:admin": "pnpm --filter admin-panel build",
+    "typecheck": "pnpm -r typecheck",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:rebuild": "docker compose up --build -d --force-recreate"
+  }
+}

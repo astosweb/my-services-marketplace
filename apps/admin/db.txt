@@ -1,0 +1,7 @@
+◆  Claim Your Database
+│
+│    Keep your database for free:
+│
+│    https://create-db.prisma.io/claim?projectID=proj_cmr0okqbx06350vf8bk3beqeu&utm_source=create-db&utm_medium=cli
+│
+│    Database will be deleted on 7/1/2026, 9:26:51 AM if not claimed.

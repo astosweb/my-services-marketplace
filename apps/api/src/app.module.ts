@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
+import { AdminModule } from "./admin/admin.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { CategoriesModule } from "./categories/categories.module.js";
 import { CommonModule } from "./common/common.module.js";
@@ -46,6 +47,7 @@ import { UsersModule } from "./users/users.module.js";
     PrismaModule,
     CommonModule,
     AuthModule,
+    AdminModule,
     HealthModule,
     CategoriesModule,
     RequestsModule,

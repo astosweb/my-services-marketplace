@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { OfferStatus, ServiceRequestStatus, type User } from "../generated/prisma/client.js";
+import { permissionsForRole } from "../lib/admin-permissions.js";
 import {
   createPasswordResetToken,
   createRefreshTokenValue,
@@ -41,7 +42,10 @@ export class AuthService {
   }
 
   private authPayload(user: User, tokens: { accessToken: string; refreshToken: string }) {
-    return { user: serializeMe(user), ...tokens };
+    return {
+      user: { ...serializeMe(user), permissions: permissionsForRole(user.role) },
+      ...tokens,
+    };
   }
 
   async register(data: RegisterDto) {
@@ -181,7 +185,7 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw notFound("User not found");
-    return serializeMe(user);
+    return { ...serializeMe(user), permissions: permissionsForRole(user.role) };
   }
 
 

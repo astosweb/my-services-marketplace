@@ -1,0 +1,195 @@
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from "class-validator";
+import {
+  EstonianCity,
+  OfferStatus,
+  ServiceRequestStatus,
+  UserRole,
+} from "../generated/prisma/client.js";
+
+export class AdminPaginationQueryDto {
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 50;
+
+  @ApiPropertyOptional({ default: 0, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset = 0;
+
+  @ApiPropertyOptional({ maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @ApiPropertyOptional({ enum: ["asc", "desc"], default: "desc" })
+  @IsOptional()
+  @IsIn(["asc", "desc"])
+  sortOrder: "asc" | "desc" = "desc";
+}
+
+const userSortFields = ["createdAt", "displayName", "email", "rating", "reviewCount"] as const;
+
+export class AdminUsersQueryDto extends AdminPaginationQueryDto {
+  @ApiPropertyOptional({ enum: UserRole })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @ApiPropertyOptional({ enum: userSortFields, default: "createdAt" })
+  @IsOptional()
+  @IsIn(userSortFields)
+  sortBy: string = "createdAt";
+}
+
+export class AdminUpdateUserDto {
+  @ApiPropertyOptional({ minLength: 1, maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  displayName?: string;
+
+  @ApiPropertyOptional({ maxLength: 2000 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  bio?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  businessName?: string;
+
+  @ApiPropertyOptional({ enum: UserRole })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+}
+
+export class AdminBulkUsersDto {
+  @ApiProperty({ type: [String], maxItems: 100 })
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  ids!: string[];
+
+  @ApiProperty({ enum: ["delete"] })
+  @IsIn(["delete"])
+  action!: "delete";
+}
+
+const requestSortFields = ["createdAt", "updatedAt", "title", "viewCount"] as const;
+
+export class AdminRequestsQueryDto extends AdminPaginationQueryDto {
+  @ApiPropertyOptional({ enum: ServiceRequestStatus })
+  @IsOptional()
+  @IsEnum(ServiceRequestStatus)
+  status?: ServiceRequestStatus;
+
+  @ApiPropertyOptional({ enum: EstonianCity })
+  @IsOptional()
+  @IsEnum(EstonianCity)
+  city?: EstonianCity;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ enum: requestSortFields, default: "createdAt" })
+  @IsOptional()
+  @IsIn(requestSortFields)
+  sortBy: string = "createdAt";
+}
+
+export class AdminUpdateRequestDto {
+  @ApiPropertyOptional({ minLength: 3, maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  title?: string;
+
+  @ApiPropertyOptional({ minLength: 10, maxLength: 5000 })
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(5000)
+  description?: string;
+
+  @ApiPropertyOptional({ enum: ServiceRequestStatus })
+  @IsOptional()
+  @IsEnum(ServiceRequestStatus)
+  status?: ServiceRequestStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isPremium?: boolean;
+}
+
+const offerSortFields = ["createdAt", "updatedAt", "priceCents"] as const;
+
+export class AdminOffersQueryDto extends AdminPaginationQueryDto {
+  @ApiPropertyOptional({ enum: OfferStatus })
+  @IsOptional()
+  @IsEnum(OfferStatus)
+  status?: OfferStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  requestId?: string;
+
+  @ApiPropertyOptional({ enum: offerSortFields, default: "createdAt" })
+  @IsOptional()
+  @IsIn(offerSortFields)
+  sortBy: string = "createdAt";
+}
+
+export class AdminUpdateOfferDto {
+  @ApiProperty({ enum: OfferStatus })
+  @IsEnum(OfferStatus)
+  status!: OfferStatus;
+}
+
+const reviewSortFields = ["createdAt", "rating"] as const;
+
+export class AdminReviewsQueryDto extends AdminPaginationQueryDto {
+  @ApiPropertyOptional({ description: "Filter by reviewed user id" })
+  @IsOptional()
+  @IsString()
+  subjectId?: string;
+
+  @ApiPropertyOptional({ enum: reviewSortFields, default: "createdAt" })
+  @IsOptional()
+  @IsIn(reviewSortFields)
+  sortBy: string = "createdAt";
+}
+
+export class AdminConversationsQueryDto extends AdminPaginationQueryDto {}

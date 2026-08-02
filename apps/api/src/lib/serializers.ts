@@ -61,6 +61,7 @@ export function serializeMe(user: User) {
   return {
     ...serializeUser(user),
     email: user.email,
+    role: user.role,
   };
 }
 

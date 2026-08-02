@@ -1,6 +1,6 @@
-# Single-package workspace; allowBuilds required for Prisma/esbuild native installs (pnpm 10+).
 packages:
-  - "."
+  - "apps/*"
+  - "packages/*"
 
 allowBuilds:
   "@prisma/client": true
@@ -9,3 +9,5 @@ allowBuilds:
   esbuild: true
   msgpackr-extract: false
   prisma: true
+  sharp: true
+  unrs-resolver: true
