@@ -18,9 +18,11 @@ export const LOGIN_IP_RATE_LIMIT = { attempts: 20, windowSeconds: 300 };
 export const PASSWORD_RESET_RATE_LIMIT = { attempts: 5, windowSeconds: 3600 };
 
 export const SESSION_EXPIRED_PATH = "/session-expired";
+export const SESSION_REFRESH_PATH = "/session-refresh";
 
 export const PUBLIC_ROUTES = [
   SESSION_EXPIRED_PATH,
+  SESSION_REFRESH_PATH,
   "/sign-in",
   "/sign-in-2",
   "/sign-in-3",

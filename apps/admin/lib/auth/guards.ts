@@ -1,5 +1,6 @@
 import "server-only";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   getAccessToken,
@@ -7,11 +8,11 @@ import {
   nestFetch,
   NestRequestError,
 } from "@/lib/api/nest";
+import { clearAuthCookies } from "@/lib/auth/token-cookies";
 import {
-  clearAuthCookies,
-  setAuthCookies,
-} from "@/lib/auth/token-cookies";
-import { SESSION_EXPIRED_PATH } from "@/lib/auth/constants";
+  SESSION_EXPIRED_PATH,
+  SESSION_REFRESH_PATH,
+} from "@/lib/auth/constants";
 import type { SessionUser } from "@/lib/auth/types";
 
 type NestMe = {
@@ -26,50 +27,18 @@ type NestMe = {
   };
 };
 
-async function refreshIfNeeded(): Promise<string | null> {
-  const access = await getAccessToken();
-  if (access) return access;
-
-  const refreshToken = await getRefreshToken();
-  if (!refreshToken) return null;
-
-  try {
-    const result = await nestFetch<{
-      data: {
-        user: { role?: string };
-        accessToken: string;
-        refreshToken: string;
-      };
-    }>("/auth/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken }),
-      skipAuth: true,
-    });
-    if (result.data.user.role !== "ADMIN") {
-      await clearAuthCookies();
-      return null;
-    }
-    await setAuthCookies({
-      accessToken: result.data.accessToken,
-      refreshToken: result.data.refreshToken,
-    });
-    return result.data.accessToken;
-  } catch {
-    await clearAuthCookies();
-    return null;
-  }
-}
-
+/**
+ * Resolves the current admin from the access-token cookie only.
+ * Must not set/clear cookies — layouts/RSC cannot mutate the cookie jar.
+ * Token refresh (and rotation) happens in route handlers / session-refresh.
+ */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const accessToken = await refreshIfNeeded();
+  const accessToken = await getAccessToken();
   if (!accessToken) return null;
 
   try {
     const me = await nestFetch<NestMe>("/auth/me", { accessToken });
-    if (me.data.role !== "ADMIN") {
-      await clearAuthCookies();
-      return null;
-    }
+    if (me.data.role !== "ADMIN") return null;
     return {
       id: me.data.id,
       email: me.data.email,
@@ -81,7 +50,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     };
   } catch (error) {
     if (error instanceof NestRequestError && error.status === 401) {
-      await clearAuthCookies();
+      return null;
     }
     return null;
   }
@@ -89,10 +58,25 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 export async function requireAuth(): Promise<SessionUser> {
   const user = await getSessionUser();
-  if (!user) {
+  if (user) return user;
+
+  const refreshToken = await getRefreshToken();
+  if (refreshToken) {
+    const pathname = (await headers()).get("x-pathname") || "/dashboard";
+    const next =
+      pathname.startsWith("/") && !pathname.startsWith("//")
+        ? pathname
+        : "/dashboard";
+    redirect(
+      `${SESSION_REFRESH_PATH}?next=${encodeURIComponent(next)}`,
+    );
+  }
+
+  if (await getAccessToken()) {
     redirect(SESSION_EXPIRED_PATH);
   }
-  return user;
+
+  redirect("/sign-in");
 }
 
 export async function requirePermission(

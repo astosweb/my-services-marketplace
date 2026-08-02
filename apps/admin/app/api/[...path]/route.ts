@@ -12,9 +12,11 @@ const API_URL = process.env.API_URL ?? "http://localhost:3000";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
-async function ensureAccessToken(): Promise<string | null> {
-  const existing = await getAccessToken();
-  if (existing) return existing;
+async function ensureAccessToken(forceRefresh = false): Promise<string | null> {
+  if (!forceRefresh) {
+    const existing = await getAccessToken();
+    if (existing) return existing;
+  }
 
   const refreshToken = await getRefreshToken();
   if (!refreshToken) return null;
@@ -69,7 +71,7 @@ async function proxy(request: Request, path: string[]) {
   let response = await fetch(`${API_URL}${targetPath}`, init);
 
   if (response.status === 401 && (await getRefreshToken())) {
-    const refreshed = await ensureAccessToken();
+    const refreshed = await ensureAccessToken(true);
     if (refreshed) {
       headers.set("Authorization", `Bearer ${refreshed}`);
       response = await fetch(`${API_URL}${targetPath}`, { ...init, headers });

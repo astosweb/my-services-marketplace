@@ -78,6 +78,7 @@ services:
       PORT: "3001"
       HOSTNAME: 0.0.0.0
       API_URL: http://api:3000
+      COOKIE_SECURE: "false"
       NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3000}
     depends_on:
       api:

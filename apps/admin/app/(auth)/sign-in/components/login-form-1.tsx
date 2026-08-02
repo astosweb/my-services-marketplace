@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -40,24 +40,39 @@ export function LoginForm1({
   ...props
 }: React.ComponentProps<"div">) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const noticedQuery = useRef(false);
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
-      email: process.env.NODE_ENV !== "production" ? "admin@hero.test" : "",
-      password: process.env.NODE_ENV !== "production" ? "password123" : "",
+      email: "admin@hero.test",
+      password: "password123",
     },
   });
 
   useEffect(() => {
-    if (searchParams.get("reset") === "true") {
+    if (noticedQuery.current) return;
+
+    const reset = searchParams.get("reset") === "true";
+    const expired = searchParams.get("expired") === "1";
+    if (!reset && !expired) return;
+
+    noticedQuery.current = true;
+    if (reset) {
       toast.success("Password reset successfully. You can now sign in.");
     }
-    if (searchParams.get("expired") === "1") {
+    if (expired) {
       toast.info("Your session has expired. Please sign in again.");
     }
-  }, [searchParams]);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("reset");
+    params.delete("expired");
+    const query = params.toString();
+    router.replace(query ? `/sign-in?${query}` : "/sign-in");
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (state.message && !state.success) {
