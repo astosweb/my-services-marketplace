@@ -15,6 +15,7 @@ enum EstonianCity {
 }
 
 enum ServiceRequestStatus {
+  PENDING_REVIEW
   OPEN
   IN_PROGRESS
   COMPLETED
@@ -116,11 +117,12 @@ model ServiceRequest {
   budgetLabel String?
   scheduledAt DateTime?
   pricingMode RequestPricingMode  @default(PROVIDER_OFFERS)
-  status      ServiceRequestStatus @default(OPEN)
+  status      ServiceRequestStatus @default(PENDING_REVIEW)
   progressStatus    JobProgressStatus?
   progressUpdatedAt DateTime?
   completedAt       DateTime?
   cancelledAt       DateTime?
+  rejectionReason String?
   isPremium   Boolean              @default(false)
   viewCount   Int                  @default(0)
   createdAt   DateTime             @default(now())

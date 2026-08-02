@@ -283,11 +283,11 @@ export class AdminApproveRequestDto {
 }
 
 export class AdminRejectRequestDto {
-  @ApiPropertyOptional({ description: "Rejection reason provided by admin" })
-  @IsOptional()
+  @ApiProperty({ description: "Rejection reason provided by admin" })
   @IsString()
+  @MinLength(3)
   @MaxLength(1000)
-  reason?: string;
+  reason!: string;
 }
 
 const offerSortFields = ["createdAt", "updatedAt", "priceCents"] as const;

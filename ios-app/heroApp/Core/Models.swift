@@ -212,6 +212,7 @@ struct CreateRequestBody: Encodable {
 }
 
 enum ServiceRequestStatus: String, Codable, Sendable {
+    case pendingReview = "PENDING_REVIEW"
     case open = "OPEN"
     case inProgress = "IN_PROGRESS"
     case completed = "COMPLETED"

@@ -16,6 +16,7 @@ extension ServiceRequest {
 
     var statusLabel: String {
         switch status {
+        case .pendingReview: "Pending Review"
         case .open: "Open"
         case .inProgress: "In Progress"
         case .completed: "Completed"
@@ -25,6 +26,7 @@ extension ServiceRequest {
 
     var statusTint: Color {
         switch status {
+        case .pendingReview: .orange
         case .open: .green
         case .inProgress: .blue
         case .completed: .gray
@@ -598,6 +600,17 @@ struct RequestCard: View {
             .frame(height: 96)
             .clipped()
             .accessibilityHidden(true)
+            .overlay(alignment: .bottomLeading) {
+                if request.status != .open {
+                    Text(request.statusLabel)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(request.statusTint)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: .capsule)
+                        .padding(6)
+                }
+            }
 
             if request.isPremium {
                 Image(systemName: "sparkles")

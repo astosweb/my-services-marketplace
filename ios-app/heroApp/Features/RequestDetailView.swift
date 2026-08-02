@@ -81,7 +81,9 @@ struct RequestDetailView: View {
     }
 
     private var canOwnerEdit: Bool {
-        isOwner && request.status == .open && request.offerCount == 0
+        isOwner &&
+            (request.status == .open || request.status == .pendingReview) &&
+            request.offerCount == 0
     }
 
     private var canSendOffer: Bool {
@@ -125,7 +127,10 @@ struct RequestDetailView: View {
     }
 
     private var canOwnerCancel: Bool {
-        isOwner && (request.status == .open || request.status == .inProgress)
+        isOwner &&
+            (request.status == .open ||
+                request.status == .pendingReview ||
+                request.status == .inProgress)
     }
 
     private var canLeaveReview: Bool {
@@ -396,13 +401,37 @@ struct RequestDetailView: View {
 
     private var overviewCard: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if request.status == .pendingReview {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock.badge.checkmark.fill")
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                        Text("Pending Admin Review")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
+                    Text("Your request is waiting for moderator approval before it appears publicly.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.12))
+                .clipShape(.rect(cornerRadius: 12))
+            }
+
             if request.status == .cancelled {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.octagon.fill")
                             .font(.headline)
                             .foregroundStyle(.red)
-                        Text("Request Cancelled / Rejected")
+                        Text(
+                            request.rejectionReason == nil
+                                ? "Request Cancelled"
+                                : "Request Rejected"
+                        )
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(.red)
                     }
@@ -411,7 +440,7 @@ struct RequestDetailView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("This request was cancelled or rejected by moderators.")
+                        Text("This request was cancelled.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

@@ -136,6 +136,9 @@ export class RequestsService {
   }
 
   async list(query: RequestListQueryDto) {
+    if (query.status === ServiceRequestStatus.PENDING_REVIEW) {
+      throw badRequest("Pending review requests are not publicly listed");
+    }
     const where = {
       city: query.city,
       categoryId: query.categoryId,
@@ -217,15 +220,13 @@ export class RequestsService {
       },
     });
     if (!request) throw notFound("Request not found");
-    let rejectionReason: string | null = null;
-    if (request.status === ServiceRequestStatus.CANCELLED) {
-      const rejectionLog = await this.prisma.auditLog.findFirst({
-        where: { resource: "request", resourceId: id, action: "REQUEST_REJECTED" },
-        orderBy: { createdAt: "desc" },
-      });
-      rejectionReason = ((rejectionLog?.details as Record<string, unknown> | null)?.reason as string | null) ?? null;
+    if (
+      request.status === ServiceRequestStatus.PENDING_REVIEW &&
+      viewerUserId !== request.ownerId
+    ) {
+      throw notFound("Request not found");
     }
-    return serializeRequest(request, viewerUserId, rejectionReason);
+    return serializeRequest(request, viewerUserId);
   }
 
   async view(id: string, viewerUserId?: string) {
@@ -269,6 +270,7 @@ export class RequestsService {
           (data.budgetCents != null ? `€${(data.budgetCents / 100).toFixed(0)}` : undefined),
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
         pricingMode,
+        status: ServiceRequestStatus.PENDING_REVIEW,
         isPremium: data.isPremium ?? false,
         photos: data.photoKeys?.length
           ? {
@@ -301,8 +303,11 @@ export class RequestsService {
     });
     if (!existing) throw notFound("Request not found");
     if (existing.ownerId !== userId) throw forbidden("Only the post owner can edit this request");
-    if (existing.status !== ServiceRequestStatus.OPEN) {
-      throw badRequest("Only open requests can be edited");
+    if (
+      existing.status !== ServiceRequestStatus.OPEN &&
+      existing.status !== ServiceRequestStatus.PENDING_REVIEW
+    ) {
+      throw badRequest("Only pending or open requests can be edited");
     }
     if (existing._count.offers > 0) {
       throw conflict("Cannot edit a request that already has offers");

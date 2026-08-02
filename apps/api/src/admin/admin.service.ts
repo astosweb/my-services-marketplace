@@ -434,6 +434,12 @@ export class AdminService {
         : {}),
       ...(data.status === ServiceRequestStatus.COMPLETED ? { completedAt: now } : {}),
       ...(data.status === ServiceRequestStatus.CANCELLED ? { cancelledAt: now } : {}),
+      ...(data.status === ServiceRequestStatus.OPEN
+        ? { cancelledAt: null, rejectionReason: null }
+        : {}),
+      ...(data.status === ServiceRequestStatus.PENDING_REVIEW
+        ? { cancelledAt: null, rejectionReason: null }
+        : {}),
     };
 
     await this.prisma.serviceRequest.update({
@@ -454,10 +460,20 @@ export class AdminService {
       select: { id: true, title: true, ownerId: true, status: true },
     });
     if (!existing) throw notFound("Request not found");
+    if (
+      existing.status !== ServiceRequestStatus.PENDING_REVIEW &&
+      existing.status !== ServiceRequestStatus.CANCELLED
+    ) {
+      throw badRequest("Only pending or rejected requests can be approved");
+    }
 
     await this.prisma.serviceRequest.update({
       where: { id },
-      data: { status: ServiceRequestStatus.OPEN },
+      data: {
+        status: ServiceRequestStatus.OPEN,
+        cancelledAt: null,
+        rejectionReason: null,
+      },
     });
 
     await this.logAudit(adminId, "REQUEST_APPROVED", "request", id, {
@@ -472,7 +488,7 @@ export class AdminService {
         title: "Request Approved",
         body: data.note
           ? `Your request "${existing.title}" was approved: ${data.note}`
-          : `Your request "${existing.title}" has been approved by moderators.`,
+          : `Your request "${existing.title}" has been approved and is now public.`,
         contextTag: "request",
         payload: { requestId: id, action: "APPROVED" },
       },
@@ -487,15 +503,26 @@ export class AdminService {
       select: { id: true, title: true, ownerId: true, status: true },
     });
     if (!existing) throw notFound("Request not found");
+    if (existing.status === ServiceRequestStatus.CANCELLED) {
+      throw badRequest("Request is already cancelled");
+    }
+    if (existing.status === ServiceRequestStatus.COMPLETED) {
+      throw badRequest("Completed requests cannot be rejected");
+    }
 
+    const reason = data.reason.trim();
     const now = new Date();
     await this.prisma.serviceRequest.update({
       where: { id },
-      data: { status: ServiceRequestStatus.CANCELLED, cancelledAt: now },
+      data: {
+        status: ServiceRequestStatus.CANCELLED,
+        cancelledAt: now,
+        rejectionReason: reason,
+      },
     });
 
     await this.logAudit(adminId, "REQUEST_REJECTED", "request", id, {
-      reason: data.reason ?? null,
+      reason,
       previousStatus: existing.status,
     });
 
@@ -504,11 +531,9 @@ export class AdminService {
         userId: existing.ownerId,
         kind: NotificationKind.SYSTEM,
         title: "Request Rejected",
-        body: data.reason
-          ? `Your request "${existing.title}" was rejected. Reason: ${data.reason}`
-          : `Your request "${existing.title}" was rejected by moderators.`,
+        body: `Your request "${existing.title}" was rejected. Reason: ${reason}`,
         contextTag: "request",
-        payload: { requestId: id, action: "REJECTED", reason: data.reason ?? null },
+        payload: { requestId: id, action: "REJECTED", reason },
       },
     });
 

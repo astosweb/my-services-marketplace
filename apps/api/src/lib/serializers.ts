@@ -76,7 +76,6 @@ export function serializeCategory(category: Category) {
 export function serializeRequest(
   request: RequestWithRelations,
   viewerUserId?: string,
-  rejectionReason?: string | null,
 ) {
   const acceptedOffer = request.offers?.find((offer) => offer.status === OfferStatus.ACCEPTED);
   const viewerOffer = viewerUserId
@@ -151,7 +150,7 @@ export function serializeRequest(
     progressEvents,
     completedAt: request.completedAt?.toISOString() ?? null,
     cancelledAt: request.cancelledAt?.toISOString() ?? null,
-    rejectionReason: rejectionReason ?? null,
+    rejectionReason: request.rejectionReason ?? null,
     isPremium: request.isPremium,
     offerCount: request._count?.offers ?? 0,
     viewCount: request.viewCount,

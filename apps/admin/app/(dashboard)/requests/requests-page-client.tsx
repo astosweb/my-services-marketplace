@@ -106,6 +106,7 @@ const CITIES = [
 ];
 
 const STATUSES: { value: ServiceRequestStatus; label: string }[] = [
+  { value: "PENDING_REVIEW", label: "Pending Review" },
   { value: "OPEN", label: "Open" },
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "COMPLETED", label: "Completed" },
@@ -121,7 +122,7 @@ const createRequestSchema = z.object({
   location: z.string().min(2, "Street address/location is required"),
   budgetEuros: z.string().optional(),
   pricingMode: z.enum(["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"]),
-  status: z.enum(["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+  status: z.enum(["PENDING_REVIEW", "OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
   isPremium: z.boolean(),
   scheduledAt: z.string().optional(),
 });
@@ -136,7 +137,7 @@ const editRequestSchema = z.object({
   location: z.string().min(2, "Location is required"),
   budgetEuros: z.string().optional(),
   pricingMode: z.enum(["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"]),
-  status: z.enum(["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+  status: z.enum(["PENDING_REVIEW", "OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
   isPremium: z.boolean(),
   scheduledAt: z.string().optional(),
 });
@@ -150,7 +151,7 @@ const approveSchema = z.object({
 type ApproveFormValues = z.infer<typeof approveSchema>;
 
 const rejectSchema = z.object({
-  reason: z.string().optional(),
+  reason: z.string().min(3, "Please provide a rejection reason"),
 });
 
 type RejectFormValues = z.infer<typeof rejectSchema>;
@@ -573,7 +574,8 @@ export function RequestsPageClient() {
                         </Button>
 
                         {/* Quick Approve */}
-                        {request.status !== "COMPLETED" && (
+                        {(request.status === "PENDING_REVIEW" ||
+                          request.status === "CANCELLED") && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -587,7 +589,8 @@ export function RequestsPageClient() {
                         )}
 
                         {/* Quick Reject */}
-                        {request.status !== "CANCELLED" && (
+                        {request.status !== "CANCELLED" &&
+                          request.status !== "COMPLETED" && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1071,7 +1074,7 @@ export function RequestsPageClient() {
               Approve Request
             </DialogTitle>
             <DialogDescription>
-              Confirm approval for &quot;{approveTarget?.title}&quot;. This will mark the request as OPEN and notify the request owner.
+              Confirm approval for &quot;{approveTarget?.title}&quot;. This will publish the request as OPEN and notify the owner.
             </DialogDescription>
           </DialogHeader>
 
@@ -1121,7 +1124,7 @@ export function RequestsPageClient() {
               Reject Service Request
             </DialogTitle>
             <DialogDescription>
-              Rejecting &quot;{rejectTarget?.title}&quot; will change its status to Cancelled and record your rejection reason in the audit log.
+              Rejecting &quot;{rejectTarget?.title}&quot; will hide it from the public feed and show your rejection reason to the request owner.
             </DialogDescription>
           </DialogHeader>
 
@@ -1132,7 +1135,7 @@ export function RequestsPageClient() {
                 name="reason"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Rejection Reason</FormLabel>
+                    <FormLabel>Rejection Reason *</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="State why this post is rejected (e.g. violating guidelines, incomplete details)..."
@@ -1214,7 +1217,8 @@ export function RequestsPageClient() {
 
               {/* Action Toolbar */}
               <div className="flex flex-wrap items-center gap-2 rounded-lg border p-2 bg-muted/30">
-                {requestDetail.status !== "COMPLETED" && (
+                {(requestDetail.status === "PENDING_REVIEW" ||
+                  requestDetail.status === "CANCELLED") && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1227,7 +1231,8 @@ export function RequestsPageClient() {
                   </Button>
                 )}
 
-                {requestDetail.status !== "CANCELLED" && (
+                {requestDetail.status !== "CANCELLED" &&
+                  requestDetail.status !== "COMPLETED" && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1293,6 +1298,19 @@ export function RequestsPageClient() {
                       {requestDetail.description}
                     </CardContent>
                   </Card>
+
+                  {requestDetail.rejectionReason ? (
+                    <Card className="border-amber-500/30 bg-amber-500/5">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                          Rejection Reason
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-sm leading-relaxed">
+                        {requestDetail.rejectionReason}
+                      </CardContent>
+                    </Card>
+                  ) : null}
 
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div className="rounded-lg border p-3 space-y-1">

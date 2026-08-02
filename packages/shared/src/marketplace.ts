@@ -1,4 +1,5 @@
 export type ServiceRequestStatus =
+  | "PENDING_REVIEW"
   | "OPEN"
   | "IN_PROGRESS"
   | "COMPLETED"
@@ -97,7 +98,7 @@ export type AdminApproveRequestInput = {
 };
 
 export type AdminRejectRequestInput = {
-  reason?: string;
+  reason: string;
 };
 
 
