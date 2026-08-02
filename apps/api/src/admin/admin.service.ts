@@ -192,7 +192,68 @@ export class AdminService {
       include: { _count: { select: userCountsSelect } },
     });
     if (!user) throw notFound("User not found");
-    return this.adminUser(user, user._count);
+
+    const [requests, offers, reviewsReceived, reviewsGiven] = await Promise.all([
+      this.prisma.serviceRequest.findMany({
+        where: { ownerId: id },
+        include: requestListInclude,
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      this.prisma.offer.findMany({
+        where: { offererId: id },
+        include: {
+          offerer: true,
+          request: { select: { id: true, title: true, status: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      this.prisma.review.findMany({
+        where: { subjectId: id },
+        include: { author: true, subject: true, request: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      this.prisma.review.findMany({
+        where: { authorId: id },
+        include: { author: true, subject: true, request: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+    ]);
+
+    return {
+      ...this.adminUser(user, user._count),
+      preferBusinessName: user.preferBusinessName,
+      memberSince: user.createdAt.toISOString(),
+      requests: requests.map((request) => {
+        const serialized = serializeRequest(request);
+        return {
+          id: serialized.id,
+          title: serialized.title,
+          status: serialized.status,
+          city: serialized.city,
+          budget: serialized.budget,
+          offerCount: serialized.offerCount,
+          createdAt: serialized.createdAt,
+          categoryName: serialized.categoryName,
+          categorySymbol: serialized.categorySymbol,
+        };
+      }),
+      offers: offers.map((offer) => ({
+        ...serializeOffer(offer),
+        request: offer.request,
+      })),
+      reviewsReceived: reviewsReceived.map((review) => ({
+        ...serializeReview(review),
+        subject: serializeUser(review.subject),
+      })),
+      reviewsGiven: reviewsGiven.map((review) => ({
+        ...serializeReview(review),
+        subject: serializeUser(review.subject),
+      })),
+    };
   }
 
   async updateUser(id: string, adminId: string, data: AdminUpdateUserDto) {

@@ -5,6 +5,7 @@ export const queryKeys = {
   systemStatus: ["system", "status"] as const,
   users: (params?: unknown) =>
     params === undefined ? (["users"] as const) : (["users", params] as const),
+  user: (id: string) => ["users", id] as const,
   requests: (params?: unknown) =>
     params === undefined
       ? (["requests"] as const)

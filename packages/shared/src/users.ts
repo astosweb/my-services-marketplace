@@ -21,6 +21,47 @@ export type UserDto = {
   reviewsReceivedCount?: number;
 };
 
+export type UserDetailRequestDto = {
+  id: string;
+  title: string;
+  status: string;
+  city: string;
+  budget: string | null;
+  offerCount: number;
+  createdAt: string;
+  categoryName: string;
+  categorySymbol: string;
+};
+
+export type UserDetailOfferDto = {
+  id: string;
+  requestId: string;
+  priceCents: number | null;
+  message: string | null;
+  status: string;
+  createdAt: string;
+  request: { id: string; title: string; status: string };
+};
+
+export type UserDetailReviewDto = {
+  id: string;
+  rating: number;
+  body: string | null;
+  createdAt: string;
+  author: { id: string; profileName: string; avatarUrl: string | null };
+  subject: { id: string; profileName: string; avatarUrl: string | null };
+  request: { id: string; title: string } | null;
+};
+
+export type UserDetailDto = UserDto & {
+  preferBusinessName: boolean;
+  memberSince: string;
+  requests: UserDetailRequestDto[];
+  offers: UserDetailOfferDto[];
+  reviewsReceived: UserDetailReviewDto[];
+  reviewsGiven: UserDetailReviewDto[];
+};
+
 export type UsersQuery = {
   page?: number;
   limit?: number;

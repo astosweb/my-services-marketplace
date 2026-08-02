@@ -60,8 +60,8 @@ export function ReviewsPageClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Reviews & Ratings"
-        description="Moderate customer reviews and feedback submitted for completed services."
+        title="Reviews"
+        description="Ratings left after completed jobs"
       />
 
       <div className="flex flex-col gap-3 px-4 lg:px-6 sm:flex-row sm:items-center">

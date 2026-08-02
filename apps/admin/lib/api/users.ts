@@ -5,6 +5,7 @@ import type {
   BulkUserActionInput,
   Paginated,
   UpdateUserInput,
+  UserDetailDto,
   UserDto,
   UsersQuery,
 } from "@monorepo/shared";
@@ -39,6 +40,14 @@ export function useUsers(params: UserListParams) {
     queryFn: () =>
       api.get<Paginated<UserDto>>(`/admin/users${apiQuery(query)}`),
     placeholderData: (previous) => previous,
+  });
+}
+
+export function useUser(id: string) {
+  return useQuery({
+    queryKey: queryKeys.user(id),
+    queryFn: () => api.get<UserDetailDto>(`/admin/users/${id}`),
+    enabled: Boolean(id),
   });
 }
 

@@ -45,8 +45,8 @@ export function CategoriesPageClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Marketplace Categories"
-        description="Service categories available for customer request placement."
+        title="Categories"
+        description="Fixed marketplace category catalog"
       />
 
       {items.length === 0 ? (

@@ -81,8 +81,8 @@ export function OffersPageClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Offers Management"
-        description="Review proposals submitted by service providers across all active requests."
+        title="Offers"
+        description="Provider bids on service requests"
       />
 
       <div className="flex flex-col gap-3 px-4 lg:px-6 sm:flex-row sm:items-center">

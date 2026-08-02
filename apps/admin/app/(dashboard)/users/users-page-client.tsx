@@ -3,6 +3,7 @@
 import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, Download, Edit2, Trash2, Users } from "lucide-react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -192,8 +193,8 @@ export function UsersPageClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="User Management"
-        description="View and manage user accounts, permissions, and status."
+        title="Users"
+        description="View and manage user accounts, permissions, and status"
         actions={
           <Button
             variant="outline"
@@ -300,7 +301,12 @@ export function UsersPageClient() {
                         </TableCell>
                       ) : null}
                       <TableCell className="font-medium">
-                        {user.profileName}
+                        <Link
+                          href={`/users/${user.id}`}
+                          className="hover:underline hover:text-primary transition-colors"
+                        >
+                          {user.profileName}
+                        </Link>
                       </TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>

@@ -48,8 +48,8 @@ export default function SystemSettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="System Status & Health"
-        description="Live operational telemetry and connection status of backend microservices and databases."
+        title="System Status"
+        description="Live operational telemetry and backend health"
         actions={
           <Button
             variant="outline"

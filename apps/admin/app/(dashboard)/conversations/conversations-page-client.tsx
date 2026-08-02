@@ -70,8 +70,8 @@ export function ConversationsPageClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Moderation & Conversations"
-        description="Monitor user communications, click any row to inspect complete message history."
+        title="Conversations"
+        description="Request-scoped messaging for moderation"
       />
 
       <div className="flex flex-col gap-3 px-4 lg:px-6 sm:flex-row sm:items-center">

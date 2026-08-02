@@ -118,8 +118,8 @@ export default function UserSettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Account Profile"
-        description="Update your administrator profile information and account preferences."
+        title="Profile"
+        description="Update your administrator profile information and account preferences"
       />
 
       <div className="px-4 lg:px-6">

@@ -23,7 +23,10 @@ export function RolesPageClient() {
   if (roles.isLoading || permissions.isLoading) {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="Roles & Permissions" description="Loading access control policies…" />
+        <PageHeader
+          title="Roles & Permissions"
+          description="Read-only catalog from the API — custom roles are not supported yet"
+        />
         <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">
           <Skeleton className="h-48 rounded-xl" />
           <Skeleton className="h-48 rounded-xl" />
@@ -52,7 +55,7 @@ export function RolesPageClient() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Roles & Permissions"
-        description="Inspect RBAC roles, permission assignments, and catalog defined in backend services."
+        description="Read-only catalog from the API — custom roles are not supported yet"
       />
 
       <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">

@@ -345,8 +345,8 @@ export function RequestsPageClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Service Requests & Post Moderation"
-        description="Create, monitor, review, approve, reject, edit, and moderate all user-submitted service requests across the marketplace."
+        title="Requests"
+        description="Service requests across the marketplace"
         actions={
           <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
             <Plus className="size-4" />
@@ -1417,7 +1417,14 @@ export function RequestsPageClient() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <CardTitle className="text-base">{requestDetail.owner.displayName}</CardTitle>
+                          <CardTitle className="text-base">
+                            <Link
+                              href={`/users/${requestDetail.owner.id}`}
+                              className="hover:underline hover:text-primary transition-colors"
+                            >
+                              {requestDetail.owner.displayName}
+                            </Link>
+                          </CardTitle>
                           <CardDescription className="text-xs">
                             {requestDetail.owner.email} • Role: {requestDetail.owner.role}
                           </CardDescription>
@@ -1451,7 +1458,7 @@ export function RequestsPageClient() {
 
                       <div className="pt-2">
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={`/users?search=${encodeURIComponent(requestDetail.owner.email)}`}>
+                          <Link href={`/users/${requestDetail.owner.id}`}>
                             <User className="size-3.5 mr-1.5" /> View User Profile
                           </Link>
                         </Button>
