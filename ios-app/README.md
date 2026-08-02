@@ -1,6 +1,6 @@
-# heroApp
+# Bidy EE
 
-Native SwiftUI client for the Hero marketplace API.
+Native SwiftUI client for the Bidy marketplace API.
 
 ## API configuration
 

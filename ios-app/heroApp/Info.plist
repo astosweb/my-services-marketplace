@@ -5,7 +5,7 @@
 	<key>HERO_API_BASE_URL</key>
 	<string>$(HERO_API_BASE_URL)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Hero uses your location to show nearby requests on the map and sort them by distance.</string>
+	<string>Bidy EE uses your location to show nearby requests on the map and sort them by distance.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

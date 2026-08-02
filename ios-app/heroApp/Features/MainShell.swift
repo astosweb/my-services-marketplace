@@ -47,7 +47,7 @@ struct MainShellView: View {
                             .accessibilityAddTraits(selection == destination ? .isSelected : [])
                         }
                     }
-                    .navigationTitle("Hero")
+                    .navigationTitle("Bidy EE")
                 } detail: {
                     NavigationStack {
                         destinationView(selection)

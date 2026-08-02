@@ -1,6 +1,6 @@
-# Hero API
+# Bidy API
 
-Production NestJS API for the Hero service marketplace.
+Production NestJS API for the Bidy service marketplace.
 
 ## Stack
 

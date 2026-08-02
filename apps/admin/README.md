@@ -1,4 +1,4 @@
-# Admin Panel
+# Bidy Admin
 
 Production-ready Next.js 16 admin dashboard with secure authentication, PostgreSQL via Prisma, and RBAC.
 

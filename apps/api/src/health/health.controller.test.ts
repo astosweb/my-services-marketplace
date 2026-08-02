@@ -32,7 +32,7 @@ describe("HealthController", () => {
     await request(server)
       .get("/health")
       .expect(200)
-      .expect({ ok: true, service: "hero-api" });
+      .expect({ ok: true, service: "bidy-api" });
   });
 
   it("reports database readiness", async () => {

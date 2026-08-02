@@ -52,7 +52,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Logo size={24} className="text-current" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Admin Panel</span>
+                  <span className="truncate font-medium">Bidy Admin</span>
                   <span className="truncate text-xs">Production Dashboard</span>
                 </div>
               </Link>

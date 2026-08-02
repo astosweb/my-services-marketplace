@@ -134,13 +134,13 @@ async function main() {
     create: {
       id: "seed_user_admin",
       email: "admin@hero.test",
-      displayName: "Hero Admin",
+      displayName: "Bidy Admin",
       bio: "Marketplace operations admin",
       role: UserRole.ADMIN,
       passwordHash,
     },
     update: {
-      displayName: "Hero Admin",
+      displayName: "Bidy Admin",
       bio: "Marketplace operations admin",
       role: UserRole.ADMIN,
       passwordHash,

@@ -223,7 +223,7 @@ private struct RegisterView: View {
     @State private var feedbackTrigger = false
 
     var body: some View {
-        AuthShell(title: "Join Hero", subtitle: "Create an account in a few seconds.") {
+        AuthShell(title: "Join Bidy EE", subtitle: "Create an account in a few seconds.") {
             VStack(spacing: 16) {
                 AuthTextField(title: "Display name", text: $name, contentType: .name)
                 AuthTextField(

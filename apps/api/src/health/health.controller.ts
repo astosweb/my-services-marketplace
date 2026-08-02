@@ -13,7 +13,7 @@ export class HealthController {
   @ApiOperation({ summary: "Liveness check" })
   @ApiOkResponse({ description: "API process is healthy" })
   live() {
-    return { ok: true, service: "hero-api" };
+    return { ok: true, service: "bidy-api" };
   }
 
   @Get("ready")
