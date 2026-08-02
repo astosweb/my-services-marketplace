@@ -2,9 +2,10 @@ import Foundation
 import UIKit
 import UserNotifications
 
-/// Registers the current installation with `POST /devices` so admin can see
-/// signed-in iOS devices. Prefers the APNs token when available; otherwise uses
-/// `identifierForVendor` so the device still appears without Push capability.
+/// Requests notification permission, registers for remote notifications, and
+/// upserts the installation via `POST /devices`. Prefers the real APNs token;
+/// falls back to `identifierForVendor` so the device still appears in admin
+/// without Push capability (fallback tokens are not used for APNs delivery).
 @MainActor
 final class PushDeviceRegistration: NSObject {
     static let shared = PushDeviceRegistration()

@@ -1076,8 +1076,8 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                           {device.platform}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={device.isActive ? "secondary" : "outline"}>
-                            {device.isActive ? "Active" : "Inactive"}
+                          <Badge variant={device.isActive !== false ? "secondary" : "outline"}>
+                            {device.isActive !== false ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
