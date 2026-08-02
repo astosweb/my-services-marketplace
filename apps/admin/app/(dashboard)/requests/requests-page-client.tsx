@@ -1178,7 +1178,7 @@ export function RequestsPageClient() {
 
       {/* FULL REQUEST DETAILS SHEET */}
       <Sheet open={Boolean(detailId)} onOpenChange={(open) => !open && setDetailId(null)}>
-        <SheetContent className="w-full max-w-3xl sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="w-full max-w-3xl overflow-y-auto p-6 sm:max-w-2xl">
           {isDetailLoading ? (
             <div className="flex h-96 items-center justify-center">
               <TableSkeleton rows={6} />
@@ -1192,7 +1192,7 @@ export function RequestsPageClient() {
           ) : (
             <div className="space-y-6">
               {/* Sheet Header */}
-              <SheetHeader className="pr-6">
+              <SheetHeader className="p-0 pr-6">
                 <div className="flex items-center gap-2">
                   <StatusBadge status={requestDetail.status} />
                   {requestDetail.isPremium && (
