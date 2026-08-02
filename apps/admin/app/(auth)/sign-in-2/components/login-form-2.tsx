@@ -20,7 +20,7 @@ export function LoginForm2({
       <div className="grid gap-6">
         <div className="grid gap-3">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="test@example.com" defaultValue="test@example.com" required />
+          <Input id="email" type="email" placeholder="admin@hero.test" defaultValue={process.env.NODE_ENV !== "production" ? "admin@hero.test" : ""} required />
         </div>
         <div className="grid gap-3">
           <div className="flex items-center">
@@ -32,7 +32,7 @@ export function LoginForm2({
               Forgot your password?
             </a>
           </div>
-          <Input id="password" type="password" defaultValue="password" required />
+          <Input id="password" type="password" defaultValue={process.env.NODE_ENV !== "production" ? "password123" : ""} required />
         </div>
         <Button type="submit" className="w-full cursor-pointer">
           Login

@@ -396,6 +396,32 @@ struct RequestDetailView: View {
 
     private var overviewCard: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if request.status == .cancelled {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.octagon.fill")
+                            .font(.headline)
+                            .foregroundStyle(.red)
+                        Text("Request Cancelled / Rejected")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.red)
+                    }
+                    if let reason = request.rejectionReason, !reason.isEmpty {
+                        Text("Reason: \(reason)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("This request was cancelled or rejected by moderators.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.12))
+                .clipShape(.rect(cornerRadius: 12))
+            }
+
             HStack(spacing: 6) {
                 badge(request.statusLabel, tint: request.statusTint)
                 if let progress = progressLabel {

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma, ServiceRequestStatus, UserRole, type User } from "../generated/prisma/client.js";
+import { NotificationKind, Prisma, ServiceRequestStatus, UserRole, type User } from "../generated/prisma/client.js";
 import { ADMIN_PERMISSIONS, permissionsForRole } from "../lib/admin-permissions.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import {
@@ -15,9 +15,12 @@ import {
 } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
+  AdminApproveRequestDto,
   AdminBulkUsersDto,
   AdminConversationsQueryDto,
+  AdminCreateRequestDto,
   AdminOffersQueryDto,
+  AdminRejectRequestDto,
   AdminRequestsQueryDto,
   AdminReviewsQueryDto,
   AdminUpdateOfferDto,
@@ -232,12 +235,83 @@ export class AdminService {
     return rows.map((row) => row.map(csvCell).join(",")).join("\n");
   }
 
+  private async logAudit(
+    actorId: string,
+    action: string,
+    resource: string,
+    resourceId: string,
+    details?: Record<string, unknown>,
+  ) {
+    return this.prisma.auditLog.create({
+      data: {
+        actorId,
+        action,
+        resource,
+        resourceId,
+        details: details ? (details as Prisma.InputJsonValue) : Prisma.JsonNull,
+      },
+    });
+  }
+
+  async createRequest(adminId: string, data: AdminCreateRequestDto) {
+    const owner = await this.prisma.user.findUnique({
+      where: { id: data.ownerId },
+      select: { id: true },
+    });
+    if (!owner) throw notFound("Owner user not found");
+
+    const category = await this.prisma.category.findUnique({
+      where: { id: data.categoryId },
+      select: { id: true },
+    });
+    if (!category) throw notFound("Category not found");
+
+    const created = await this.prisma.serviceRequest.create({
+      data: {
+        ownerId: data.ownerId,
+        categoryId: data.categoryId,
+        title: data.title,
+        description: data.description,
+        city: data.city,
+        location: data.location,
+        latitude: data.latitude ?? 59.437,
+        longitude: data.longitude ?? 24.7535,
+        budgetCents: data.budgetCents ?? null,
+        budgetLabel: data.budgetLabel ?? null,
+        pricingMode: data.pricingMode ?? "PROVIDER_OFFERS",
+        status: data.status ?? ServiceRequestStatus.OPEN,
+        isPremium: data.isPremium ?? false,
+        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
+      },
+    });
+
+    await this.logAudit(adminId, "REQUEST_CREATED", "request", created.id, {
+      title: created.title,
+      ownerId: created.ownerId,
+      city: created.city,
+      status: created.status,
+    });
+
+    return this.getRequest(created.id);
+  }
+
   async listRequests(query: AdminRequestsQueryDto) {
     const where: Prisma.ServiceRequestWhereInput = {
       status: query.status,
       city: query.city,
       categoryId: query.categoryId,
-      ...(query.search ? { title: { contains: query.search, mode: "insensitive" as const } } : {}),
+      ...(query.isPremium !== undefined ? { isPremium: query.isPremium } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { title: { contains: query.search, mode: "insensitive" as const } },
+              { description: { contains: query.search, mode: "insensitive" as const } },
+              { location: { contains: query.search, mode: "insensitive" as const } },
+              { owner: { displayName: { contains: query.search, mode: "insensitive" as const } } },
+              { owner: { email: { contains: query.search, mode: "insensitive" as const } } },
+            ],
+          }
+        : {}),
     };
     const [requests, total] = await Promise.all([
       this.prisma.serviceRequest.findMany({
@@ -256,45 +330,204 @@ export class AdminService {
   }
 
   async getRequest(id: string) {
-    const request = await this.prisma.serviceRequest.findUnique({
-      where: { id },
-      include: {
-        ...requestListInclude,
-        progressEvents: { orderBy: { createdAt: "asc" } },
-        offers: { include: { offerer: true }, orderBy: { createdAt: "desc" } },
-        reviews: { include: { author: true, request: true } },
-      },
-    });
+    const [request, auditLogs] = await Promise.all([
+      this.prisma.serviceRequest.findUnique({
+        where: { id },
+        include: {
+          ...requestListInclude,
+          owner: true,
+          category: true,
+          photos: { orderBy: { sortOrder: "asc" } },
+          progressEvents: { orderBy: { createdAt: "asc" } },
+          offers: { include: { offerer: true }, orderBy: { createdAt: "desc" } },
+          reviews: { include: { author: true, subject: true, request: true } },
+        },
+      }),
+      this.prisma.auditLog.findMany({
+        where: { resource: "request", resourceId: id },
+        include: { actor: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
     if (!request) throw notFound("Request not found");
+
     return {
       ...serializeRequest(request),
+      latitude: request.latitude,
+      longitude: request.longitude,
+      pricingMode: request.pricingMode,
+      budgetLabel: request.budgetLabel,
+      scheduledAt: request.scheduledAt ? request.scheduledAt.toISOString() : null,
+      completedAt: request.completedAt ? request.completedAt.toISOString() : null,
+      cancelledAt: request.cancelledAt ? request.cancelledAt.toISOString() : null,
+      photos: request.photos.map((photo) => ({
+        id: photo.id,
+        spacesKey: photo.spacesKey,
+        url: mediaUrlForKey(photo.spacesKey),
+        sortOrder: photo.sortOrder,
+      })),
       offers: request.offers.map(serializeOffer),
       reviews: request.reviews.map(serializeReview),
+      progressEvents: request.progressEvents.map((e) => ({
+        id: e.id,
+        requestId: e.requestId,
+        status: e.status,
+        createdAt: e.createdAt.toISOString(),
+      })),
+      auditLogs: auditLogs.map((log) => ({
+        id: log.id,
+        actorId: log.actorId,
+        actorName: profileName(log.actor),
+        actorEmail: log.actor.email,
+        action: log.action,
+        resource: log.resource,
+        resourceId: log.resourceId,
+        details: (log.details as Record<string, unknown> | null) ?? null,
+        createdAt: log.createdAt.toISOString(),
+      })),
+      owner: {
+        id: request.owner.id,
+        email: request.owner.email,
+        displayName: request.owner.displayName,
+        profileName: profileName(request.owner),
+        businessName: request.owner.businessName,
+        rating: request.owner.rating,
+        reviewCount: request.owner.reviewCount,
+        avatarUrl: request.owner.avatarKey ? mediaUrlForKey(request.owner.avatarKey) : null,
+        role: request.owner.role,
+        createdAt: request.owner.createdAt.toISOString(),
+      },
     };
   }
 
-  async updateRequest(id: string, data: AdminUpdateRequestDto) {
+  async updateRequest(id: string, adminId: string, data: AdminUpdateRequestDto) {
     if (Object.keys(data).length === 0) throw badRequest("No fields to update");
     const existing = await this.prisma.serviceRequest.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true, title: true },
     });
     if (!existing) throw notFound("Request not found");
+
+    if (data.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: data.categoryId },
+        select: { id: true },
+      });
+      if (!category) throw notFound("Category not found");
+    }
+
     const now = new Date();
+    const updateData: Prisma.ServiceRequestUpdateInput = {
+      ...(data.title !== undefined ? { title: data.title } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.categoryId !== undefined ? { category: { connect: { id: data.categoryId } } } : {}),
+      ...(data.city !== undefined ? { city: data.city } : {}),
+      ...(data.location !== undefined ? { location: data.location } : {}),
+      ...(data.budgetCents !== undefined ? { budgetCents: data.budgetCents } : {}),
+      ...(data.budgetLabel !== undefined ? { budgetLabel: data.budgetLabel } : {}),
+      ...(data.pricingMode !== undefined ? { pricingMode: data.pricingMode } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.isPremium !== undefined ? { isPremium: data.isPremium } : {}),
+      ...(data.scheduledAt !== undefined
+        ? { scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null }
+        : {}),
+      ...(data.status === ServiceRequestStatus.COMPLETED ? { completedAt: now } : {}),
+      ...(data.status === ServiceRequestStatus.CANCELLED ? { cancelledAt: now } : {}),
+    };
+
     await this.prisma.serviceRequest.update({
       where: { id },
-      data: {
-        ...data,
-        ...(data.status === ServiceRequestStatus.COMPLETED ? { completedAt: now } : {}),
-        ...(data.status === ServiceRequestStatus.CANCELLED ? { cancelledAt: now } : {}),
-      },
+      data: updateData,
     });
+
+    await this.logAudit(adminId, "REQUEST_EDITED", "request", id, {
+      changes: data,
+    });
+
     return this.getRequest(id);
   }
 
-  async deleteRequest(id: string) {
-    const { count } = await this.prisma.serviceRequest.deleteMany({ where: { id } });
-    if (!count) throw notFound("Request not found");
+  async approveRequest(id: string, adminId: string, data: AdminApproveRequestDto) {
+    const existing = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      select: { id: true, title: true, ownerId: true, status: true },
+    });
+    if (!existing) throw notFound("Request not found");
+
+    await this.prisma.serviceRequest.update({
+      where: { id },
+      data: { status: ServiceRequestStatus.OPEN },
+    });
+
+    await this.logAudit(adminId, "REQUEST_APPROVED", "request", id, {
+      note: data.note ?? null,
+      previousStatus: existing.status,
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        userId: existing.ownerId,
+        kind: NotificationKind.SYSTEM,
+        title: "Request Approved",
+        body: data.note
+          ? `Your request "${existing.title}" was approved: ${data.note}`
+          : `Your request "${existing.title}" has been approved by moderators.`,
+        contextTag: "request",
+        payload: { requestId: id, action: "APPROVED" },
+      },
+    });
+
+    return this.getRequest(id);
+  }
+
+  async rejectRequest(id: string, adminId: string, data: AdminRejectRequestDto) {
+    const existing = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      select: { id: true, title: true, ownerId: true, status: true },
+    });
+    if (!existing) throw notFound("Request not found");
+
+    const now = new Date();
+    await this.prisma.serviceRequest.update({
+      where: { id },
+      data: { status: ServiceRequestStatus.CANCELLED, cancelledAt: now },
+    });
+
+    await this.logAudit(adminId, "REQUEST_REJECTED", "request", id, {
+      reason: data.reason ?? null,
+      previousStatus: existing.status,
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        userId: existing.ownerId,
+        kind: NotificationKind.SYSTEM,
+        title: "Request Rejected",
+        body: data.reason
+          ? `Your request "${existing.title}" was rejected. Reason: ${data.reason}`
+          : `Your request "${existing.title}" was rejected by moderators.`,
+        contextTag: "request",
+        payload: { requestId: id, action: "REJECTED", reason: data.reason ?? null },
+      },
+    });
+
+    return this.getRequest(id);
+  }
+
+  async deleteRequest(id: string, adminId: string) {
+    const existing = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      select: { id: true, title: true, ownerId: true },
+    });
+    if (!existing) throw notFound("Request not found");
+
+    await this.logAudit(adminId, "REQUEST_DELETED", "request", id, {
+      title: existing.title,
+      ownerId: existing.ownerId,
+    });
+
+    await this.prisma.serviceRequest.delete({ where: { id } });
   }
 
   async listOffers(query: AdminOffersQueryDto) {

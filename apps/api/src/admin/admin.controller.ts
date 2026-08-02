@@ -17,9 +17,12 @@ import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js
 import { AdminGuard } from "../common/guards/admin.guard.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import {
+  AdminApproveRequestDto,
   AdminBulkUsersDto,
   AdminConversationsQueryDto,
+  AdminCreateRequestDto,
   AdminOffersQueryDto,
+  AdminRejectRequestDto,
   AdminRequestsQueryDto,
   AdminReviewsQueryDto,
   AdminUpdateOfferDto,
@@ -88,6 +91,15 @@ export class AdminController {
     return { data: await this.adminService.bulkUsers(actorId, body) };
   }
 
+  @Post("requests")
+  @ApiOperation({ summary: "Create a new service request" })
+  async createRequest(
+    @CurrentUserId() actorId: string,
+    @Body() body: AdminCreateRequestDto,
+  ) {
+    return { data: await this.adminService.createRequest(actorId, body) };
+  }
+
   @Get("requests")
   @ApiOperation({ summary: "List service requests" })
   async listRequests(@Query() query: AdminRequestsQueryDto) {
@@ -102,14 +114,38 @@ export class AdminController {
 
   @Patch("requests/:id")
   @ApiOperation({ summary: "Update service request" })
-  async updateRequest(@Param("id") id: string, @Body() body: AdminUpdateRequestDto) {
-    return { data: await this.adminService.updateRequest(id, body) };
+  async updateRequest(
+    @Param("id") id: string,
+    @CurrentUserId() actorId: string,
+    @Body() body: AdminUpdateRequestDto,
+  ) {
+    return { data: await this.adminService.updateRequest(id, actorId, body) };
+  }
+
+  @Post("requests/:id/approve")
+  @ApiOperation({ summary: "Approve a pending service request" })
+  async approveRequest(
+    @Param("id") id: string,
+    @CurrentUserId() actorId: string,
+    @Body() body: AdminApproveRequestDto,
+  ) {
+    return { data: await this.adminService.approveRequest(id, actorId, body) };
+  }
+
+  @Post("requests/:id/reject")
+  @ApiOperation({ summary: "Reject a service request" })
+  async rejectRequest(
+    @Param("id") id: string,
+    @CurrentUserId() actorId: string,
+    @Body() body: AdminRejectRequestDto,
+  ) {
+    return { data: await this.adminService.rejectRequest(id, actorId, body) };
   }
 
   @Delete("requests/:id")
   @ApiOperation({ summary: "Delete service request" })
-  async deleteRequest(@Param("id") id: string) {
-    await this.adminService.deleteRequest(id);
+  async deleteRequest(@Param("id") id: string, @CurrentUserId() actorId: string) {
+    await this.adminService.deleteRequest(id, actorId);
     return { data: { deleted: true as const } };
   }
 

@@ -217,7 +217,15 @@ export class RequestsService {
       },
     });
     if (!request) throw notFound("Request not found");
-    return serializeRequest(request, viewerUserId);
+    let rejectionReason: string | null = null;
+    if (request.status === ServiceRequestStatus.CANCELLED) {
+      const rejectionLog = await this.prisma.auditLog.findFirst({
+        where: { resource: "request", resourceId: id, action: "REQUEST_REJECTED" },
+        orderBy: { createdAt: "desc" },
+      });
+      rejectionReason = ((rejectionLog?.details as Record<string, unknown> | null)?.reason as string | null) ?? null;
+    }
+    return serializeRequest(request, viewerUserId, rejectionReason);
   }
 
   async view(id: string, viewerUserId?: string) {

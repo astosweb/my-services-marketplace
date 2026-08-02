@@ -19,7 +19,7 @@ extension ServiceRequest {
         case .open: "Open"
         case .inProgress: "In Progress"
         case .completed: "Completed"
-        case .cancelled: "Cancelled"
+        case .cancelled: "Cancelled / Rejected"
         }
     }
 

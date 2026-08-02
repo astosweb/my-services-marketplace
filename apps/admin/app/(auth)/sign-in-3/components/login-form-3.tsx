@@ -38,8 +38,8 @@ export function LoginForm3({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="test@example.com"
-                  defaultValue="test@example.com"
+                  placeholder="admin@hero.test"
+                  defaultValue={process.env.NODE_ENV !== "production" ? "admin@hero.test" : ""}
                   required
                 />
               </div>
@@ -53,7 +53,7 @@ export function LoginForm3({
                     Forgot your password?
                   </a>
                 </div>
-                <Input id="password" type="password" defaultValue="password" required />
+                <Input id="password" type="password" defaultValue={process.env.NODE_ENV !== "production" ? "password123" : ""} required />
               </div>
               <Button type="submit" className="w-full cursor-pointer">
                 Login

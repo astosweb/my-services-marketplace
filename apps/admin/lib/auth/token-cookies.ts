@@ -18,19 +18,27 @@ export async function setAuthCookies(tokens: {
   accessToken: string;
   refreshToken: string;
 }) {
-  const jar = await cookies();
-  jar.set(ACCESS_TOKEN_COOKIE, tokens.accessToken, {
-    ...baseCookie,
-    maxAge: 60 * 15,
-  });
-  jar.set(REFRESH_TOKEN_COOKIE, tokens.refreshToken, {
-    ...baseCookie,
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  try {
+    const jar = await cookies();
+    jar.set(ACCESS_TOKEN_COOKIE, tokens.accessToken, {
+      ...baseCookie,
+      maxAge: 60 * 15,
+    });
+    jar.set(REFRESH_TOKEN_COOKIE, tokens.refreshToken, {
+      ...baseCookie,
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  } catch {
+    // Ignore error when called during Server Component rendering (cookies are immutable in RSC)
+  }
 }
 
 export async function clearAuthCookies() {
-  const jar = await cookies();
-  jar.delete(ACCESS_TOKEN_COOKIE);
-  jar.delete(REFRESH_TOKEN_COOKIE);
+  try {
+    const jar = await cookies();
+    jar.delete(ACCESS_TOKEN_COOKIE);
+    jar.delete(REFRESH_TOKEN_COOKIE);
+  } catch {
+    // Ignore error when called during Server Component rendering (cookies are immutable in RSC)
+  }
 }

@@ -103,7 +103,7 @@ export class AdminBulkUsersDto {
   action!: "delete";
 }
 
-const requestSortFields = ["createdAt", "updatedAt", "title", "viewCount"] as const;
+const requestSortFields = ["createdAt", "updatedAt", "title", "viewCount", "budgetCents"] as const;
 
 export class AdminRequestsQueryDto extends AdminPaginationQueryDto {
   @ApiPropertyOptional({ enum: ServiceRequestStatus })
@@ -121,10 +121,95 @@ export class AdminRequestsQueryDto extends AdminPaginationQueryDto {
   @IsString()
   categoryId?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isPremium?: boolean;
+
   @ApiPropertyOptional({ enum: requestSortFields, default: "createdAt" })
   @IsOptional()
   @IsIn(requestSortFields)
   sortBy: string = "createdAt";
+}
+
+export class AdminCreateRequestDto {
+  @ApiProperty({ description: "ID of the user creating the request" })
+  @IsString()
+  @MinLength(1)
+  ownerId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  categoryId!: string;
+
+  @ApiProperty({ minLength: 3, maxLength: 200 })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  title!: string;
+
+  @ApiProperty({ minLength: 10, maxLength: 5000 })
+  @IsString()
+  @MinLength(10)
+  @MaxLength(5000)
+  description!: string;
+
+  @ApiProperty({ enum: EstonianCity })
+  @IsEnum(EstonianCity)
+  city!: EstonianCity;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  location!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  latitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  longitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  budgetCents?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  budgetLabel?: string;
+
+  @ApiPropertyOptional({ enum: ["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"] })
+  @IsOptional()
+  @IsIn(["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"])
+  pricingMode?: "PROVIDER_OFFERS" | "OWNER_FIXED_PRICE";
+
+  @ApiPropertyOptional({ enum: ServiceRequestStatus })
+  @IsOptional()
+  @IsEnum(ServiceRequestStatus)
+  status?: ServiceRequestStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isPremium?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  scheduledAt?: string;
 }
 
 export class AdminUpdateRequestDto {
@@ -142,6 +227,37 @@ export class AdminUpdateRequestDto {
   @MaxLength(5000)
   description?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ enum: EstonianCity })
+  @IsOptional()
+  @IsEnum(EstonianCity)
+  city?: EstonianCity;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  budgetCents?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  budgetLabel?: string;
+
+  @ApiPropertyOptional({ enum: ["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"] })
+  @IsOptional()
+  @IsIn(["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"])
+  pricingMode?: "PROVIDER_OFFERS" | "OWNER_FIXED_PRICE";
+
   @ApiPropertyOptional({ enum: ServiceRequestStatus })
   @IsOptional()
   @IsEnum(ServiceRequestStatus)
@@ -151,6 +267,27 @@ export class AdminUpdateRequestDto {
   @IsOptional()
   @IsBoolean()
   isPremium?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  scheduledAt?: string;
+}
+
+export class AdminApproveRequestDto {
+  @ApiPropertyOptional({ description: "Optional moderation note for approval" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
+export class AdminRejectRequestDto {
+  @ApiPropertyOptional({ description: "Rejection reason provided by admin" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reason?: string;
 }
 
 const offerSortFields = ["createdAt", "updatedAt", "priceCents"] as const;

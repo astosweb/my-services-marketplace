@@ -21,12 +21,85 @@ export type ServiceRequestDto = {
   viewCount: number;
   createdAt: string;
   updatedAt: string;
+  rejectionReason?: string | null;
   requester: {
     id: string;
     profileName: string;
     avatarUrl: string | null;
   };
 };
+
+export type AuditLogDto = {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorEmail?: string;
+  action: string;
+  resource: string;
+  resourceId: string;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type JobProgressEventDto = {
+  id: string;
+  requestId: string;
+  status: string;
+  createdAt: string;
+};
+
+export type ServiceRequestDetailDto = ServiceRequestDto & {
+  latitude: number;
+  longitude: number;
+  pricingMode: "PROVIDER_OFFERS" | "OWNER_FIXED_PRICE";
+  budgetLabel: string | null;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  photos: Array<{ id: string; spacesKey: string; url: string; sortOrder: number }>;
+  offers: OfferDto[];
+  reviews: ReviewDto[];
+  progressEvents: JobProgressEventDto[];
+  auditLogs: AuditLogDto[];
+  owner: {
+    id: string;
+    email: string;
+    displayName: string;
+    profileName: string;
+    businessName: string | null;
+    rating: number;
+    reviewCount: number;
+    avatarUrl: string | null;
+    role: string;
+    createdAt: string;
+  };
+};
+
+export type AdminCreateRequestInput = {
+  ownerId: string;
+  categoryId: string;
+  title: string;
+  description: string;
+  city: string;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  budgetCents?: number;
+  budgetLabel?: string;
+  pricingMode?: "PROVIDER_OFFERS" | "OWNER_FIXED_PRICE";
+  status?: ServiceRequestStatus;
+  isPremium?: boolean;
+  scheduledAt?: string;
+};
+
+export type AdminApproveRequestInput = {
+  note?: string;
+};
+
+export type AdminRejectRequestInput = {
+  reason?: string;
+};
+
 
 export type OfferStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 

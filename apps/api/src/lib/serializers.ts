@@ -73,7 +73,11 @@ export function serializeCategory(category: Category) {
   };
 }
 
-export function serializeRequest(request: RequestWithRelations, viewerUserId?: string) {
+export function serializeRequest(
+  request: RequestWithRelations,
+  viewerUserId?: string,
+  rejectionReason?: string | null,
+) {
   const acceptedOffer = request.offers?.find((offer) => offer.status === OfferStatus.ACCEPTED);
   const viewerOffer = viewerUserId
     ? request.offers?.find((offer) => offer.offererId === viewerUserId)
@@ -147,6 +151,7 @@ export function serializeRequest(request: RequestWithRelations, viewerUserId?: s
     progressEvents,
     completedAt: request.completedAt?.toISOString() ?? null,
     cancelledAt: request.cancelledAt?.toISOString() ?? null,
+    rejectionReason: rejectionReason ?? null,
     isPremium: request.isPremium,
     offerCount: request._count?.offers ?? 0,
     viewCount: request.viewCount,

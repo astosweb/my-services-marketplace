@@ -91,6 +91,7 @@ model User {
   deviceTokens     DeviceToken[]
   refreshTokens    RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  auditLogs        AuditLog[]
 }
 
 model Category {
@@ -290,4 +291,20 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  resource   String
+  resourceId String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([resource, resourceId])
+  @@index([actorId])
+  @@index([createdAt])
 }

@@ -357,6 +357,7 @@ struct ServiceRequest: Codable, Identifiable, Hashable, Sendable {
     let progressEvents: [JobProgressEvent]
     let completedAt: Date?
     let cancelledAt: Date?
+    let rejectionReason: String?
     let isPremium: Bool
     let offerCount: Int
     let viewCount: Int
@@ -371,7 +372,7 @@ struct ServiceRequest: Codable, Identifiable, Hashable, Sendable {
         case id, categoryId, categoryName, categorySymbol, title, description, city
         case latitude, longitude, location, budgetCents, budget, scheduledAt, pricingMode
         case status, progressStatus, progressUpdatedAt, progressEvents, completedAt, cancelledAt
-        case isPremium, offerCount, viewCount, createdAt, updatedAt, photos, requester
+        case rejectionReason, isPremium, offerCount, viewCount, createdAt, updatedAt, photos, requester
         case acceptedOffer, viewerOffer
     }
 
@@ -397,6 +398,7 @@ struct ServiceRequest: Codable, Identifiable, Hashable, Sendable {
         progressEvents = try c.decodeIfPresent([JobProgressEvent].self, forKey: .progressEvents) ?? []
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
         cancelledAt = try c.decodeIfPresent(Date.self, forKey: .cancelledAt)
+        rejectionReason = try c.decodeIfPresent(String.self, forKey: .rejectionReason)
         isPremium = try c.decode(Bool.self, forKey: .isPremium)
         offerCount = try c.decode(Int.self, forKey: .offerCount)
         viewCount = try c.decode(Int.self, forKey: .viewCount)
