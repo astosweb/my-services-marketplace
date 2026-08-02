@@ -1050,6 +1050,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                     <TableRow>
                       <TableHead>Device</TableHead>
                       <TableHead>Platform</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>OS / App</TableHead>
                       <TableHead>IP</TableHead>
                       <TableHead>Client</TableHead>
@@ -1073,6 +1074,11 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         </TableCell>
                         <TableCell className="capitalize text-sm">
                           {device.platform}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={device.isActive ? "secondary" : "outline"}>
+                            {device.isActive ? "Active" : "Inactive"}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {[device.systemVersion, device.appVersion]

@@ -46,6 +46,24 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((v) => v === "true"),
+  /** Apple Push Notification key id (from Apple Developer → Keys). */
+  APNS_KEY_ID: z.string().optional(),
+  /** Apple Developer Team ID. */
+  APNS_TEAM_ID: z.string().optional(),
+  /** App bundle id used as APNs topic (e.g. com.serhatsabuncu.heroApp). */
+  APNS_BUNDLE_ID: z.string().default("com.serhatsabuncu.heroApp"),
+  /**
+   * Contents of the .p8 private key (PKCS#8 PEM), including BEGIN/END lines.
+   * Prefer this over a file path in container deployments.
+   */
+  APNS_PRIVATE_KEY: z.string().optional(),
+  /** Absolute or relative path to the .p8 private key file. */
+  APNS_PRIVATE_KEY_PATH: z.string().optional(),
+  /** Use production APNs host when true; sandbox otherwise. */
+  APNS_PRODUCTION: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export type Environment = z.infer<typeof envSchema>;

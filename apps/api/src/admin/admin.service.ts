@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   NotificationKind,
   Prisma,
@@ -21,6 +21,7 @@ import {
   serializeUser,
 } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { PushService } from "../push/push.service.js";
 import type {
   AdminApproveRequestDto,
   AdminBulkUsersDto,
@@ -51,7 +52,12 @@ const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AdminService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pushService: PushService,
+  ) {}
 
   private adminUser(
     user: User,
@@ -350,6 +356,7 @@ export class AdminService {
         appVersion: device.appVersion,
         ipAddress: device.ipAddress,
         userAgent: device.userAgent,
+        isActive: device.isActive,
         createdAt: device.createdAt.toISOString(),
         updatedAt: device.updatedAt.toISOString(),
       })),
@@ -788,7 +795,14 @@ export class AdminService {
   async approveRequest(id: string, adminId: string, data: AdminApproveRequestDto) {
     const existing = await this.prisma.serviceRequest.findUnique({
       where: { id },
-      select: { id: true, title: true, ownerId: true, status: true },
+      select: {
+        id: true,
+        title: true,
+        ownerId: true,
+        status: true,
+        categoryId: true,
+        category: { select: { id: true, name: true } },
+      },
     });
     if (!existing) throw notFound("Request not found");
     if (
@@ -810,6 +824,7 @@ export class AdminService {
     await this.logAudit(adminId, "REQUEST_APPROVED", "request", id, {
       note: data.note ?? null,
       previousStatus: existing.status,
+      categoryId: existing.categoryId,
     });
 
     await this.prisma.notification.create({
@@ -824,6 +839,28 @@ export class AdminService {
         payload: { requestId: id, action: "APPROVED" },
       },
     });
+
+    try {
+      const pushResult = await this.pushService.notifyCategorySubscribersOfApprovedRequest({
+        requestId: existing.id,
+        categoryId: existing.category.id,
+        categoryName: existing.category.name,
+        title: existing.title,
+        ownerId: existing.ownerId,
+      });
+      this.logger.log({
+        msg: "Category approval push complete",
+        requestId: id,
+        categoryId: existing.categoryId,
+        ...pushResult,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to notify category subscribers for request ${id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     return this.getRequest(id);
   }

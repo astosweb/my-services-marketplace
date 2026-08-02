@@ -56,6 +56,11 @@ services:
       API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:3000}
       SEED_ON_START: ${SEED_ON_START:-true}
       ALLOW_SEED: "true"
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.serhatsabuncu.heroApp}
+      APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
+      APNS_PRODUCTION: ${APNS_PRODUCTION:-false}
     volumes:
       - upload_data:/app/.data
     depends_on:
