@@ -27,7 +27,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     variantClass =
       "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30";
   } else if (
-    ["CANCELLED", "DECLINED", "DELETED", "SUSPENDED", "ERROR"].includes(
+    ["CANCELLED", "DECLINED", "DELETED", "SUSPENDED", "BANNED", "ERROR"].includes(
       normalized,
     )
   ) {

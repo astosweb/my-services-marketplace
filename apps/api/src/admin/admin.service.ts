@@ -1,5 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { NotificationKind, Prisma, ServiceRequestStatus, UserRole, type User } from "../generated/prisma/client.js";
+import {
+  NotificationKind,
+  Prisma,
+  ServiceRequestStatus,
+  UserRole,
+  UserStatus,
+  type User,
+} from "../generated/prisma/client.js";
 import { ADMIN_PERMISSIONS, permissionsForRole } from "../lib/admin-permissions.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import {
@@ -53,7 +60,7 @@ export class AdminService {
     const base = serializeMe(user);
     return {
       ...base,
-      status: "active" as const,
+      status: user.status,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
       requestCount: counts?.requests,
@@ -161,6 +168,7 @@ export class AdminService {
   async listUsers(query: AdminUsersQueryDto) {
     const where: Prisma.UserWhereInput = {
       role: query.role,
+      status: query.status,
       ...(query.search
         ? {
             OR: [
@@ -286,11 +294,14 @@ export class AdminService {
 
     const sessions = refreshTokens.map((token) => ({
       id: token.id,
+      ipAddress: token.ipAddress,
+      userAgent: token.userAgent,
+      lastUsedAt: token.lastUsedAt.toISOString(),
       createdAt: token.createdAt.toISOString(),
       expiresAt: token.expiresAt.toISOString(),
       isExpired: token.expiresAt < now,
     }));
-    const activeSession = sessions.find((session) => !session.isExpired);
+    const activeSession = sessions.find((session) => !session.isExpired) ?? sessions[0] ?? null;
     const pendingReset = passwordResetTokens[0] ?? null;
 
     const conversations = conversationParticipants
@@ -316,8 +327,10 @@ export class AdminService {
       preferBusinessName: user.preferBusinessName,
       memberSince: user.createdAt.toISOString(),
       hasPassword: Boolean(user.passwordHash),
-      lastLoginAt: activeSession?.createdAt ?? sessions[0]?.createdAt ?? null,
+      lastLoginAt: activeSession?.lastUsedAt ?? activeSession?.createdAt ?? null,
+      lastLoginIp: activeSession?.ipAddress ?? null,
       sessionCount: sessions.length,
+      activeSessionCount: sessions.filter((session) => !session.isExpired).length,
       deviceCount: deviceTokens.length,
       notificationCount,
       conversationCount,
@@ -332,7 +345,13 @@ export class AdminService {
         id: device.id,
         platform: device.platform,
         tokenPreview: device.token.length <= 4 ? "••••" : `…${device.token.slice(-4)}`,
+        name: device.name,
+        systemVersion: device.systemVersion,
+        appVersion: device.appVersion,
+        ipAddress: device.ipAddress,
+        userAgent: device.userAgent,
         createdAt: device.createdAt.toISOString(),
+        updatedAt: device.updatedAt.toISOString(),
       })),
       auditLogs: auditLogs.map((log) => ({
         id: log.id,
@@ -394,17 +413,30 @@ export class AdminService {
     if (Object.keys(data).length === 0) throw badRequest("No fields to update");
     const existing = await this.prisma.user.findUnique({
       where: { id },
-      select: { role: true, displayName: true, bio: true, businessName: true },
+      select: { role: true, status: true, displayName: true, bio: true, businessName: true },
     });
     if (!existing) throw notFound("User not found");
     if (id === adminId && data.role && data.role !== existing.role) {
       throw forbidden("You cannot change your own role");
     }
+    if (id === adminId && data.status === UserStatus.BANNED) {
+      throw forbidden("You cannot ban your own account");
+    }
+
     const updated = await this.prisma.user.update({ where: { id }, data });
+
+    if (data.status === UserStatus.BANNED && existing.status !== UserStatus.BANNED) {
+      await Promise.all([
+        this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
+        this.prisma.deviceToken.deleteMany({ where: { userId: id } }),
+      ]);
+    }
+
     await this.logAudit(adminId, "USER_UPDATED", "user", id, {
       changes: data,
       previous: {
         role: existing.role,
+        status: existing.status,
         displayName: existing.displayName,
         bio: existing.bio,
         businessName: existing.businessName,
@@ -428,10 +460,92 @@ export class AdminService {
     if (!count) throw notFound("User not found");
   }
 
+  async revokeUserSession(userId: string, sessionId: string, adminId: string) {
+    const session = await this.prisma.refreshToken.findFirst({
+      where: { id: sessionId, userId },
+      select: { id: true, ipAddress: true, userAgent: true },
+    });
+    if (!session) throw notFound("Session not found");
+    await this.prisma.refreshToken.delete({ where: { id: session.id } });
+    await this.logAudit(adminId, "SESSION_REVOKED", "user", userId, {
+      sessionId: session.id,
+      ipAddress: session.ipAddress,
+      userAgent: session.userAgent,
+    });
+    return { revoked: true as const, sessionId: session.id };
+  }
+
+  async revokeAllUserSessions(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw notFound("User not found");
+    const { count } = await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.logAudit(adminId, "SESSIONS_REVOKED", "user", userId, { count });
+    return { revoked: count };
+  }
+
+  async revokeUserDevice(userId: string, deviceId: string, adminId: string) {
+    const device = await this.prisma.deviceToken.findFirst({
+      where: { id: deviceId, userId },
+      select: {
+        id: true,
+        platform: true,
+        name: true,
+        token: true,
+        ipAddress: true,
+      },
+    });
+    if (!device) throw notFound("Device not found");
+    await this.prisma.deviceToken.delete({ where: { id: device.id } });
+    await this.logAudit(adminId, "DEVICE_REVOKED", "user", userId, {
+      deviceId: device.id,
+      platform: device.platform,
+      name: device.name,
+      ipAddress: device.ipAddress,
+      tokenPreview: device.token.length <= 4 ? "••••" : `…${device.token.slice(-4)}`,
+    });
+    return { revoked: true as const, deviceId: device.id };
+  }
+
+  async revokeAllUserDevices(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw notFound("User not found");
+    const { count } = await this.prisma.deviceToken.deleteMany({ where: { userId } });
+    await this.logAudit(adminId, "DEVICES_REVOKED", "user", userId, { count });
+    return { revoked: count };
+  }
+
   async bulkUsers(adminId: string, data: AdminBulkUsersDto) {
-    if (data.ids.includes(adminId)) throw forbidden("You cannot delete your own account");
-    const { count } = await this.prisma.user.deleteMany({ where: { id: { in: data.ids } } });
-    return { affected: count, action: data.action, deleted: count };
+    if (data.ids.includes(adminId) && (data.action === "delete" || data.action === "ban")) {
+      throw forbidden("You cannot ban or delete your own account");
+    }
+
+    if (data.action === "delete") {
+      const { count } = await this.prisma.user.deleteMany({ where: { id: { in: data.ids } } });
+      return { affected: count, action: data.action };
+    }
+
+    const status = data.action === "ban" ? UserStatus.BANNED : UserStatus.ACTIVE;
+    const { count } = await this.prisma.user.updateMany({
+      where: { id: { in: data.ids } },
+      data: { status },
+    });
+
+    if (data.action === "ban") {
+      await Promise.all([
+        this.prisma.refreshToken.deleteMany({ where: { userId: { in: data.ids } } }),
+        this.prisma.deviceToken.deleteMany({ where: { userId: { in: data.ids } } }),
+      ]);
+    }
+
+    await this.logAudit(
+      adminId,
+      data.action === "ban" ? "USERS_BANNED" : "USERS_UNBANNED",
+      "user",
+      adminId,
+      { ids: data.ids, count },
+    );
+
+    return { affected: count, action: data.action };
   }
 
   async exportUsersCsv() {

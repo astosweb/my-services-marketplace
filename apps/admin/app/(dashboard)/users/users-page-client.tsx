@@ -64,7 +64,7 @@ import {
 const editUserSchema = z.object({
   profileName: z.string().min(2, "Name must be at least 2 characters"),
   role: z.enum(["USER", "ADMIN"]),
-  status: z.enum(["ACTIVE", "SUSPENDED", "DELETED"]),
+  status: z.enum(["ACTIVE", "BANNED"]),
 });
 
 type EditUserFormValues = z.infer<typeof editUserSchema>;
@@ -83,6 +83,10 @@ export function UsersPageClient() {
       filters.role === "USER" || filters.role === "ADMIN"
         ? filters.role
         : undefined,
+    status:
+      filters.status === "ACTIVE" || filters.status === "BANNED"
+        ? filters.status
+        : undefined,
   });
 
   const updateUser = useUpdateUser();
@@ -100,7 +104,7 @@ export function UsersPageClient() {
     id: string;
     profileName: string;
     role: UserRole;
-    status: "ACTIVE" | "SUSPENDED" | "DELETED";
+    status: "ACTIVE" | "BANNED";
   } | null>(null);
 
   const items = data?.items ?? [];
@@ -146,6 +150,7 @@ export function UsersPageClient() {
       id: editingUser.id,
       displayName: values.profileName,
       role: values.role as UserRole,
+      status: values.status,
     });
     setEditingUser(null);
   };
@@ -206,6 +211,10 @@ export function UsersPageClient() {
                   filters.role === "USER" || filters.role === "ADMIN"
                     ? filters.role
                     : undefined,
+                status:
+                  filters.status === "ACTIVE" || filters.status === "BANNED"
+                    ? filters.status
+                    : undefined,
               }).catch(() => null)
             }
           >
@@ -235,6 +244,22 @@ export function UsersPageClient() {
             <SelectItem value="all">All roles</SelectItem>
             <SelectItem value="USER">USER</SelectItem>
             <SelectItem value="ADMIN">ADMIN</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.status ?? "all"}
+          onValueChange={(value) =>
+            setFilter("status", value === "all" ? undefined : value)
+          }
+        >
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+            <SelectItem value="BANNED">BANNED</SelectItem>
           </SelectContent>
         </Select>
 
@@ -338,7 +363,7 @@ export function UsersPageClient() {
                                   id: user.id,
                                   profileName: user.profileName,
                                   role: user.role,
-                                  status: user.status as "ACTIVE" | "SUSPENDED" | "DELETED",
+                                  status: user.status as "ACTIVE" | "BANNED",
                                 })
                               }
                             >
@@ -479,8 +504,7 @@ export function UsersPageClient() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                        <SelectItem value="SUSPENDED">SUSPENDED</SelectItem>
-                        <SelectItem value="DELETED">DELETED</SelectItem>
+                        <SelectItem value="BANNED">BANNED</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

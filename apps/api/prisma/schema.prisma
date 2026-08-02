@@ -67,6 +67,11 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -79,6 +84,7 @@ model User {
   rating       Float    @default(0)
   reviewCount  Int      @default(0)
   role         UserRole @default(USER)
+  status       UserStatus @default(ACTIVE)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -259,11 +265,17 @@ model Review {
 }
 
 model DeviceToken {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  platform  String   @default("ios")
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  platform       String   @default("ios")
+  name           String?
+  systemVersion  String?
+  appVersion     String?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -271,11 +283,14 @@ model DeviceToken {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenHash String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  ipAddress  String?
+  userAgent  String?
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

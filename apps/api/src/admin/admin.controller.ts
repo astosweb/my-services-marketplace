@@ -85,6 +85,38 @@ export class AdminController {
     return { data: { deleted: true as const } };
   }
 
+  @Delete("users/:id/sessions/:sessionId")
+  @ApiOperation({ summary: "Revoke a user login session" })
+  async revokeUserSession(
+    @Param("id") id: string,
+    @Param("sessionId") sessionId: string,
+    @CurrentUserId() actorId: string,
+  ) {
+    return { data: await this.adminService.revokeUserSession(id, sessionId, actorId) };
+  }
+
+  @Delete("users/:id/sessions")
+  @ApiOperation({ summary: "Revoke all login sessions for a user" })
+  async revokeAllUserSessions(@Param("id") id: string, @CurrentUserId() actorId: string) {
+    return { data: await this.adminService.revokeAllUserSessions(id, actorId) };
+  }
+
+  @Delete("users/:id/devices/:deviceId")
+  @ApiOperation({ summary: "Revoke a user device" })
+  async revokeUserDevice(
+    @Param("id") id: string,
+    @Param("deviceId") deviceId: string,
+    @CurrentUserId() actorId: string,
+  ) {
+    return { data: await this.adminService.revokeUserDevice(id, deviceId, actorId) };
+  }
+
+  @Delete("users/:id/devices")
+  @ApiOperation({ summary: "Revoke all devices for a user" })
+  async revokeAllUserDevices(@Param("id") id: string, @CurrentUserId() actorId: string) {
+    return { data: await this.adminService.revokeAllUserDevices(id, actorId) };
+  }
+
   @Post("users/bulk")
   @ApiOperation({ summary: "Bulk user actions" })
   async bulkUsers(@Body() body: AdminBulkUsersDto, @CurrentUserId() actorId: string) {

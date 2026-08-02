@@ -170,7 +170,14 @@ struct ExploreView: View {
                 })
             }
         }
-        .task(id: selectedCity) { await load() }
+        .task(id: selectedCity) {
+            await load()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled else { break }
+                await load(silent: true)
+            }
+        }
         .onChange(of: selectedCity) {
             selectedCategoryID = nil
             selectedRequestID = nil
@@ -484,9 +491,11 @@ struct ExploreView: View {
             .formatted(.measurement(width: .abbreviated, usage: .road))
     }
 
-    private func load() async {
-        isLoading = true
-        errorMessage = nil
+    private func load(silent: Bool = false) async {
+        if !silent {
+            isLoading = true
+            errorMessage = nil
+        }
         do {
             let response: PaginatedEnvelope<[ServiceRequest], PageMeta> = try await auth.api.send(
                 path: "requests",
@@ -499,10 +508,15 @@ struct ExploreView: View {
             withAnimation {
                 requests = response.data.filter { $0.status == .open }
             }
+            errorMessage = nil
         } catch {
-            errorMessage = error.localizedDescription
+            if !silent || requests.isEmpty {
+                errorMessage = error.localizedDescription
+            }
         }
-        isLoading = false
+        if !silent {
+            isLoading = false
+        }
     }
 }
 

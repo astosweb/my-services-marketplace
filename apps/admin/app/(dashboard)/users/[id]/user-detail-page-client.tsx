@@ -11,6 +11,7 @@ import {
   Briefcase,
   Edit2,
   FileText,
+  Globe,
   HandCoins,
   KeyRound,
   Mail,
@@ -18,6 +19,7 @@ import {
   MonitorSmartphone,
   ShieldAlert,
   ShieldCheck,
+  ShieldOff,
   Smartphone,
   Star,
   Trash2,
@@ -93,7 +95,15 @@ import {
   useUpdateOffer,
   useUpdateRequest,
 } from "@/lib/api/marketplace";
-import { useUser } from "@/lib/api/users";
+import {
+  useBanUser,
+  useRevokeAllUserDevices,
+  useRevokeAllUserSessions,
+  useRevokeUserDevice,
+  useRevokeUserSession,
+  useUnbanUser,
+  useUser,
+} from "@/lib/api/users";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 
 const CITIES = [
@@ -150,12 +160,18 @@ function formatPrice(cents: number | null) {
   return `€${(cents / 100).toFixed(0)}`;
 }
 
+function truncateAgent(value: string | null, max = 48) {
+  if (!value) return "—";
+  return value.length > max ? `${value.slice(0, max)}…` : value;
+}
+
 export function UserDetailPageClient({ userId }: { userId: string }) {
   const { permissions } = useSession();
   const canWriteRequests = permissions.includes(PERMISSIONS.REQUESTS_WRITE);
   const canDeleteRequests = permissions.includes(PERMISSIONS.REQUESTS_DELETE);
   const canWriteOffers = permissions.includes(PERMISSIONS.OFFERS_WRITE);
   const canDeleteOffers = permissions.includes(PERMISSIONS.OFFERS_DELETE);
+  const canWriteUsers = permissions.includes(PERMISSIONS.USERS_WRITE);
 
   const { data: user, isLoading, error } = useUser(userId);
   const categoriesQuery = useCategories();
@@ -164,6 +180,12 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
   const deleteRequest = useDeleteRequest();
   const updateOffer = useUpdateOffer();
   const deleteOffer = useDeleteOffer();
+  const revokeSession = useRevokeUserSession(userId);
+  const revokeAllSessions = useRevokeAllUserSessions(userId);
+  const revokeDevice = useRevokeUserDevice(userId);
+  const revokeAllDevices = useRevokeAllUserDevices(userId);
+  const banUser = useBanUser();
+  const unbanUser = useUnbanUser();
 
   const [editingRequest, setEditingRequest] =
     React.useState<UserDetailRequestDto | null>(null);
@@ -182,6 +204,17 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
   const [deleteOfferTargetId, setDeleteOfferTargetId] = React.useState<
     string | null
   >(null);
+  const [revokeSessionId, setRevokeSessionId] = React.useState<string | null>(
+    null,
+  );
+  const [revokeAllSessionsOpen, setRevokeAllSessionsOpen] =
+    React.useState(false);
+  const [revokeDeviceId, setRevokeDeviceId] = React.useState<string | null>(
+    null,
+  );
+  const [revokeAllDevicesOpen, setRevokeAllDevicesOpen] = React.useState(false);
+  const [banOpen, setBanOpen] = React.useState(false);
+  const [unbanOpen, setUnbanOpen] = React.useState(false);
 
   const editForm = useForm<EditRequestFormValues>({
     resolver: zodResolver(editRequestSchema),
@@ -341,6 +374,25 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
           <div className="flex items-center gap-2">
             <Badge variant="outline">{user.role}</Badge>
             <StatusBadge status={user.status} />
+            {canWriteUsers ? (
+              user.status === "BANNED" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUnbanOpen(true)}
+                >
+                  Unban user
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBanOpen(true)}
+                >
+                  Ban user
+                </Button>
+              )
+            ) : null}
           </div>
         }
       />
@@ -414,6 +466,18 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                           addSuffix: true,
                         })
                       : "Never"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Last IP</span>
+                  <span className="font-mono text-[11px] font-medium text-right">
+                    {user.lastLoginIp ?? "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Active sessions</span>
+                  <span className="font-medium text-right">
+                    {user.activeSessionCount}
                   </span>
                 </div>
                 <div className="flex justify-between gap-2">
@@ -854,6 +918,23 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
               </div>
             ) : null}
 
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {user.activeSessionCount} active · {user.sessionCount} total
+              </p>
+              {canWriteUsers && user.sessions.length > 0 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-destructive"
+                  onClick={() => setRevokeAllSessionsOpen(true)}
+                >
+                  <ShieldOff className="size-3.5" />
+                  Revoke all sessions
+                </Button>
+              ) : null}
+            </div>
+
             {user.sessions.length === 0 ? (
               <EmptyState
                 icon={KeyRound}
@@ -865,17 +946,38 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Session ID</TableHead>
+                      <TableHead>IP</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Last used</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Expires</TableHead>
                       <TableHead>Status</TableHead>
+                      {canWriteUsers ? (
+                        <TableHead className="w-20 text-right">
+                          Actions
+                        </TableHead>
+                      ) : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {user.sessions.map((session) => (
                       <TableRow key={session.id}>
-                        <TableCell className="font-mono text-xs max-w-[180px] truncate">
-                          {session.id}
+                        <TableCell className="font-mono text-xs whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Globe className="size-3.5 text-muted-foreground" />
+                            {session.ipAddress ?? "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell
+                          className="text-xs text-muted-foreground max-w-[220px] truncate"
+                          title={session.userAgent ?? undefined}
+                        >
+                          {truncateAgent(session.userAgent)}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                          {formatDistanceToNow(new Date(session.lastUsedAt), {
+                            addSuffix: true,
+                          })}
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
                           {format(new Date(session.createdAt), "PPP p")}
@@ -887,11 +989,27 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                           {session.isExpired ? (
                             <Badge variant="secondary">Expired</Badge>
                           ) : (
-                            <Badge variant="outline" className="text-emerald-700 border-emerald-500/40">
+                            <Badge
+                              variant="outline"
+                              className="text-emerald-700 border-emerald-500/40"
+                            >
                               Active
                             </Badge>
                           )}
                         </TableCell>
+                        {canWriteUsers ? (
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Revoke session"
+                              disabled={revokeSession.isPending}
+                              onClick={() => setRevokeSessionId(session.id)}
+                            >
+                              <ShieldOff className="size-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -900,40 +1018,97 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
             )}
           </TabsContent>
 
-          <TabsContent value="devices" className="pt-3">
+          <TabsContent value="devices" className="space-y-4 pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {user.deviceCount} registered device
+                {user.deviceCount === 1 ? "" : "s"}
+              </p>
+              {canWriteUsers && user.devices.length > 0 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-destructive"
+                  onClick={() => setRevokeAllDevicesOpen(true)}
+                >
+                  <ShieldOff className="size-3.5" />
+                  Revoke all devices
+                </Button>
+              ) : null}
+            </div>
+
             {user.devices.length === 0 ? (
               <EmptyState
                 icon={MonitorSmartphone}
                 title="No devices"
-                description="No push notification devices registered for this user."
+                description="No devices registered yet. The iOS app registers on sign-in."
               />
             ) : (
               <div className="overflow-hidden rounded-lg border bg-card">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Device</TableHead>
                       <TableHead>Platform</TableHead>
+                      <TableHead>OS / App</TableHead>
+                      <TableHead>IP</TableHead>
+                      <TableHead>Client</TableHead>
                       <TableHead>Token</TableHead>
-                      <TableHead>Registered</TableHead>
+                      <TableHead>Last seen</TableHead>
+                      {canWriteUsers ? (
+                        <TableHead className="w-20 text-right">
+                          Actions
+                        </TableHead>
+                      ) : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {user.devices.map((device) => (
                       <TableRow key={device.id}>
-                        <TableCell className="font-medium capitalize">
+                        <TableCell className="font-medium max-w-[160px] truncate">
                           <span className="inline-flex items-center gap-1.5">
-                            <Smartphone className="size-3.5 text-muted-foreground" />
-                            {device.platform}
+                            <Smartphone className="size-3.5 shrink-0 text-muted-foreground" />
+                            {device.name ?? "Unknown device"}
                           </span>
+                        </TableCell>
+                        <TableCell className="capitalize text-sm">
+                          {device.platform}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {[device.systemVersion, device.appVersion]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">
+                          {device.ipAddress ?? "—"}
+                        </TableCell>
+                        <TableCell
+                          className="text-xs text-muted-foreground max-w-[180px] truncate"
+                          title={device.userAgent ?? undefined}
+                        >
+                          {truncateAgent(device.userAgent, 40)}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {device.tokenPreview}
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                          {formatDistanceToNow(new Date(device.createdAt), {
+                          {formatDistanceToNow(new Date(device.updatedAt), {
                             addSuffix: true,
                           })}
                         </TableCell>
+                        {canWriteUsers ? (
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Revoke device"
+                              disabled={revokeDevice.isPending}
+                              onClick={() => setRevokeDeviceId(device.id)}
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1430,6 +1605,87 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
         confirmText="Delete Offer"
         isLoading={deleteOffer.isPending}
         onConfirm={handleDeleteOfferConfirm}
+      />
+
+      <ConfirmDialog
+        open={Boolean(revokeSessionId)}
+        onOpenChange={(open) => !open && setRevokeSessionId(null)}
+        title="Revoke session"
+        description="This will sign the user out of that login session immediately on next token refresh."
+        confirmText="Revoke session"
+        isLoading={revokeSession.isPending}
+        onConfirm={async () => {
+          if (!revokeSessionId) return;
+          await revokeSession.mutateAsync(revokeSessionId);
+          setRevokeSessionId(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={revokeAllSessionsOpen}
+        onOpenChange={setRevokeAllSessionsOpen}
+        title="Revoke all sessions"
+        description="Sign this user out of every device and browser. They will need to log in again."
+        confirmText="Revoke all"
+        isLoading={revokeAllSessions.isPending}
+        onConfirm={async () => {
+          await revokeAllSessions.mutateAsync(undefined);
+          setRevokeAllSessionsOpen(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(revokeDeviceId)}
+        onOpenChange={(open) => !open && setRevokeDeviceId(null)}
+        title="Revoke device"
+        description="Remove this device registration. Push notifications to it will stop until the app registers again."
+        confirmText="Revoke device"
+        isLoading={revokeDevice.isPending}
+        onConfirm={async () => {
+          if (!revokeDeviceId) return;
+          await revokeDevice.mutateAsync(revokeDeviceId);
+          setRevokeDeviceId(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={revokeAllDevicesOpen}
+        onOpenChange={setRevokeAllDevicesOpen}
+        title="Revoke all devices"
+        description="Remove every registered device for this user."
+        confirmText="Revoke all"
+        isLoading={revokeAllDevices.isPending}
+        onConfirm={async () => {
+          await revokeAllDevices.mutateAsync(undefined);
+          setRevokeAllDevicesOpen(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={banOpen}
+        onOpenChange={setBanOpen}
+        title="Ban user"
+        description="Banned users cannot sign in on iOS or the API. All sessions and devices will be revoked immediately."
+        confirmText="Ban user"
+        isLoading={banUser.isPending}
+        onConfirm={async () => {
+          await banUser.mutateAsync(userId);
+          setBanOpen(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={unbanOpen}
+        onOpenChange={setUnbanOpen}
+        title="Unban user"
+        description="Restore access so this user can sign in again."
+        confirmText="Unban user"
+        variant="default"
+        isLoading={unbanUser.isPending}
+        onConfirm={async () => {
+          await unbanUser.mutateAsync(userId);
+          setUnbanOpen(false);
+        }}
       />
     </div>
   );

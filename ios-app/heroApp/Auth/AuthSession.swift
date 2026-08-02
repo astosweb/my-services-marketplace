@@ -25,6 +25,9 @@ final class AuthSession {
         let client = api ?? APIClient()
         self.api = client
         client.onSessionExpired = { [weak self] in
+            Task { @MainActor in
+                await PushDeviceRegistration.shared.unregisterCurrent()
+            }
             self?.isWorking = false
             self?.user = nil
             self?.messageUnreadCount = 0
@@ -43,6 +46,7 @@ final class AuthSession {
             user = payload.user
             state = .signedIn
             await refreshInboxBadges()
+            PushDeviceRegistration.shared.startIfSignedIn()
         } catch {
             user = nil
             state = .signedOut
@@ -163,6 +167,7 @@ final class AuthSession {
         guard state == .signedIn else { return }
         isWorking = true
         defer { isWorking = false }
+        await PushDeviceRegistration.shared.unregisterCurrent()
         if let refreshToken = api.currentRefreshToken {
             let _: APIEnvelope<OKResponse>? = try? await api.send(
                 "POST",
@@ -184,6 +189,7 @@ final class AuthSession {
         errorMessage = nil
         defer { isWorking = false }
         do {
+            await PushDeviceRegistration.shared.unregisterCurrent()
             try await api.sendNoContent(
                 "DELETE",
                 path: "auth/me",
@@ -212,6 +218,7 @@ final class AuthSession {
             user = payload.user
             state = .signedIn
             await refreshInboxBadges()
+            PushDeviceRegistration.shared.startIfSignedIn()
             return true
         } catch {
             errorMessage = error.localizedDescription

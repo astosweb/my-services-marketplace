@@ -14,9 +14,10 @@ export class AdminGuard implements CanActivate {
     if (!userId) throw unauthorized("Authentication required");
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: true, status: true },
     });
     if (!user) throw unauthorized("Authentication required");
+    if (user.status === "BANNED") throw forbidden("This account has been banned");
     if (user.role !== UserRole.ADMIN) throw forbidden("Admin access required");
     return true;
   }

@@ -62,6 +62,9 @@ export type UserDetailReviewDto = {
 
 export type UserDetailSessionDto = {
   id: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  lastUsedAt: string;
   createdAt: string;
   expiresAt: string;
   isExpired: boolean;
@@ -71,7 +74,13 @@ export type UserDetailDeviceDto = {
   id: string;
   platform: string;
   tokenPreview: string;
+  name: string | null;
+  systemVersion: string | null;
+  appVersion: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type UserDetailNotificationDto = {
@@ -102,7 +111,9 @@ export type UserDetailDto = UserDto & {
   memberSince: string;
   hasPassword: boolean;
   lastLoginAt: string | null;
+  lastLoginIp: string | null;
   sessionCount: number;
+  activeSessionCount: number;
   deviceCount: number;
   notificationCount: number;
   conversationCount: number;
@@ -134,6 +145,7 @@ export const updateUserSchema = z.object({
   bio: z.string().max(2000).optional(),
   businessName: z.string().max(120).optional().nullable(),
   role: z.enum(["USER", "ADMIN"]).optional(),
+  status: z.enum(["ACTIVE", "BANNED"]).optional(),
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
@@ -149,7 +161,7 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export const bulkUserActionSchema = z.object({
   ids: z.array(z.string()).min(1),
-  action: z.enum(["delete", "activate", "deactivate", "suspend"]),
+  action: z.enum(["delete", "ban", "unban"]),
 });
 
 export type BulkUserActionInput = z.infer<typeof bulkUserActionSchema>;

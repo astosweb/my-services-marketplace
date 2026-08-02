@@ -657,6 +657,25 @@ struct OKResponse: Decodable, Sendable {
     let ok: Bool
 }
 
+struct RegisterDeviceRequest: Encodable {
+    let token: String
+    let platform: String
+    let name: String?
+    let systemVersion: String?
+    let appVersion: String?
+}
+
+struct RegisteredDevice: Decodable, Sendable {
+    let id: String
+    let token: String
+    let platform: String
+    let name: String?
+    let systemVersion: String?
+    let appVersion: String?
+    let createdAt: Date
+    let updatedAt: Date?
+}
+
 struct ForgotPasswordRequest: Encodable {
     let email: String
 }

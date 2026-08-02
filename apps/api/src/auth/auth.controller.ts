@@ -7,8 +7,10 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from "@nestjs/common";
+import type { Request } from "express";
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -21,6 +23,7 @@ import {
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
+import { requestClientMeta } from "../lib/request-meta.js";
 import { CredentialRateLimit, RefreshRateLimit } from "../middleware/rate-limit.js";
 import {
   DeleteAccountDto,
@@ -48,8 +51,8 @@ export class AuthController {
   @CredentialRateLimit()
   @ApiOperation({ summary: "Create an account" })
   @ApiCreatedResponse({ description: "Account and token pair created" })
-  async register(@Body() data: RegisterDto) {
-    return { data: await this.authService.register(data) };
+  async register(@Body() data: RegisterDto, @Req() request: Request) {
+    return { data: await this.authService.register(data, requestClientMeta(request)) };
   }
 
   @Post("login")
@@ -58,16 +61,16 @@ export class AuthController {
   @ApiOperation({ summary: "Sign in" })
   @ApiOkResponse({ description: "Authenticated account and token pair" })
   @ApiUnauthorizedResponse({ description: "Invalid email or password" })
-  async login(@Body() data: LoginDto) {
-    return { data: await this.authService.login(data) };
+  async login(@Body() data: LoginDto, @Req() request: Request) {
+    return { data: await this.authService.login(data, requestClientMeta(request)) };
   }
 
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   @RefreshRateLimit()
   @ApiOperation({ summary: "Rotate a refresh token" })
-  async refresh(@Body() data: RefreshTokenDto) {
-    return { data: await this.authService.refresh(data) };
+  async refresh(@Body() data: RefreshTokenDto, @Req() request: Request) {
+    return { data: await this.authService.refresh(data, requestClientMeta(request)) };
   }
 
   @Post("logout")

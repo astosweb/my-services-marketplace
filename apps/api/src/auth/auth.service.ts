@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { OfferStatus, ServiceRequestStatus, type User } from "../generated/prisma/client.js";
+import {
+  OfferStatus,
+  ServiceRequestStatus,
+  UserStatus,
+  type User,
+} from "../generated/prisma/client.js";
 import { permissionsForRole } from "../lib/admin-permissions.js";
 import {
   createPasswordResetToken,
@@ -13,7 +18,8 @@ import {
   verifyPassword,
 } from "../lib/auth.js";
 import { env } from "../lib/env.js";
-import { conflict, notFound, unauthorized } from "../lib/errors.js";
+import { conflict, forbidden, notFound, unauthorized } from "../lib/errors.js";
+import type { RequestClientMeta } from "../lib/request-meta.js";
 import { serializeMe } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
@@ -29,13 +35,22 @@ import type {
 export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async issueTokens(userId: string) {
+  private assertNotBanned(user: Pick<User, "status">) {
+    if (user.status === UserStatus.BANNED) {
+      throw forbidden("This account has been banned");
+    }
+  }
+
+  private async issueTokens(userId: string, meta?: RequestClientMeta) {
     const refreshToken = createRefreshTokenValue();
     await this.prisma.refreshToken.create({
       data: {
         userId,
         tokenHash: hashRefreshToken(refreshToken),
         expiresAt: refreshTokenExpiresAt(),
+        ipAddress: meta?.ipAddress ?? null,
+        userAgent: meta?.userAgent ?? null,
+        lastUsedAt: new Date(),
       },
     });
     return { accessToken: await signAccessToken(userId), refreshToken };
@@ -48,7 +63,7 @@ export class AuthService {
     };
   }
 
-  async register(data: RegisterDto) {
+  async register(data: RegisterDto, meta?: RequestClientMeta) {
     const email = data.email.trim().toLowerCase();
     if (await this.prisma.user.findUnique({ where: { email } })) {
       throw conflict("Email already registered");
@@ -60,19 +75,20 @@ export class AuthService {
         passwordHash: await hashPassword(data.password),
       },
     });
-    return this.authPayload(user, await this.issueTokens(user.id));
+    return this.authPayload(user, await this.issueTokens(user.id, meta));
   }
 
-  async login(data: LoginDto) {
+  async login(data: LoginDto, meta?: RequestClientMeta) {
     const email = data.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user?.passwordHash || !(await verifyPassword(data.password, user.passwordHash))) {
       throw unauthorized("Invalid email or password");
     }
-    return this.authPayload(user, await this.issueTokens(user.id));
+    this.assertNotBanned(user);
+    return this.authPayload(user, await this.issueTokens(user.id, meta));
   }
 
-  async refresh(data: RefreshTokenDto) {
+  async refresh(data: RefreshTokenDto, meta?: RequestClientMeta) {
     const tokenHash = hashRefreshToken(data.refreshToken);
     const rotated = await this.prisma.$transaction(async (transaction) => {
       const stored = await transaction.refreshToken.findUnique({
@@ -80,6 +96,10 @@ export class AuthService {
         include: { user: true },
       });
       if (!stored) throw unauthorized("Invalid or expired refresh token");
+      if (stored.user.status === UserStatus.BANNED) {
+        await transaction.refreshToken.deleteMany({ where: { userId: stored.userId } });
+        throw forbidden("This account has been banned");
+      }
       if (stored.expiresAt < new Date()) {
         await transaction.refreshToken.deleteMany({ where: { id: stored.id } });
         throw unauthorized("Invalid or expired refresh token");
@@ -95,6 +115,9 @@ export class AuthService {
           userId: stored.userId,
           tokenHash: hashRefreshToken(refreshToken),
           expiresAt: refreshTokenExpiresAt(),
+          ipAddress: meta?.ipAddress ?? stored.ipAddress,
+          userAgent: meta?.userAgent ?? stored.userAgent,
+          lastUsedAt: new Date(),
         },
       });
       return {
@@ -120,7 +143,7 @@ export class AuthService {
     const response: { message: string; token?: string; resetLink?: string } = {
       message: "If an account exists for that email, a password reset link has been created.",
     };
-    if (!user?.passwordHash) return response;
+    if (!user?.passwordHash || user.status === UserStatus.BANNED) return response;
 
     const token = createPasswordResetToken();
     await this.prisma.$transaction([
@@ -146,8 +169,14 @@ export class AuthService {
     const tokenHash = hashPasswordResetToken(data.token);
     const passwordHash = await hashPassword(data.password);
     await this.prisma.$transaction(async (transaction) => {
-      const stored = await transaction.passwordResetToken.findUnique({ where: { tokenHash } });
+      const stored = await transaction.passwordResetToken.findUnique({
+        where: { tokenHash },
+        include: { user: { select: { status: true } } },
+      });
       if (!stored) throw unauthorized("Invalid or expired password reset token");
+      if (stored.user.status === UserStatus.BANNED) {
+        throw forbidden("This account has been banned");
+      }
       const consumed = await transaction.passwordResetToken.deleteMany({
         where: { id: stored.id, expiresAt: { gt: new Date() } },
       });
@@ -185,10 +214,9 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw notFound("User not found");
+    this.assertNotBanned(user);
     return { ...serializeMe(user), permissions: permissionsForRole(user.role) };
   }
-
-
 
   async deleteMe(userId: string, data: DeleteAccountDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });

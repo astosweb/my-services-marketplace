@@ -58,6 +58,11 @@ export class AdminUsersQueryDto extends AdminPaginationQueryDto {
   @IsEnum(UserRole)
   role?: UserRole;
 
+  @ApiPropertyOptional({ enum: ["ACTIVE", "BANNED"] })
+  @IsOptional()
+  @IsIn(["ACTIVE", "BANNED"])
+  status?: "ACTIVE" | "BANNED";
+
   @ApiPropertyOptional({ enum: userSortFields, default: "createdAt" })
   @IsOptional()
   @IsIn(userSortFields)
@@ -88,6 +93,11 @@ export class AdminUpdateUserDto {
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;
+
+  @ApiPropertyOptional({ enum: ["ACTIVE", "BANNED"] })
+  @IsOptional()
+  @IsIn(["ACTIVE", "BANNED"])
+  status?: "ACTIVE" | "BANNED";
 }
 
 export class AdminBulkUsersDto {
@@ -98,9 +108,9 @@ export class AdminBulkUsersDto {
   @IsString({ each: true })
   ids!: string[];
 
-  @ApiProperty({ enum: ["delete"] })
-  @IsIn(["delete"])
-  action!: "delete";
+  @ApiProperty({ enum: ["delete", "ban", "unban"] })
+  @IsIn(["delete", "ban", "unban"])
+  action!: "delete" | "ban" | "unban";
 }
 
 const requestSortFields = ["createdAt", "updatedAt", "title", "viewCount", "budgetCents"] as const;

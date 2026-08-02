@@ -6,12 +6,15 @@ import {
   HttpStatus,
   Param,
   Post,
+  Req,
   UseGuards,
 } from "@nestjs/common";
+import type { Request } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
+import { requestClientMeta } from "../lib/request-meta.js";
 import { RegisterDeviceDto } from "./devices.dto.js";
 import { DevicesService } from "./devices.service.js";
 
@@ -26,8 +29,12 @@ export class DevicesController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Register a push notification device token" })
-  async register(@CurrentUserId() userId: string, @Body() data: RegisterDeviceDto) {
-    return { data: await this.devicesService.register(userId, data) };
+  async register(
+    @CurrentUserId() userId: string,
+    @Body() data: RegisterDeviceDto,
+    @Req() request: Request,
+  ) {
+    return { data: await this.devicesService.register(userId, data, requestClientMeta(request)) };
   }
 
   @Delete(":token")

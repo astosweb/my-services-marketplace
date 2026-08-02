@@ -47,7 +47,7 @@ export const updateProfileSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export type UserRole = "USER" | "ADMIN";
-export type UserStatus = "active";
+export type UserStatus = "ACTIVE" | "BANNED";
 
 export type SessionUser = {
   id: string;
