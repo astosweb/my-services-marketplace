@@ -967,15 +967,14 @@ struct UserProfileView: View {
         isLoading = true
         errorMessage = nil
         do {
-            async let profileResponse: APIEnvelope<OfferUser> = auth.api.send(
+            let loadedProfile: APIEnvelope<OfferUser> = try await auth.api.send(
                 path: "users/\(userId)",
                 authenticated: false
             )
-            async let reviewsResponse: APIEnvelope<[Review]> = auth.api.send(
+            let loadedReviews: APIEnvelope<[Review]> = try await auth.api.send(
                 path: "users/\(userId)/reviews",
                 authenticated: false
             )
-            let (loadedProfile, loadedReviews) = try await (profileResponse, reviewsResponse)
             profile = loadedProfile.data
             reviews = loadedReviews.data
         } catch {
