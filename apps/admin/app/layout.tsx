@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import { AppProviders } from "@/components/app-providers";
-import { getCustomizerPreferencesAction } from "@/actions/customizer-preferences";
-import { getSessionUser } from "@/lib/auth/session";
 import { inter } from "@/lib/fonts";
 
 export const metadata: Metadata = {
@@ -18,16 +16,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [sessionUser, initialPreferences] = await Promise.all([
-    getSessionUser(),
-    getCustomizerPreferencesAction(),
-  ]);
-
   return (
     <html
       lang="en"
@@ -36,12 +29,7 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className={inter.className}>
-        <AppProviders
-          initialPreferences={initialPreferences}
-          isAuthenticated={Boolean(sessionUser)}
-        >
-          {children}
-        </AppProviders>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

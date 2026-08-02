@@ -62,7 +62,7 @@ See `.env.example` for a template.
 - **Activity logs & audit trail** — Track user actions and data changes
 - **Dashboard analytics** — Live metrics from database
 - **Notifications API** — Per-user notifications with read/unread state
-- **Dark mode** — System/light/dark with theme customizer
+- **Dark mode** — System/light/dark toggle
 - **Global search** — ⌘K command palette
 
 ## Project Structure

@@ -2,10 +2,10 @@
 
 import * as React from "react"
 import { ThemeProviderContext } from "@/contexts/theme-context"
-import { useCustomizerPreferences } from "@/contexts/customizer-preferences-context"
-import type { ThemeMode } from "@/types/customizer-preferences"
 
-type Theme = ThemeMode
+type Theme = "dark" | "light" | "system"
+
+const STORAGE_KEY = "admin-theme"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -17,12 +17,16 @@ export function ThemeProvider({
   defaultTheme = "system",
   ...props
 }: ThemeProviderProps) {
-  const { preferences, updatePreferences } = useCustomizerPreferences()
-  const theme = preferences.mode ?? defaultTheme
+  const [theme, setThemeState] = React.useState<Theme>(defaultTheme)
 
   React.useEffect(() => {
-    if (typeof window === "undefined") return
+    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null
+    if (stored === "dark" || stored === "light" || stored === "system") {
+      setThemeState(stored)
+    }
+  }, [])
 
+  React.useEffect(() => {
     const root = window.document.documentElement
 
     root.classList.remove("light", "dark")
@@ -43,7 +47,8 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (nextTheme: Theme) => {
-      updatePreferences({ mode: nextTheme })
+      window.localStorage.setItem(STORAGE_KEY, nextTheme)
+      setThemeState(nextTheme)
     },
   }
 

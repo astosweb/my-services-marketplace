@@ -20,9 +20,3 @@ export type {
   UpdateUserInput,
   UserRole,
 } from "@monorepo/shared";
-
-export {
-  customizerPreferencesSchema,
-  parseCustomizerPreferences,
-  mergeCustomizerPreferences,
-} from "@/lib/customizer-preferences";
