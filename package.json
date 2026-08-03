@@ -10,6 +10,7 @@
     "build:admin": "pnpm --filter admin-panel build",
     "build:web": "pnpm --filter web build",
     "typecheck": "pnpm -r typecheck",
+    "update": "pnpm -r up --latest \"!typescript\"",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
