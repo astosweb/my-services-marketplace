@@ -72,15 +72,15 @@ export function CategoriesPageClient() {
               <TableBody>
                 {items.map((category) => (
                   <TableRow key={category.id}>
-                    <TableCell className="text-xl">{category.symbol}</TableCell>
-                    <TableCell className="font-semibold text-base">
+                    <TableCell>{category.symbol}</TableCell>
+                    <TableCell className="font-medium">
                       {category.name}
                     </TableCell>
                     <TableCell className="text-muted-foreground font-mono text-xs">
                       {category.id}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      <Badge variant="secondary" className="px-2.5 py-1">
+                      <Badge variant="secondary">
                         {category.requestCount ?? 0} request{category.requestCount === 1 ? "" : "s"}
                       </Badge>
                     </TableCell>
