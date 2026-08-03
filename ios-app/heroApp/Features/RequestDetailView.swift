@@ -513,7 +513,11 @@ struct RequestDetailView: View {
                 symbol: "eurosign.circle",
                 emphasized: request.budget != nil
             )
-            factCell("Location", value: request.location, symbol: "mappin.and.ellipse")
+            factCell(
+                "Location",
+                value: request.location.isEmpty ? request.city : request.location,
+                symbol: "mappin.and.ellipse"
+            )
             if let scheduledAt = request.scheduledAt {
                 factCell(
                     "Scheduled",
@@ -1087,10 +1091,12 @@ struct RequestDetailView: View {
                     .lineLimit(1)
             }
 
-            Text(request.location)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if !request.location.isEmpty {
+                Text(request.location)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Map(
                 initialPosition: .region(
@@ -1112,7 +1118,9 @@ struct RequestDetailView: View {
                 RoundedRectangle(cornerRadius: 14)
                     .strokeBorder(Color.black.opacity(0.06))
             )
-            .accessibilityLabel("Map showing \(request.location)")
+            .accessibilityLabel(
+                "Map showing \(request.location.isEmpty ? request.city : request.location)"
+            )
 
             HStack(spacing: 10) {
                 Button {

@@ -68,7 +68,6 @@ struct NewRequestView: View {
     private var canSubmit: Bool {
         guard !isSubmitting, !isLoadingPhotos, categoryId != nil else { return false }
         guard trimmedTitle.count >= 3, trimmedDescription.count >= 10 else { return false }
-        guard !trimmedLocation.isEmpty else { return false }
         if pricingMode == .ownerFixedPrice {
             return budgetCents != nil
         }
@@ -143,15 +142,23 @@ struct NewRequestView: View {
                 Text("Optional. Up to \(Self.maxPhotos) JPEG/PNG/WebP images in a 3×2 grid.")
             }
 
-            Section("Where") {
+            Section {
                 Picker("City", selection: $city) {
                     ForEach(EstonianCity.allCases) { option in
                         Text(option.displayName).tag(option)
                     }
                 }
 
-                TextField("Location", text: $location, prompt: Text("Neighborhood, address, or landmark"))
-                    .textInputAutocapitalization(.words)
+                TextField(
+                    "Location (optional)",
+                    text: $location,
+                    prompt: Text("Neighborhood, address, or landmark")
+                )
+                .textInputAutocapitalization(.words)
+            } header: {
+                Text("Where")
+            } footer: {
+                Text("City is required. Location details are optional.")
             }
 
             Section {

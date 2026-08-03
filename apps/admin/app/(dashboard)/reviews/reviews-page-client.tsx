@@ -5,11 +5,14 @@ import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, Star, Trash2 } from "lucide-react";
 
 import { DataPagination } from "@/components/data-pagination";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  RowActionsItem,
+  RowActionsMenu,
+} from "@/components/ui/row-actions-menu";
 import {
   Table,
   TableBody,
@@ -93,7 +96,7 @@ export function ReviewsPageClient() {
                   <TableHead>Subject</TableHead>
                   <TableHead>Request</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead className="w-24 text-right">Actions</TableHead>
+                  <TableHead className="w-12 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -117,14 +120,15 @@ export function ReviewsPageClient() {
                       })}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Delete review"
-                        onClick={() => setDeleteTargetId(review.id)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                      <RowActionsMenu label="Review actions">
+                        <RowActionsItem
+                          variant="destructive"
+                          onClick={() => setDeleteTargetId(review.id)}
+                        >
+                          <Trash2 />
+                          Delete
+                        </RowActionsItem>
+                      </RowActionsMenu>
                     </TableCell>
                   </TableRow>
                 ))}

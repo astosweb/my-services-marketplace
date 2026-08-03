@@ -7,7 +7,6 @@ import { AlertTriangle, Eye, MessageSquare, MessagesSquare, User } from "lucide-
 import { DataPagination } from "@/components/data-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +17,10 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  RowActionsItem,
+  RowActionsMenu,
+} from "@/components/ui/row-actions-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -102,7 +105,7 @@ export function ConversationsPageClient() {
                   <TableHead>Participants</TableHead>
                   <TableHead>Last Message</TableHead>
                   <TableHead>Updated</TableHead>
-                  <TableHead className="w-24 text-right">Inspect</TableHead>
+                  <TableHead className="w-12 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -134,14 +137,14 @@ export function ConversationsPageClient() {
                       })}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Inspect conversation"
-                        onClick={() => setActiveConversationId(conversation.id)}
-                      >
-                        <Eye className="size-4 text-muted-foreground" />
-                      </Button>
+                      <RowActionsMenu label="Conversation actions">
+                        <RowActionsItem
+                          onClick={() => setActiveConversationId(conversation.id)}
+                        >
+                          <Eye />
+                          Inspect
+                        </RowActionsItem>
+                      </RowActionsMenu>
                     </TableCell>
                   </TableRow>
                 ))}

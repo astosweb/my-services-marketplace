@@ -6,11 +6,14 @@ import { AlertTriangle, Handshake, Trash2 } from "lucide-react";
 import type { OfferStatus } from "@monorepo/shared";
 
 import { DataPagination } from "@/components/data-pagination";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  RowActionsItem,
+  RowActionsMenu,
+} from "@/components/ui/row-actions-menu";
 import {
   Select,
   SelectContent,
@@ -131,7 +134,7 @@ export function OffersPageClient() {
                   <TableHead>Price</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead className="w-24 text-right">Actions</TableHead>
+                  <TableHead className="w-12 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,14 +175,15 @@ export function OffersPageClient() {
                       })}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Delete offer"
-                        onClick={() => setDeleteTargetId(offer.id)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                      <RowActionsMenu label="Offer actions">
+                        <RowActionsItem
+                          variant="destructive"
+                          onClick={() => setDeleteTargetId(offer.id)}
+                        >
+                          <Trash2 />
+                          Delete
+                        </RowActionsItem>
+                      </RowActionsMenu>
                     </TableCell>
                   </TableRow>
                 ))}

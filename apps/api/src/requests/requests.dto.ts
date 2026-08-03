@@ -111,9 +111,8 @@ export class CreateRequestDto {
   @Max(180)
   longitude!: number;
 
-  @ApiProperty({ maxLength: 500 })
+  @ApiProperty({ maxLength: 500, required: false, default: "" })
   @IsString()
-  @MinLength(1)
   @MaxLength(500)
   location!: string;
 
