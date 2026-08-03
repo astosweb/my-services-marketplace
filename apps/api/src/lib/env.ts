@@ -42,7 +42,16 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_DAYS: z.coerce.number().int().positive().default(30),
   PASSWORD_RESET_URL: z.url().default("http://localhost:3001/reset-password"),
   RESEND_API_KEY: z.string().min(1).optional(),
-  EMAIL_FROM: z.string().email().optional(),
+  /** Plain email or Resend display form: `Name <email@domain.com>`. */
+  EMAIL_FROM: z
+    .string()
+    .refine((value) => {
+      const angled = /^(.+)<([^>]+)>$/.exec(value.trim());
+      const email = (angled?.[2] ?? value).trim();
+      return z.string().email().safeParse(email).success;
+    }, { message: 'Invalid EMAIL_FROM (use email or "Name <email>")' })
+    .optional(),
+
   /** Redis for rate limiting. Required in production unless RATE_LIMIT_ALLOW_MEMORY=true. */
   REDIS_URL: z.string().optional(),
   /**
