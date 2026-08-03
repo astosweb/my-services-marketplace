@@ -5,7 +5,6 @@ import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
-import { queryKeys } from "@/lib/api/keys";
 import { useNotifications } from "@/lib/api/hooks";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { toast } from "sonner";

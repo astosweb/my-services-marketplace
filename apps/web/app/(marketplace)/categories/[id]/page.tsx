@@ -5,7 +5,7 @@ import { RequestCard } from "@/components/marketplace/request-card";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories, useRequests } from "@/lib/api/hooks";
-import { categoryIcon } from "@/lib/site";
+import { CategoryIcon } from "@/lib/site";
 
 export default function CategoryDetailPage({
   params,
@@ -16,13 +16,12 @@ export default function CategoryDetailPage({
   const categoriesQuery = useCategories();
   const requestsQuery = useRequests({ categoryId: id, limit: 50 });
   const category = categoriesQuery.data?.find((item) => item.id === id);
-  const Icon = categoryIcon(id);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <div className="mb-8 flex items-start gap-4">
         <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-primary">
-          <Icon className="size-6" />
+          <CategoryIcon categoryId={id} className="size-6" />
         </span>
         <div>
           <h1 className="font-display text-4xl font-bold tracking-tight">

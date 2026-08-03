@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { nestFetch, getRefreshToken } from "@/lib/api/nest";
 import {
   clearAuthCookies,
-  setAuthCookies,
   authCookieBase,
 } from "@/lib/auth/token-cookies";
 import {

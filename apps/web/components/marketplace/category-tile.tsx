@@ -1,17 +1,15 @@
 import Link from "next/link";
 import type { CategoryDto } from "@monorepo/shared";
-import { categoryIcon } from "@/lib/site";
+import { CategoryIcon } from "@/lib/site";
 
 export function CategoryTile({ category }: { category: CategoryDto }) {
-  const Icon = categoryIcon(category.id);
-
   return (
     <Link
       href={`/categories/${category.id}`}
       className="group flex flex-col items-start gap-3 rounded-2xl border border-border/70 bg-white/70 px-4 py-5 transition hover:border-primary/40 hover:bg-white"
     >
       <span className="flex size-11 items-center justify-center rounded-2xl bg-secondary text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
-        <Icon className="size-5" />
+        <CategoryIcon categoryId={category.id} className="size-5" />
       </span>
       <div>
         <p className="font-display text-base font-semibold tracking-tight">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "bidy_favorites";
 
@@ -58,18 +58,7 @@ export function useFavorites() {
     );
   }, []);
 
-  const has = useCallback(
-    (id: string) => ids.includes(id),
-    [ids],
-  );
+  const has = useCallback((id: string) => ids.includes(id), [ids]);
 
   return { ids, toggle, has, count: ids.length };
-}
-
-/** Hydration-safe favorite button state */
-export function useFavoriteHydrated() {
-  const favorites = useFavorites();
-  const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
-  return { ...favorites, ready };
 }

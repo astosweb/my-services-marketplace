@@ -5,8 +5,8 @@ import { Heart, MapPin } from "lucide-react";
 import type { MarketplaceRequest } from "@monorepo/shared";
 import { CITY_LABELS, type EstonianCity } from "@monorepo/shared";
 import { Badge } from "@/components/ui/badge";
-import { useFavoriteHydrated } from "@/hooks/use-favorites";
-import { categoryIcon } from "@/lib/site";
+import { useFavorites } from "@/hooks/use-favorites";
+import { CategoryIcon } from "@/lib/site";
 import { cn, formatBudget, formatRelativeTime } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -22,16 +22,15 @@ function cityLabel(city: string) {
 }
 
 export function RequestCard({ request }: { request: MarketplaceRequest }) {
-  const favorites = useFavoriteHydrated();
-  const Icon = categoryIcon(request.categoryId);
-  const isFavorite = favorites.ready && favorites.has(request.id);
+  const favorites = useFavorites();
+  const isFavorite = favorites.has(request.id);
 
   return (
     <article className="group relative flex flex-col gap-3 rounded-2xl border border-border/80 bg-white/80 p-4 transition hover:border-primary/30 hover:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-            <Icon className="size-4" />
+            <CategoryIcon categoryId={request.categoryId} className="size-4" />
           </span>
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-muted-foreground">

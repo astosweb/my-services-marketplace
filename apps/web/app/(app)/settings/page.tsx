@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CategoryDto, NotificationPreferencesDto } from "@monorepo/shared";
@@ -15,24 +15,17 @@ import { useCategories } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export default function SettingsPage() {
-  const router = useRouter();
+function PreferencesEditor({
+  initialIds,
+  maxSelections,
+  categories,
+}: {
+  initialIds: string[];
+  maxSelections: number;
+  categories: CategoryDto[];
+}) {
   const queryClient = useQueryClient();
-  const categoriesQuery = useCategories();
-  const prefsQuery = useQuery({
-    queryKey: queryKeys.notificationPreferences,
-    queryFn: () =>
-      api.get<NotificationPreferencesDto>("/notifications/preferences"),
-  });
-  const [selected, setSelected] = useState<string[]>([]);
-  const [password, setPassword] = useState("");
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (prefsQuery.data) {
-      setSelected(prefsQuery.data.categoryIds);
-    }
-  }, [prefsQuery.data]);
+  const [selected, setSelected] = useState(initialIds);
 
   const savePrefs = useMutation({
     mutationFn: (categoryIds: string[]) =>
@@ -47,6 +40,66 @@ export default function SettingsPage() {
       toast.error(error instanceof ApiError ? error.message : "Save failed");
     },
   });
+
+  function toggleCategory(id: string) {
+    setSelected((current) => {
+      if (current.includes(id)) return current.filter((item) => item !== id);
+      if (current.length >= maxSelections) {
+        toast.error(`You can select at most ${maxSelections} categories`);
+        return current;
+      }
+      return [...current, id];
+    });
+  }
+
+  return (
+    <>
+      <ul className="mt-4 space-y-2">
+        {categories.map((category) => {
+          const active = selected.includes(category.id);
+          return (
+            <li key={category.id}>
+              <button
+                type="button"
+                onClick={() => toggleCategory(category.id)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition",
+                  active
+                    ? "border-primary bg-secondary"
+                    : "border-border bg-white/70 hover:bg-white",
+                )}
+              >
+                <span className="font-medium">{category.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {active ? "Selected" : "Tap to select"}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <Button
+        className="mt-4"
+        disabled={savePrefs.isPending}
+        onClick={() => savePrefs.mutate(selected)}
+      >
+        {savePrefs.isPending ? "Saving…" : "Save preferences"}
+      </Button>
+    </>
+  );
+}
+
+export default function SettingsPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const categoriesQuery = useCategories();
+  const prefsQuery = useQuery({
+    queryKey: queryKeys.notificationPreferences,
+    queryFn: () =>
+      api.get<NotificationPreferencesDto>("/notifications/preferences"),
+  });
+  const [password, setPassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function onDelete(event: FormEvent) {
     event.preventDefault();
@@ -68,17 +121,6 @@ export default function SettingsPage() {
       setDeleteError(text);
       toast.error(text);
     }
-  }
-
-  function toggleCategory(id: string, max: number) {
-    setSelected((current) => {
-      if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= max) {
-        toast.error(`You can select at most ${max} categories`);
-        return current;
-      }
-      return [...current, id];
-    });
   }
 
   const maxSelections = prefsQuery.data?.maxSelections ?? 3;
@@ -121,41 +163,14 @@ export default function SettingsPage() {
           <div className="mt-4">
             <EmptyState title="No categories available" />
           </div>
-        ) : (
-          <>
-            <ul className="mt-4 space-y-2">
-              {categories.map((category) => {
-                const active = selected.includes(category.id);
-                return (
-                  <li key={category.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleCategory(category.id, maxSelections)}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition",
-                        active
-                          ? "border-primary bg-secondary"
-                          : "border-border bg-white/70 hover:bg-white",
-                      )}
-                    >
-                      <span className="font-medium">{category.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {active ? "Selected" : "Tap to select"}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <Button
-              className="mt-4"
-              disabled={savePrefs.isPending}
-              onClick={() => savePrefs.mutate(selected)}
-            >
-              {savePrefs.isPending ? "Saving…" : "Save preferences"}
-            </Button>
-          </>
-        )}
+        ) : prefsQuery.data ? (
+          <PreferencesEditor
+            key={prefsQuery.data.categoryIds.join(",")}
+            initialIds={prefsQuery.data.categoryIds}
+            maxSelections={maxSelections}
+            categories={categories}
+          />
+        ) : null}
       </section>
 
       <section className="mt-14 border-t border-border pt-10">

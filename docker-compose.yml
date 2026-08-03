@@ -50,8 +50,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set a strong JWT_SECRET in the deployment environment}
       JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
       JWT_REFRESH_EXPIRES_DAYS: ${JWT_REFRESH_EXPIRES_DAYS:-30}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
-      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:3001/reset-password}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001,http://localhost:3002}
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:3002/reset-password}
       RESEND_API_KEY: ${RESEND_API_KEY:?Set RESEND_API_KEY}
       EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM}
       UPLOAD_STORAGE: spaces
@@ -103,7 +103,28 @@ services:
       HOSTNAME: 0.0.0.0
       API_URL: http://api:3000
       COOKIE_SECURE: "false"
-      NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3000}
+      NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3002}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    container_name: hero-web
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: production
+      PORT: "3002"
+      HOSTNAME: 0.0.0.0
+      API_URL: http://api:3000
+      COOKIE_SECURE: "false"
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3002}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
     depends_on:
       api:
         condition: service_healthy

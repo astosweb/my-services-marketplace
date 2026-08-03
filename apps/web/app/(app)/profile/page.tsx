@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { updateProfileSchema } from "@/lib/validations";
 import { Button } from "@/components/ui/button";
@@ -15,32 +15,18 @@ import { initials } from "@/lib/utils";
 import type { MeUser } from "@monorepo/shared";
 import { toast } from "sonner";
 
-export default function ProfilePage() {
-  const { user, isLoading } = useOptionalUser();
+function ProfileForm({ user }: { user: MeUser }) {
   const queryClient = useQueryClient();
-  const [displayName, setDisplayName] = useState("");
-  const [bio, setBio] = useState("");
-  const [businessName, setBusinessName] = useState("");
+  const [displayName, setDisplayName] = useState(
+    user.displayName || user.profileName || "",
+  );
+  const [bio, setBio] = useState(user.bio ?? "");
+  const [businessName, setBusinessName] = useState(user.businessName ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    setDisplayName(user.displayName || user.profileName || "");
-    setBio(user.bio ?? "");
-    setBusinessName(user.businessName ?? "");
-    setAvatarPreview(user.avatarUrl);
-  }, [user]);
-
-  if (isLoading || !user) {
-    return (
-      <div className="mx-auto max-w-xl space-y-4 px-4 py-10 sm:px-6">
-        <Skeleton className="h-10 w-40" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
-      </div>
-    );
-  }
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(
+    user.avatarUrl,
+  );
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -75,7 +61,10 @@ export default function ProfilePage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const uploaded = await api.upload<{ key: string }>("/uploads/avatars", form);
+      const uploaded = await api.upload<{ key: string }>(
+        "/uploads/avatars",
+        form,
+      );
       await api.patch("/auth/me", { avatarKey: uploaded.key });
       await queryClient.invalidateQueries({ queryKey: queryKeys.session });
       setAvatarPreview(URL.createObjectURL(file));
@@ -160,4 +149,19 @@ export default function ProfilePage() {
       </form>
     </div>
   );
+}
+
+export default function ProfilePage() {
+  const { user, isLoading } = useOptionalUser();
+
+  if (isLoading || !user) {
+    return (
+      <div className="mx-auto max-w-xl space-y-4 px-4 py-10 sm:px-6">
+        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  return <ProfileForm key={user.id} user={user} />;
 }

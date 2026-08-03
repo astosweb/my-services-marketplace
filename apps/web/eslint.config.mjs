@@ -5,9 +5,12 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  {
+    // eslint-plugin-react's "detect" path calls context.getFilename(), removed in
+    // ESLint 10, which crashes rule loading. Pinning the version skips detection.
+    settings: { react: { version: "19.2" } },
+  },
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",

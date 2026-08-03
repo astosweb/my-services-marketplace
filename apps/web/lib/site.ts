@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bolt,
@@ -37,6 +38,19 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
 
 export function categoryIcon(categoryId: string): LucideIcon {
   return CATEGORY_ICONS[categoryId] ?? Flower2;
+}
+
+export function CategoryIcon({
+  categoryId,
+  className,
+}: {
+  categoryId: string;
+  className?: string;
+}) {
+  return createElement(categoryIcon(categoryId), {
+    className,
+    "aria-hidden": true,
+  });
 }
 
 export const SITE_NAME = "Bidy";
