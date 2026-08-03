@@ -18,13 +18,15 @@ always use HTTPS.
 `ExploreView` (`heroApp/Features/ExploreView.swift`) is the marketplace browser and has two
 layouts, toggled from the navigation bar:
 
-- **List** – request cards with photo, category, city/distance, budget, offer/view counts.
+- **List** – a responsive category grid (2 columns on compact widths, 3 on wider iPhones),
+  then request cards with photo, category, city/distance, budget, offer/view counts.
 - **Map** – Apple Maps (MapKit for SwiftUI) with a pin per request, the user's location,
   and a swipeable card carousel that stays in sync with the selected pin.
 
-Search, category chips and sorting (Recommended, Newest, Highest Budget, Nearest) are applied
-client side on the page loaded from `GET /requests?limit=50`. Categories are derived from the
-loaded requests, so no extra endpoint is needed.
+Search, category filtering and sorting (Recommended, Newest, Highest Budget, Nearest) are
+applied client side on the page loaded from `GET /requests?limit=50`. Categories come from
+`GET /categories` so the full catalog is available even when a city has no open requests.
+Category cards support Dynamic Type and wrap category names up to two lines.
 
 `RequestDetailView` (`heroApp/Features/RequestDetailView.swift`) is shared by Explore and My
 Requests: photo gallery, status/pricing badges, stats, requester card, and a non-interactive
