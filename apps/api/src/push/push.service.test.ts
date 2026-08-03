@@ -40,6 +40,7 @@ describe("PushService.notifyCategorySubscribersOfApprovedRequest", () => {
 
     expect(prisma.notificationPreference.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
         where: expect.objectContaining({
           categoryId: "plumbing",
           userId: { not: "owner-1" },

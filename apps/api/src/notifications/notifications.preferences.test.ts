@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { AppError } from "../lib/errors.js";
+import type { AppError } from "../lib/errors.js";
 import { NotificationsService } from "./notifications.service.js";
 
 describe("NotificationsService.updatePreferences", () => {

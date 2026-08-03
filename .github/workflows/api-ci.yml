@@ -5,15 +5,19 @@ on:
     branches: [main]
     paths:
       - "apps/api/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
       - ".github/workflows/api-ci.yml"
   pull_request:
     paths:
       - "apps/api/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
       - ".github/workflows/api-ci.yml"
-
-defaults:
-  run:
-    working-directory: apps/api
 
 jobs:
   check:
@@ -27,34 +31,36 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: apps/api/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
+        working-directory: apps/api
         run: pnpm db:generate
         env:
           DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
 
       - name: Lint
+        working-directory: apps/api
         run: pnpm lint
 
       - name: Typecheck
+        working-directory: apps/api
         run: pnpm typecheck
         env:
           DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
           JWT_SECRET: ci-test-secret-at-least-32-characters-long
 
       - name: Test
+        working-directory: apps/api
         run: pnpm test
         env:
           DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
@@ -62,6 +68,7 @@ jobs:
           NODE_ENV: test
 
       - name: Build
+        working-directory: apps/api
         run: pnpm build
         env:
           DATABASE_URL: postgresql://hero:hero@localhost:5433/hero

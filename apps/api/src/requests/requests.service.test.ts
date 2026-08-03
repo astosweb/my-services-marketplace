@@ -49,6 +49,7 @@ describe("RequestsService", () => {
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
         where: expect.objectContaining({
           status: ServiceRequestStatus.PENDING_REVIEW,
         }),
