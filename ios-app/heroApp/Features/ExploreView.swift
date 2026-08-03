@@ -187,30 +187,7 @@ struct ExploreView: View {
             if sort == .nearest { nearby.start() }
         }
         .sensoryFeedback(.selection, trigger: selectedRequestID)
-    }
-
-    private var categoryChips: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                chip(title: "All", symbol: "square.grid.2x2", isSelected: selectedCategoryID == nil) {
-                    selectedCategoryID = nil
-                }
-                ForEach(categories) { category in
-                    chip(
-                        title: category.name,
-                        symbol: category.symbol,
-                        isSelected: selectedCategoryID == category.id
-                    ) {
-                        selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-        .scrollIndicators(.hidden)
-        .padding(.top, 4)
-        .padding(.bottom, 12)
-        .background(.bar)
+        .sensoryFeedback(.selection, trigger: selectedCategoryID)
     }
 
     private var sortMenu: some View {
@@ -227,23 +204,34 @@ struct ExploreView: View {
         .accessibilityLabel("Sort by, \(sort.rawValue)")
     }
 
-    private func chip(title: String, symbol: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button {
-            withAnimation(.snappy(duration: 0.22)) { action() }
+    private var categoryFilterMenu: some View {
+        Menu {
+            Button {
+                withAnimation(.snappy(duration: 0.22)) { selectedCategoryID = nil }
+            } label: {
+                Label("All", systemImage: "square.grid.2x2")
+            }
+            ForEach(categories) { category in
+                Button {
+                    withAnimation(.snappy(duration: 0.22)) {
+                        selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
+                    }
+                } label: {
+                    Label(category.name, systemImage: category.symbol)
+                }
+            }
         } label: {
-            Label(title, systemImage: symbol)
-                .font(.footnote.weight(.semibold))
-                .labelStyle(.titleAndIcon)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(
-                    isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color(.secondarySystemBackground)),
-                    in: .capsule
-                )
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
+            Label(selectedCategoryTitle, systemImage: selectedCategorySymbol)
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel("Category, \(selectedCategoryTitle)")
+    }
+
+    private var selectedCategoryTitle: String {
+        categories.first(where: { $0.id == selectedCategoryID })?.name ?? "All"
+    }
+
+    private var selectedCategorySymbol: String {
+        categories.first(where: { $0.id == selectedCategoryID })?.symbol ?? "square.grid.2x2"
     }
 
     // MARK: - List layout
@@ -252,65 +240,127 @@ struct ExploreView: View {
         [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
     }
 
+    private func categoryColumns(for width: CGFloat) -> [GridItem] {
+        let spacing = CategoryGridMetrics.spacing
+        let contentWidth = max(0, width - 24) // matches list horizontal padding
+        // 3 columns when each tile stays comfortably ≥ ~108pt (≈ 3×2 on larger iPhones).
+        let columnCount = contentWidth >= CategoryGridMetrics.threeColumnMinWidth ? 3 : 2
+        return Array(repeating: GridItem(.flexible(minimum: 0), spacing: spacing), count: columnCount)
+    }
+
     private var listLayout: some View {
-        ScrollView {
-            LazyVStack(spacing: 10) {
-                if isLoading && requests.isEmpty {
-                    LazyVGrid(columns: listColumns, spacing: 10) {
-                        ForEach(0..<6, id: \.self) { _ in SkeletonRequestCard() }
+        GeometryReader { proxy in
+            let categoryColumns = categoryColumns(for: proxy.size.width)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    if !categories.isEmpty {
+                        categoryGrid(columns: categoryColumns)
                     }
-                } else if let errorMessage, requests.isEmpty {
-                    ContentUnavailableView {
-                        Label("Couldn’t Load Requests", systemImage: "wifi.exclamationmark")
-                    } description: {
-                        Text(errorMessage)
-                    } actions: {
-                        Button("Retry") { Task { await load() } }
-                            .buttonStyle(.borderedProminent)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 320)
-                } else if visibleRequests.isEmpty {
-                    let hasFilters = selectedCategoryID != nil
-                        || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ContentUnavailableView {
-                        Label(
-                            requests.isEmpty && !hasFilters ? "No Open Requests" : "No Matches",
-                            systemImage: requests.isEmpty && !hasFilters ? "tray" : "magnifyingglass"
-                        )
-                    } description: {
-                        Text(
-                            requests.isEmpty && !hasFilters
-                                ? "No open requests in \(selectedCity.displayName) yet."
-                                : "Try a different search or clear the filters."
-                        )
-                    } actions: {
-                        if requests.isEmpty && !hasFilters {
-                            Button("New Request") {
-                                isNewRequestPresented = true
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 320)
-                } else {
-                    LazyVGrid(columns: listColumns, spacing: 10) {
-                        ForEach(visibleRequests) { request in
-                            NavigationLink(value: request) {
-                                RequestCard(request: request, distance: distanceText(to: request))
-                            }
-                            .buttonStyle(.plain)
-                        }
+
+                    requestsSection
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .refreshable { await load() }
+        }
+    }
+
+    private func categoryGrid(columns: [GridItem]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Categories")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
+
+            LazyVGrid(columns: columns, spacing: CategoryGridMetrics.spacing) {
+                CategoryGridCard(
+                    title: "All",
+                    symbol: "square.grid.2x2",
+                    isSelected: selectedCategoryID == nil
+                ) {
+                    selectedCategoryID = nil
+                }
+
+                ForEach(categories) { category in
+                    CategoryGridCard(
+                        title: category.name,
+                        symbol: category.symbol,
+                        isSelected: selectedCategoryID == category.id
+                    ) {
+                        selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
                     }
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
         }
-        .scrollDismissesKeyboard(.immediately)
-        .refreshable { await load() }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if !categories.isEmpty {
-                categoryChips
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var requestsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(selectedCategoryID == nil ? "Requests" : selectedCategoryTitle)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(1)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                sortMenu
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            if isLoading && requests.isEmpty {
+                LazyVGrid(columns: listColumns, spacing: 10) {
+                    ForEach(0..<6, id: \.self) { _ in SkeletonRequestCard() }
+                }
+            } else if let errorMessage, requests.isEmpty {
+                ContentUnavailableView {
+                    Label("Couldn’t Load Requests", systemImage: "wifi.exclamationmark")
+                } description: {
+                    Text(errorMessage)
+                } actions: {
+                    Button("Retry") { Task { await load() } }
+                        .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, minHeight: 280)
+            } else if visibleRequests.isEmpty {
+                let hasFilters = selectedCategoryID != nil
+                    || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ContentUnavailableView {
+                    Label(
+                        requests.isEmpty && !hasFilters ? "No Open Requests" : "No Matches",
+                        systemImage: requests.isEmpty && !hasFilters ? "tray" : "magnifyingglass"
+                    )
+                } description: {
+                    Text(
+                        requests.isEmpty && !hasFilters
+                            ? "No open requests in \(selectedCity.displayName) yet."
+                            : "Try a different search or clear the filters."
+                    )
+                } actions: {
+                    if requests.isEmpty && !hasFilters {
+                        Button("New Request") {
+                            isNewRequestPresented = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    } else if selectedCategoryID != nil {
+                        Button("Clear Category") {
+                            withAnimation(.snappy) { selectedCategoryID = nil }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 280)
+            } else {
+                LazyVGrid(columns: listColumns, spacing: 10) {
+                    ForEach(visibleRequests) { request in
+                        NavigationLink(value: request) {
+                            RequestCard(request: request, distance: distanceText(to: request))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         }
     }
@@ -335,18 +385,31 @@ struct ExploreView: View {
         }
         .overlay(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Label(mapSummary, systemImage: "mappin.and.ellipse")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.regularMaterial, in: .capsule)
-                    sortMenu
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.regularMaterial, in: .capsule)
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        Label(mapSummary, systemImage: "mappin.and.ellipse")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(.regularMaterial, in: .capsule)
+                            .lineLimit(1)
+                        if !categories.isEmpty {
+                            categoryFilterMenu
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(.regularMaterial, in: .capsule)
+                                .lineLimit(1)
+                        }
+                        sortMenu
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(.regularMaterial, in: .capsule)
+                            .lineLimit(1)
+                    }
                 }
+                .scrollIndicators(.hidden)
                 Button {
                     withAnimation(.easeInOut) {
                         selectedRequestID = nil
@@ -520,6 +583,73 @@ struct ExploreView: View {
         }
         if !silent {
             isLoading = false
+        }
+    }
+}
+
+// MARK: - Category grid
+
+private enum CategoryGridMetrics {
+    /// Minimum *content* width (after horizontal padding) for 3 columns.
+    /// Below this, use 2 columns so tiles stay readable on SE / mini.
+    static let threeColumnMinWidth: CGFloat = 360
+    static let spacing: CGFloat = 12
+    static let cornerRadius: CGFloat = 16
+}
+
+private struct CategoryGridCard: View {
+    let title: String
+    let symbol: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    @ScaledMetric(relativeTo: .title2) private var iconPointSize: CGFloat = 22
+    @ScaledMetric(relativeTo: .subheadline) private var verticalPadding: CGFloat = 14
+    @ScaledMetric(relativeTo: .subheadline) private var horizontalPadding: CGFloat = 10
+    @ScaledMetric(relativeTo: .subheadline) private var minHeight: CGFloat = 88
+
+    var body: some View {
+        Button {
+            withAnimation(.snappy(duration: 0.22)) { action() }
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: iconPointSize, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(isSelected ? Color.white : Color.accentColor)
+                    .frame(width: iconPointSize + 10, height: iconPointSize + 10)
+                    .accessibilityHidden(true)
+
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2, reservesSpace: true)
+                    .truncationMode(.tail)
+                    .minimumScaleFactor(0.9)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .center)
+            .background(cardBackground, in: .rect(cornerRadius: CategoryGridMetrics.cornerRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: CategoryGridMetrics.cornerRadius)
+                    .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.06), lineWidth: 1)
+            }
+            .contentShape(.rect(cornerRadius: CategoryGridMetrics.cornerRadius))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(isSelected ? "Double tap to clear filter" : "Double tap to filter by this category")
+    }
+
+    private var cardBackground: some ShapeStyle {
+        if isSelected {
+            AnyShapeStyle(Color.accentColor.gradient)
+        } else {
+            AnyShapeStyle(Color(.secondarySystemGroupedBackground))
         }
     }
 }
