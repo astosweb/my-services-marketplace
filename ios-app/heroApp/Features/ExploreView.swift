@@ -76,15 +76,10 @@ private enum ExploreSort: String, CaseIterable, Identifiable {
     }
 }
 
-private struct ExploreCategory: Identifiable {
-    let id: String
-    let name: String
-    let symbol: String
-}
-
 struct ExploreView: View {
     @Environment(AuthSession.self) private var auth
     @State private var requests: [ServiceRequest] = []
+    @State private var categories: [Category] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var searchText = ""
@@ -169,6 +164,9 @@ struct ExploreView: View {
                     }
                 })
             }
+        }
+        .task {
+            await loadCategories()
         }
         .task(id: selectedCity) {
             await load()
@@ -272,19 +270,21 @@ struct ExploreView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 320)
                 } else if visibleRequests.isEmpty {
+                    let hasFilters = selectedCategoryID != nil
+                        || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ContentUnavailableView {
                         Label(
-                            requests.isEmpty ? "No Open Requests" : "No Matches",
-                            systemImage: requests.isEmpty ? "tray" : "magnifyingglass"
+                            requests.isEmpty && !hasFilters ? "No Open Requests" : "No Matches",
+                            systemImage: requests.isEmpty && !hasFilters ? "tray" : "magnifyingglass"
                         )
                     } description: {
                         Text(
-                            requests.isEmpty
+                            requests.isEmpty && !hasFilters
                                 ? "No open requests in \(selectedCity.displayName) yet."
                                 : "Try a different search or clear the filters."
                         )
                     } actions: {
-                        if requests.isEmpty {
+                        if requests.isEmpty && !hasFilters {
                             Button("New Request") {
                                 isNewRequestPresented = true
                             }
@@ -408,17 +408,6 @@ struct ExploreView: View {
 
     // MARK: - Derived state
 
-    private var categories: [ExploreCategory] {
-        var seen = Set<String>()
-        return requests
-            .compactMap { request in
-                seen.insert(request.categoryId).inserted
-                    ? ExploreCategory(id: request.categoryId, name: request.categoryName, symbol: request.categorySymbol)
-                    : nil
-            }
-            .sorted { $0.name < $1.name }
-    }
-
     private var visibleRequests: [ServiceRequest] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let filtered = requests.filter { request in
@@ -489,6 +478,19 @@ struct ExploreView: View {
         let meters = CLLocation(latitude: request.latitude, longitude: request.longitude).distance(from: origin)
         return Measurement(value: meters, unit: UnitLength.meters)
             .formatted(.measurement(width: .abbreviated, usage: .road))
+    }
+
+    private func loadCategories() async {
+        guard categories.isEmpty else { return }
+        do {
+            let response: APIEnvelope<[Category]> = try await auth.api.send(
+                path: "categories",
+                authenticated: false
+            )
+            withAnimation {
+                categories = response.data.sorted { $0.name < $1.name }
+            }
+        } catch {}
     }
 
     private func load(silent: Bool = false) async {
