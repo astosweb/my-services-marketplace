@@ -1,0 +1,143 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-sans: var(--font-jakarta);
+  --font-display: var(--font-syne);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-pine: var(--pine);
+  --color-citrus: var(--citrus);
+  --color-mist: var(--mist);
+}
+
+:root {
+  --radius: 0.75rem;
+  /* Nordic pine marketplace — cool mist, deep teal, citrus energy */
+  --background: #f3f7f5;
+  --foreground: #0f1c1a;
+  --card: #ffffff;
+  --card-foreground: #0f1c1a;
+  --popover: #ffffff;
+  --popover-foreground: #0f1c1a;
+  --primary: #0f4a44;
+  --primary-foreground: #f4faf8;
+  --secondary: #dce9e4;
+  --secondary-foreground: #0f4a44;
+  --muted: #e4eeea;
+  --muted-foreground: #4a635d;
+  --accent: #f0b429;
+  --accent-foreground: #1a1405;
+  --destructive: #c43c2c;
+  --border: #c9dbd4;
+  --input: #c9dbd4;
+  --ring: #0f4a44;
+  --pine: #0f4a44;
+  --citrus: #f0b429;
+  --mist: #e8f2ef;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgb(15 74 68 / 0.08), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 0%, rgb(240 180 41 / 0.07), transparent);
+    background-attachment: fixed;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+  }
+}
+
+@keyframes bidy-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bidy-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bidy-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-rise {
+  animation: bidy-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade {
+  animation: bidy-fade 0.8s ease both;
+}
+
+.animate-scale-in {
+  animation: bidy-scale-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.delay-1 {
+  animation-delay: 0.1s;
+}
+.delay-2 {
+  animation-delay: 0.2s;
+}
+.delay-3 {
+  animation-delay: 0.35s;
+}
+.delay-4 {
+  animation-delay: 0.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-fade,
+  .animate-scale-in {
+    animation: none;
+  }
+}

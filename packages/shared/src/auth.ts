@@ -11,6 +11,14 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const registerSchema = z.object({
+  email: z.email("Invalid email address"),
+  password: passwordSchema,
+  displayName: z.string().min(1, "Name is required").max(100),
+});
+
+export type RegisterInput = z.infer<typeof registerSchema>;
+
 export const forgotPasswordSchema = z.object({
   email: z.email("Invalid email address"),
 });
