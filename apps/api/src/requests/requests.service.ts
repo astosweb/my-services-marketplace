@@ -136,13 +136,17 @@ export class RequestsService {
   }
 
   async list(query: RequestListQueryDto) {
-    if (query.status && query.status !== ServiceRequestStatus.OPEN) {
-      throw badRequest("Only open requests are publicly listed");
+    const publicStatuses: ServiceRequestStatus[] = [
+      ServiceRequestStatus.OPEN,
+      ServiceRequestStatus.PENDING_REVIEW,
+    ];
+    if (query.status && !publicStatuses.includes(query.status)) {
+      throw badRequest("Only open and pending review requests are publicly listed");
     }
     const where = {
       city: query.city,
       categoryId: query.categoryId,
-      status: query.status ?? ServiceRequestStatus.OPEN,
+      status: query.status ?? { in: publicStatuses },
     };
     const [requests, total] = await Promise.all([
       this.prisma.serviceRequest.findMany({
@@ -220,12 +224,6 @@ export class RequestsService {
       },
     });
     if (!request) throw notFound("Request not found");
-    if (
-      request.status === ServiceRequestStatus.PENDING_REVIEW &&
-      viewerUserId !== request.ownerId
-    ) {
-      throw notFound("Request not found");
-    }
     return serializeRequest(request, viewerUserId);
   }
 

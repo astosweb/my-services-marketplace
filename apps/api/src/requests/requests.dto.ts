@@ -34,7 +34,10 @@ export class RequestListQueryDto {
   @IsString()
   categoryId?: string;
 
-  @ApiPropertyOptional({ enum: ServiceRequestStatus, default: ServiceRequestStatus.OPEN })
+  @ApiPropertyOptional({
+    enum: ServiceRequestStatus,
+    description: "Defaults to OPEN and PENDING_REVIEW when omitted",
+  })
   @IsOptional()
   @IsEnum(ServiceRequestStatus)
   status?: ServiceRequestStatus;
