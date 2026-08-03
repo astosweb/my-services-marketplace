@@ -27,6 +27,11 @@ const envSchema = z.object({
   UPLOAD_STORAGE: z.enum(["local", "spaces", "auto"]).default("auto"),
   /** Public API base URL for upload links (defaults to http://127.0.0.1:PORT). */
   API_PUBLIC_URL: z.url().optional(),
+  /** Explicitly expose Swagger in production. Disabled there by default. */
+  ENABLE_SWAGGER: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
   /**
    * Comma-separated CORS origins, or `*` (default) for any origin.
    * Production deployments should set explicit origins.
@@ -36,6 +41,8 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_DAYS: z.coerce.number().int().positive().default(30),
   PASSWORD_RESET_URL: z.url().default("http://localhost:3001/reset-password"),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().email().optional(),
   /** Redis for rate limiting. Required in production unless RATE_LIMIT_ALLOW_MEMORY=true. */
   REDIS_URL: z.string().optional(),
   /**
@@ -82,10 +89,38 @@ function spacesCredentialsConfigured() {
   );
 }
 
+/** Fail at boot rather than falling back to unsafe production defaults. */
+export function assertProductionConfiguration() {
+  if (env.NODE_ENV !== "production") return;
+
+  if (env.JWT_SECRET.includes("change-me-to-a-long-random-secret")) {
+    throw new Error("JWT_SECRET must not use the example value in production.");
+  }
+  if (!env.REDIS_URL && !env.RATE_LIMIT_ALLOW_MEMORY) {
+    throw new Error(
+      "REDIS_URL is required in production. Set RATE_LIMIT_ALLOW_MEMORY=true only for a single-node deployment.",
+    );
+  }
+  if (!spacesCredentialsConfigured()) {
+    throw new Error("Spaces credentials are required for uploads in production.");
+  }
+  if (env.UPLOAD_STORAGE === "local") {
+    throw new Error("UPLOAD_STORAGE=local is not allowed in production.");
+  }
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
+    throw new Error("RESEND_API_KEY and EMAIL_FROM are required for password-reset emails.");
+  }
+}
+
 /** Whether uploads are stored in DigitalOcean Spaces (vs local `.data/uploads`). */
 export function uploadUsesSpaces() {
   if (env.UPLOAD_STORAGE === "local") return false;
-  if (env.UPLOAD_STORAGE === "spaces") return spacesCredentialsConfigured();
+  if (env.UPLOAD_STORAGE === "spaces") {
+    if (!spacesCredentialsConfigured()) {
+      throw new Error("UPLOAD_STORAGE=spaces requires complete Spaces credentials.");
+    }
+    return true;
+  }
   // auto: local disk in development; Spaces in production when credentials exist
   if (env.NODE_ENV === "development") return false;
   return spacesCredentialsConfigured();

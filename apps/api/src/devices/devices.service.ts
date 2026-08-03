@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { RequestClientMeta } from "../lib/request-meta.js";
+import { forbidden } from "../lib/errors.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type { RegisterDeviceDto } from "./devices.dto.js";
 
@@ -8,6 +9,14 @@ export class DevicesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async register(userId: string, data: RegisterDeviceDto, meta?: RequestClientMeta) {
+    const existing = await this.prisma.deviceToken.findUnique({
+      where: { token: data.token },
+      select: { userId: true },
+    });
+    if (existing && existing.userId !== userId) {
+      throw forbidden("This device is already registered to another account");
+    }
+
     const device = await this.prisma.deviceToken.upsert({
       where: { token: data.token },
       create: {
@@ -21,7 +30,6 @@ export class DevicesService {
         userAgent: meta?.userAgent ?? null,
       },
       update: {
-        userId,
         platform: data.platform,
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.systemVersion !== undefined ? { systemVersion: data.systemVersion } : {}),

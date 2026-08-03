@@ -11,10 +11,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
+    const databaseHost = new URL(env.DATABASE_URL).hostname;
+    const usesLocalDatabase = ["localhost", "127.0.0.1", "::1", "postgres"].includes(databaseHost);
     const pool = new Pool({
       connectionString: env.DATABASE_URL,
       ...(env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
         ? { ssl: { rejectUnauthorized: false } }
+        : env.NODE_ENV === "production" && !usesLocalDatabase
+          ? { ssl: { rejectUnauthorized: true } }
         : {}),
     });
     super({

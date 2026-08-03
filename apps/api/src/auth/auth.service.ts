@@ -17,6 +17,7 @@ import {
   signAccessToken,
   verifyPassword,
 } from "../lib/auth.js";
+import { EmailService } from "../email/email.service.js";
 import { env } from "../lib/env.js";
 import { conflict, forbidden, notFound, unauthorized } from "../lib/errors.js";
 import type { RequestClientMeta } from "../lib/request-meta.js";
@@ -33,7 +34,10 @@ import type {
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   private assertNotBanned(user: Pick<User, "status">) {
     if (user.status === UserStatus.BANNED) {
@@ -156,11 +160,13 @@ export class AuthService {
         },
       }),
     ]);
-    if (env.NODE_ENV !== "production") {
+    if (env.NODE_ENV !== "production" && !env.RESEND_API_KEY) {
       const resetUrl = new URL(env.PASSWORD_RESET_URL);
       resetUrl.searchParams.set("token", token);
       response.token = token;
       response.resetLink = resetUrl.toString();
+    } else {
+      await this.emailService.sendPasswordReset(user.email, token);
     }
     return response;
   }

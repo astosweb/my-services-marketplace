@@ -147,6 +147,7 @@ export class CreateRequestDto {
   @ApiPropertyOptional({ type: [String], maxItems: 9 })
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   @MaxLength(500, { each: true })
   photoKeys?: string[];
 }
