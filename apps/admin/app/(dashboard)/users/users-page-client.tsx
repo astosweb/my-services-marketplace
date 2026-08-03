@@ -34,6 +34,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import {
+  RowActionsItem,
+  RowActionsMenu,
+} from "@/components/ui/row-actions-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -306,7 +310,7 @@ export function UsersPageClient() {
                   <TableHead>Rating</TableHead>
                   <TableHead>Requests</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead className="w-24 text-right">Actions</TableHead>
+                  <TableHead className="w-12 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -352,40 +356,39 @@ export function UsersPageClient() {
                         })}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {canWrite ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Edit ${user.email}`}
-                              onClick={() =>
-                                setEditingUser({
-                                  id: user.id,
-                                  profileName: user.profileName,
-                                  role: user.role,
-                                  status: user.status as "ACTIVE" | "BANNED",
-                                })
-                              }
-                            >
-                              <Edit2 className="size-4 text-muted-foreground" />
-                            </Button>
-                          ) : null}
-                          {canDelete ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Delete ${user.email}`}
-                              onClick={() =>
-                                setDeleteTarget({
-                                  id: user.id,
-                                  email: user.email,
-                                })
-                              }
-                            >
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                          ) : null}
-                        </div>
+                        {canWrite || canDelete ? (
+                          <RowActionsMenu label={`Actions for ${user.email}`}>
+                            {canWrite ? (
+                              <RowActionsItem
+                                onClick={() =>
+                                  setEditingUser({
+                                    id: user.id,
+                                    profileName: user.profileName,
+                                    role: user.role,
+                                    status: user.status as "ACTIVE" | "BANNED",
+                                  })
+                                }
+                              >
+                                <Edit2 />
+                                Edit
+                              </RowActionsItem>
+                            ) : null}
+                            {canDelete ? (
+                              <RowActionsItem
+                                variant="destructive"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    id: user.id,
+                                    email: user.email,
+                                  })
+                                }
+                              >
+                                <Trash2 />
+                                Delete
+                              </RowActionsItem>
+                            ) : null}
+                          </RowActionsMenu>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   );

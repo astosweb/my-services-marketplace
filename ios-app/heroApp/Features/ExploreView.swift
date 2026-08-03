@@ -109,7 +109,7 @@ struct ExploreView: View {
         .navigationDestination(for: ServiceRequest.self) { item in
             RequestDetailView(request: item) { updated in
                 withAnimation {
-                    if updated.status == .open {
+                    if updated.status == .open || updated.status == .pendingReview {
                         if let index = requests.firstIndex(where: { $0.id == updated.id }) {
                             requests[index] = updated
                         }
@@ -422,7 +422,7 @@ struct ExploreView: View {
     private var visibleRequests: [ServiceRequest] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let filtered = requests.filter { request in
-            guard request.status == .open else { return false }
+            guard request.status == .open || request.status == .pendingReview else { return false }
             guard selectedCategoryID == nil || request.categoryId == selectedCategoryID else { return false }
             guard !query.isEmpty else { return true }
             return request.title.lowercased().contains(query)
@@ -506,7 +506,9 @@ struct ExploreView: View {
                 authenticated: false
             )
             withAnimation {
-                requests = response.data.filter { $0.status == .open }
+                requests = response.data.filter {
+                    $0.status == .open || $0.status == .pendingReview
+                }
             }
             errorMessage = nil
         } catch {

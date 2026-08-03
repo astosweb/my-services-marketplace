@@ -57,6 +57,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  RowActionsItem,
+  RowActionsMenu,
+  RowActionsSeparator,
+} from "@/components/ui/row-actions-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -494,7 +499,7 @@ export function RequestsPageClient() {
                   <TableHead>Budget</TableHead>
                   <TableHead className="text-center">Offers</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead className="w-36 text-right">Actions</TableHead>
+                  <TableHead className="w-12 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -562,69 +567,59 @@ export function RequestsPageClient() {
                     </TableCell>
 
                     <TableCell className="text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* View Details */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="View Full Details & Audit Log"
-                          onClick={() => setDetailId(request.id)}
-                        >
-                          <Eye className="size-4 text-primary" />
-                        </Button>
-
-                        {/* Quick Approve */}
+                      <RowActionsMenu label={`Actions for ${request.title}`}>
+                        <RowActionsItem onClick={() => setDetailId(request.id)}>
+                          <Eye />
+                          View details
+                        </RowActionsItem>
                         {(request.status === "PENDING_REVIEW" ||
                           request.status === "CANCELLED") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Approve Request"
+                          <RowActionsItem
                             onClick={() =>
-                              setApproveTarget({ id: request.id, title: request.title })
+                              setApproveTarget({
+                                id: request.id,
+                                title: request.title,
+                              })
                             }
                           >
-                            <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
-                          </Button>
+                            <CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
+                            Approve
+                          </RowActionsItem>
                         )}
-
-                        {/* Quick Reject */}
                         {request.status !== "CANCELLED" &&
                           request.status !== "COMPLETED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Reject Request"
-                            onClick={() =>
-                              setRejectTarget({ id: request.id, title: request.title })
-                            }
-                          >
-                            <XCircle className="size-4 text-amber-600 dark:text-amber-400" />
-                          </Button>
-                        )}
-
-                        {/* Edit */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Edit Request"
+                            <RowActionsItem
+                              onClick={() =>
+                                setRejectTarget({
+                                  id: request.id,
+                                  title: request.title,
+                                })
+                              }
+                            >
+                              <XCircle className="text-amber-600 dark:text-amber-400" />
+                              Reject
+                            </RowActionsItem>
+                          )}
+                        <RowActionsSeparator />
+                        <RowActionsItem
                           onClick={() => setEditingRequest(request)}
                         >
-                          <Edit2 className="size-4 text-muted-foreground" />
-                        </Button>
-
-                        {/* Delete */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Delete Request"
+                          <Edit2 />
+                          Edit
+                        </RowActionsItem>
+                        <RowActionsItem
+                          variant="destructive"
                           onClick={() =>
-                            setDeleteTarget({ id: request.id, title: request.title })
+                            setDeleteTarget({
+                              id: request.id,
+                              title: request.title,
+                            })
                           }
                         >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </div>
+                          <Trash2 />
+                          Delete
+                        </RowActionsItem>
+                      </RowActionsMenu>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -944,21 +944,40 @@ export class AdminService {
     };
   }
 
-  async updateOffer(id: string, data: AdminUpdateOfferDto) {
+  async updateOffer(id: string, adminId: string, data: AdminUpdateOfferDto) {
     const existing = await this.prisma.offer.findUnique({ where: { id }, select: { id: true } });
     if (!existing) throw notFound("Offer not found");
-    return serializeOffer(
-      await this.prisma.offer.update({
-        where: { id },
-        data: { status: data.status },
-        include: { offerer: true },
-      }),
-    );
+    const updated = await this.prisma.offer.update({
+      where: { id },
+      data: { status: data.status },
+      include: { offerer: true },
+    });
+    await this.logAudit(adminId, "OFFER_UPDATED", "offer", id, { status: data.status });
+    return serializeOffer(updated);
   }
 
-  async deleteOffer(id: string) {
-    const { count } = await this.prisma.offer.deleteMany({ where: { id } });
-    if (!count) throw notFound("Offer not found");
+  async deleteOffer(id: string, adminId: string) {
+    const offer = await this.prisma.offer.findUnique({
+      where: { id },
+      select: { id: true, requestId: true, offererId: true, status: true },
+    });
+    if (!offer) throw notFound("Offer not found");
+    await this.prisma.$transaction([
+      this.prisma.offer.delete({ where: { id } }),
+      this.prisma.auditLog.create({
+        data: {
+          actorId: adminId,
+          action: "OFFER_DELETED",
+          resource: "offer",
+          resourceId: id,
+          details: {
+            requestId: offer.requestId,
+            offererId: offer.offererId,
+            status: offer.status,
+          },
+        },
+      }),
+    ]);
   }
 
   async listReviews(query: AdminReviewsQueryDto) {
@@ -985,22 +1004,40 @@ export class AdminService {
     };
   }
 
-  async deleteReview(id: string) {
+  async deleteReview(id: string, adminId: string) {
     const review = await this.prisma.review.findUnique({
       where: { id },
-      select: { subjectId: true },
+      select: { subjectId: true, authorId: true, requestId: true, rating: true },
     });
     if (!review) throw notFound("Review not found");
-    await this.prisma.review.delete({ where: { id } });
-    const aggregate = await this.prisma.review.aggregate({
-      where: { subjectId: review.subjectId },
-      _avg: { rating: true },
-      _count: { _all: true },
+    const aggregate = await this.prisma.$transaction(async (transaction) => {
+      await transaction.review.delete({ where: { id } });
+      const rating = await transaction.review.aggregate({
+        where: { subjectId: review.subjectId },
+        _avg: { rating: true },
+        _count: { _all: true },
+      });
+      await transaction.user.update({
+        where: { id: review.subjectId },
+        data: { rating: rating._avg.rating ?? 0, reviewCount: rating._count._all },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: adminId,
+          action: "REVIEW_DELETED",
+          resource: "review",
+          resourceId: id,
+          details: {
+            subjectId: review.subjectId,
+            authorId: review.authorId,
+            requestId: review.requestId,
+            rating: review.rating,
+          },
+        },
+      });
+      return rating;
     });
-    await this.prisma.user.update({
-      where: { id: review.subjectId },
-      data: { rating: aggregate._avg.rating ?? 0, reviewCount: aggregate._count._all },
-    });
+    return aggregate;
   }
 
   async listCategories() {

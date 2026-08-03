@@ -189,14 +189,18 @@ export class AdminController {
 
   @Patch("offers/:id")
   @ApiOperation({ summary: "Update offer status" })
-  async updateOffer(@Param("id") id: string, @Body() body: AdminUpdateOfferDto) {
-    return { data: await this.adminService.updateOffer(id, body) };
+  async updateOffer(
+    @Param("id") id: string,
+    @CurrentUserId() actorId: string,
+    @Body() body: AdminUpdateOfferDto,
+  ) {
+    return { data: await this.adminService.updateOffer(id, actorId, body) };
   }
 
   @Delete("offers/:id")
   @ApiOperation({ summary: "Delete offer" })
-  async deleteOffer(@Param("id") id: string) {
-    await this.adminService.deleteOffer(id);
+  async deleteOffer(@Param("id") id: string, @CurrentUserId() actorId: string) {
+    await this.adminService.deleteOffer(id, actorId);
     return { data: { deleted: true as const } };
   }
 
@@ -208,8 +212,8 @@ export class AdminController {
 
   @Delete("reviews/:id")
   @ApiOperation({ summary: "Delete review and recompute rating" })
-  async deleteReview(@Param("id") id: string) {
-    await this.adminService.deleteReview(id);
+  async deleteReview(@Param("id") id: string, @CurrentUserId() actorId: string) {
+    await this.adminService.deleteReview(id, actorId);
     return { data: { deleted: true as const } };
   }
 

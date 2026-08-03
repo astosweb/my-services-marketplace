@@ -67,6 +67,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import {
+  RowActionsItem,
+  RowActionsMenu,
+  RowActionsSeparator,
+} from "@/components/ui/row-actions-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -596,7 +601,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                       <TableHead>Offers</TableHead>
                       <TableHead>Created</TableHead>
                       {canWriteRequests || canDeleteRequests ? (
-                        <TableHead className="w-36 text-right">
+                        <TableHead className="w-12 text-right">
                           Actions
                         </TableHead>
                       ) : null}
@@ -634,14 +639,11 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         </TableCell>
                         {canWriteRequests || canDeleteRequests ? (
                           <TableCell className="text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
+                            <RowActionsMenu label={`Actions for ${request.title}`}>
                               {canWriteRequests &&
                               request.status !== "CANCELLED" &&
                               request.status !== "COMPLETED" ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  title="Reject request"
+                                <RowActionsItem
                                   onClick={() =>
                                     setRejectTarget({
                                       id: request.id,
@@ -649,16 +651,14 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                                     })
                                   }
                                 >
-                                  <XCircle className="size-4 text-amber-600 dark:text-amber-400" />
-                                </Button>
+                                  <XCircle className="text-amber-600 dark:text-amber-400" />
+                                  Reject
+                                </RowActionsItem>
                               ) : null}
                               {canWriteRequests &&
                               request.status !== "CANCELLED" &&
                               request.status !== "COMPLETED" ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  title="Cancel request"
+                                <RowActionsItem
                                   onClick={() =>
                                     setCancelTarget({
                                       id: request.id,
@@ -666,24 +666,24 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                                     })
                                   }
                                 >
-                                  <Ban className="size-4 text-muted-foreground" />
-                                </Button>
+                                  <Ban />
+                                  Cancel
+                                </RowActionsItem>
                               ) : null}
                               {canWriteRequests ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  title="Edit request"
+                                <RowActionsItem
                                   onClick={() => setEditingRequest(request)}
                                 >
-                                  <Edit2 className="size-4 text-muted-foreground" />
-                                </Button>
+                                  <Edit2 />
+                                  Edit
+                                </RowActionsItem>
+                              ) : null}
+                              {canWriteRequests && canDeleteRequests ? (
+                                <RowActionsSeparator />
                               ) : null}
                               {canDeleteRequests ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  title="Delete request"
+                                <RowActionsItem
+                                  variant="destructive"
                                   onClick={() =>
                                     setDeleteRequestTarget({
                                       id: request.id,
@@ -691,10 +691,11 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                                     })
                                   }
                                 >
-                                  <Trash2 className="size-4 text-destructive" />
-                                </Button>
+                                  <Trash2 />
+                                  Delete
+                                </RowActionsItem>
                               ) : null}
-                            </div>
+                            </RowActionsMenu>
                           </TableCell>
                         ) : null}
                       </TableRow>
@@ -723,7 +724,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                       <TableHead>Message</TableHead>
                       <TableHead>Created</TableHead>
                       {canDeleteOffers ? (
-                        <TableHead className="w-24 text-right">
+                        <TableHead className="w-12 text-right">
                           Actions
                         </TableHead>
                       ) : null}
@@ -779,14 +780,15 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         </TableCell>
                         {canDeleteOffers ? (
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Delete offer"
-                              onClick={() => setDeleteOfferTargetId(offer.id)}
-                            >
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
+                            <RowActionsMenu label="Offer actions">
+                              <RowActionsItem
+                                variant="destructive"
+                                onClick={() => setDeleteOfferTargetId(offer.id)}
+                              >
+                                <Trash2 />
+                                Delete
+                              </RowActionsItem>
+                            </RowActionsMenu>
                           </TableCell>
                         ) : null}
                       </TableRow>
@@ -953,7 +955,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                       <TableHead>Expires</TableHead>
                       <TableHead>Status</TableHead>
                       {canWriteUsers ? (
-                        <TableHead className="w-20 text-right">
+                        <TableHead className="w-12 text-right">
                           Actions
                         </TableHead>
                       ) : null}
@@ -999,15 +1001,16 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         </TableCell>
                         {canWriteUsers ? (
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Revoke session"
-                              disabled={revokeSession.isPending}
-                              onClick={() => setRevokeSessionId(session.id)}
-                            >
-                              <ShieldOff className="size-4 text-destructive" />
-                            </Button>
+                            <RowActionsMenu label="Session actions">
+                              <RowActionsItem
+                                variant="destructive"
+                                disabled={revokeSession.isPending}
+                                onClick={() => setRevokeSessionId(session.id)}
+                              >
+                                <ShieldOff />
+                                Revoke
+                              </RowActionsItem>
+                            </RowActionsMenu>
                           </TableCell>
                         ) : null}
                       </TableRow>
@@ -1057,7 +1060,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                       <TableHead>Token</TableHead>
                       <TableHead>Last seen</TableHead>
                       {canWriteUsers ? (
-                        <TableHead className="w-20 text-right">
+                        <TableHead className="w-12 text-right">
                           Actions
                         </TableHead>
                       ) : null}
@@ -1104,15 +1107,16 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         </TableCell>
                         {canWriteUsers ? (
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Revoke device"
-                              disabled={revokeDevice.isPending}
-                              onClick={() => setRevokeDeviceId(device.id)}
-                            >
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
+                            <RowActionsMenu label="Device actions">
+                              <RowActionsItem
+                                variant="destructive"
+                                disabled={revokeDevice.isPending}
+                                onClick={() => setRevokeDeviceId(device.id)}
+                              >
+                                <Trash2 />
+                                Revoke
+                              </RowActionsItem>
+                            </RowActionsMenu>
                           </TableCell>
                         ) : null}
                       </TableRow>

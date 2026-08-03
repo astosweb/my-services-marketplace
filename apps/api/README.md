@@ -4,11 +4,11 @@ Production NestJS API for the Bidy service marketplace.
 
 ## Stack
 
-- Node.js 22+/24 LTS, TypeScript 5.9, NestJS 11
+- Node.js 22+/24 LTS, TypeScript 6, NestJS 11
 - PostgreSQL 18, Prisma 7
 - Redis 8, BullMQ 5
 - Passport JWT, Swagger/OpenAPI
-- pnpm 10
+- pnpm 11
 
 ## Local setup
 
@@ -53,6 +53,11 @@ Production also requires:
 
 - explicit `CORS_ORIGIN` allowlist
 - `REDIS_URL`, unless `RATE_LIMIT_ALLOW_MEMORY=true` is intentionally used for one instance
+- `UPLOAD_STORAGE=spaces` and complete DigitalOcean Spaces credentials
+- `RESEND_API_KEY` and `EMAIL_FROM` for password reset emails
+
+Swagger is disabled in production unless `ENABLE_SWAGGER=true` is explicitly set. JSON and
+URL-encoded request bodies are limited to 2 MB; multipart upload routes enforce their own limits.
 
 See `.env.example` for storage, JWT, Redis, CORS, and logging options.
 

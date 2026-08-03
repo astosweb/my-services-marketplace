@@ -34,7 +34,10 @@ export class RequestListQueryDto {
   @IsString()
   categoryId?: string;
 
-  @ApiPropertyOptional({ enum: ServiceRequestStatus, default: ServiceRequestStatus.OPEN })
+  @ApiPropertyOptional({
+    enum: ServiceRequestStatus,
+    description: "Defaults to OPEN and PENDING_REVIEW when omitted",
+  })
   @IsOptional()
   @IsEnum(ServiceRequestStatus)
   status?: ServiceRequestStatus;
@@ -111,9 +114,8 @@ export class CreateRequestDto {
   @Max(180)
   longitude!: number;
 
-  @ApiProperty({ maxLength: 500 })
+  @ApiProperty({ maxLength: 500, required: false, default: "" })
   @IsString()
-  @MinLength(1)
   @MaxLength(500)
   location!: string;
 
@@ -147,6 +149,7 @@ export class CreateRequestDto {
   @ApiPropertyOptional({ type: [String], maxItems: 9 })
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   @MaxLength(500, { each: true })
   photoKeys?: string[];
 }
