@@ -61,6 +61,8 @@ RUN pnpm --filter admin-panel build
 FROM deps AS web-build
 COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
+# Next standalone runtime expects public/; keep it even when the app has no static assets
+RUN mkdir -p apps/web/public
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV API_URL=http://api:3000

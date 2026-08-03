@@ -42,7 +42,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "3000"
       LOG_LEVEL: info
       DATABASE_URL: postgresql://hero:hero@postgres:5432/hero
@@ -98,7 +98,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "3001"
       HOSTNAME: 0.0.0.0
       API_URL: http://api:3000
@@ -118,7 +118,7 @@ services:
     ports:
       - "3002:3002"
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "3002"
       HOSTNAME: 0.0.0.0
       API_URL: http://api:3000

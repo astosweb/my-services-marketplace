@@ -240,59 +240,68 @@ struct ExploreView: View {
         [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
     }
 
-    private func categoryColumns(for width: CGFloat) -> [GridItem] {
-        let spacing = CategoryGridMetrics.spacing
-        let contentWidth = max(0, width - 24) // matches list horizontal padding
-        // 3 columns when each tile stays comfortably ≥ ~108pt (≈ 3×2 on larger iPhones).
-        let columnCount = contentWidth >= CategoryGridMetrics.threeColumnMinWidth ? 3 : 2
-        return Array(repeating: GridItem(.flexible(minimum: 0), spacing: spacing), count: columnCount)
+    private var categoryGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(minimum: 0), spacing: CategoryGridMetrics.spacing),
+            count: CategoryGridMetrics.columns
+        )
     }
 
-    private var listLayout: some View {
-        GeometryReader { proxy in
-            let categoryColumns = categoryColumns(for: proxy.size.width)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    if !categories.isEmpty {
-                        categoryGrid(columns: categoryColumns)
-                    }
-
-                    requestsSection
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-            }
-            .scrollDismissesKeyboard(.immediately)
-            .refreshable { await load() }
+    private var categoryPages: [[CategoryGridItem]] {
+        let items: [CategoryGridItem] = [
+            CategoryGridItem(categoryID: nil, title: "All", symbol: "square.grid.2x2")
+        ] + categories.map {
+            CategoryGridItem(categoryID: $0.id, title: $0.name, symbol: $0.symbol)
+        }
+        return stride(from: 0, to: items.count, by: CategoryGridMetrics.pageSize).map { start in
+            Array(items[start..<min(start + CategoryGridMetrics.pageSize, items.count)])
         }
     }
 
-    private func categoryGrid(columns: [GridItem]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private var listLayout: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                if !categories.isEmpty {
+                    categoryGrid
+                }
+
+                requestsSection
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+        .scrollDismissesKeyboard(.immediately)
+        .refreshable { await load() }
+    }
+
+    private var categoryGrid: some View {
+        let pages = categoryPages
+        return VStack(alignment: .leading, spacing: 10) {
             Text("Categories")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.primary)
                 .accessibilityAddTraits(.isHeader)
 
-            LazyVGrid(columns: columns, spacing: CategoryGridMetrics.spacing) {
-                CategoryGridCard(
-                    title: "All",
-                    symbol: "square.grid.2x2",
-                    isSelected: selectedCategoryID == nil
-                ) {
-                    selectedCategoryID = nil
-                }
-
-                ForEach(categories) { category in
-                    CategoryGridCard(
-                        title: category.name,
-                        symbol: category.symbol,
-                        isSelected: selectedCategoryID == category.id
-                    ) {
-                        selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
+            TabView {
+                ForEach(Array(pages.enumerated()), id: \.offset) { _, page in
+                    LazyVGrid(columns: categoryGridColumns, spacing: CategoryGridMetrics.spacing) {
+                        ForEach(page) { item in
+                            CategoryGridCard(
+                                title: item.title,
+                                symbol: item.symbol,
+                                isSelected: selectedCategoryID == item.categoryID
+                            ) {
+                                selectedCategoryID = item.categoryID == nil
+                                    ? nil
+                                    : (selectedCategoryID == item.categoryID ? nil : item.categoryID)
+                            }
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
             }
+            .tabViewStyle(.page(indexDisplayMode: pages.count > 1 ? .automatic : .never))
+            .frame(height: CategoryGridMetrics.pageHeight)
         }
         .accessibilityElement(children: .contain)
     }
@@ -590,11 +599,22 @@ struct ExploreView: View {
 // MARK: - Category grid
 
 private enum CategoryGridMetrics {
-    /// Minimum *content* width (after horizontal padding) for 3 columns.
-    /// Below this, use 2 columns so tiles stay readable on SE / mini.
-    static let threeColumnMinWidth: CGFloat = 360
-    static let spacing: CGFloat = 12
-    static let cornerRadius: CGFloat = 16
+    static let columns = 4
+    static let rows = 2
+    static let pageSize = columns * rows
+    static let spacing: CGFloat = 8
+    static let cornerRadius: CGFloat = 14
+    /// Two card rows + row spacing + room for page dots.
+    static let pageHeight: CGFloat = 188
+}
+
+private struct CategoryGridItem: Identifiable {
+    /// `nil` means the "All" filter chip.
+    let categoryID: String?
+    let title: String
+    let symbol: String
+
+    var id: String { categoryID ?? "__all__" }
 }
 
 private struct CategoryGridCard: View {
@@ -603,30 +623,30 @@ private struct CategoryGridCard: View {
     let isSelected: Bool
     let action: () -> Void
 
-    @ScaledMetric(relativeTo: .title2) private var iconPointSize: CGFloat = 22
-    @ScaledMetric(relativeTo: .subheadline) private var verticalPadding: CGFloat = 14
-    @ScaledMetric(relativeTo: .subheadline) private var horizontalPadding: CGFloat = 10
-    @ScaledMetric(relativeTo: .subheadline) private var minHeight: CGFloat = 88
+    @ScaledMetric(relativeTo: .caption) private var iconPointSize: CGFloat = 16
+    @ScaledMetric(relativeTo: .caption) private var verticalPadding: CGFloat = 10
+    @ScaledMetric(relativeTo: .caption) private var horizontalPadding: CGFloat = 6
+    @ScaledMetric(relativeTo: .caption) private var minHeight: CGFloat = 72
 
     var body: some View {
         Button {
             withAnimation(.snappy(duration: 0.22)) { action() }
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Image(systemName: symbol)
                     .font(.system(size: iconPointSize, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isSelected ? Color.white : Color.accentColor)
-                    .frame(width: iconPointSize + 10, height: iconPointSize + 10)
+                    .frame(width: iconPointSize + 6, height: iconPointSize + 6)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(isSelected ? Color.white : Color.primary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2, reservesSpace: true)
                     .truncationMode(.tail)
-                    .minimumScaleFactor(0.9)
+                    .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, horizontalPadding)
