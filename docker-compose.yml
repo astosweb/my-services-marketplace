@@ -63,6 +63,11 @@ services:
       SPACES_BUCKET: ${SPACES_BUCKET:?Set SPACES_BUCKET}
       SPACES_ACCESS_KEY_ID: ${SPACES_ACCESS_KEY_ID:?Set SPACES_ACCESS_KEY_ID}
       SPACES_SECRET_ACCESS_KEY: ${SPACES_SECRET_ACCESS_KEY:?Set SPACES_SECRET_ACCESS_KEY}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.serhatsabuncu.heroApp}
+      APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
+      APNS_PRODUCTION: ${APNS_PRODUCTION:-false}
     volumes:
       - upload_data:/app/.data
     depends_on:

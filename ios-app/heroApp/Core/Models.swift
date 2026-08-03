@@ -596,6 +596,17 @@ enum NotificationKind: String, Codable, Sendable {
     case paymentReceived = "PAYMENT_RECEIVED"
     case reminder = "REMINDER"
     case system = "SYSTEM"
+    case newRequest = "NEW_REQUEST"
+}
+
+struct NotificationPreferences: Decodable, Sendable {
+    let categoryIds: [String]
+    let categories: [Category]
+    let maxSelections: Int
+}
+
+struct UpdateNotificationPreferencesBody: Encodable {
+    let categoryIds: [String]
 }
 
 struct AppNotification: Decodable, Identifiable, Sendable {

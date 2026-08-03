@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Put,
   Post,
   Query,
   UseGuards,
@@ -14,7 +15,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
-import { MarkNotificationReadDto, NotificationListQueryDto } from "./notifications.dto.js";
+import {
+  MarkNotificationReadDto,
+  NotificationListQueryDto,
+  UpdateNotificationPreferencesDto,
+} from "./notifications.dto.js";
 import { NotificationsService } from "./notifications.service.js";
 
 @ApiTags("Notifications")
@@ -29,6 +34,21 @@ export class NotificationsController {
   @ApiOperation({ summary: "List notifications" })
   list(@CurrentUserId() userId: string, @Query() query: NotificationListQueryDto) {
     return this.notificationsService.list(userId, query);
+  }
+
+  @Get("preferences")
+  @ApiOperation({ summary: "Get notification category preferences" })
+  async getPreferences(@CurrentUserId() userId: string) {
+    return { data: await this.notificationsService.getPreferences(userId) };
+  }
+
+  @Put("preferences")
+  @ApiOperation({ summary: "Replace notification category preferences (max 3)" })
+  async updatePreferences(
+    @CurrentUserId() userId: string,
+    @Body() data: UpdateNotificationPreferencesDto,
+  ) {
+    return { data: await this.notificationsService.updatePreferences(userId, data) };
   }
 
   @Patch(":id")

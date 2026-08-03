@@ -79,6 +79,7 @@ export type UserDetailDeviceDto = {
   appVersion: string | null;
   ipAddress: string | null;
   userAgent: string | null;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 };

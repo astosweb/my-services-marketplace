@@ -28,9 +28,11 @@ export class DevicesService {
         appVersion: data.appVersion ?? null,
         ipAddress: meta?.ipAddress ?? null,
         userAgent: meta?.userAgent ?? null,
+        isActive: true,
       },
       update: {
         platform: data.platform,
+        isActive: true,
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.systemVersion !== undefined ? { systemVersion: data.systemVersion } : {}),
         ...(data.appVersion !== undefined ? { appVersion: data.appVersion } : {}),
@@ -47,6 +49,7 @@ export class DevicesService {
       appVersion: device.appVersion,
       ipAddress: device.ipAddress,
       userAgent: device.userAgent,
+      isActive: device.isActive,
       createdAt: device.createdAt.toISOString(),
       updatedAt: device.updatedAt.toISOString(),
     };

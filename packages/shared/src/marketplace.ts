@@ -207,6 +207,16 @@ export type NotificationDto = {
   createdAt: string;
 };
 
+export type NotificationPreferencesDto = {
+  categoryIds: string[];
+  categories: CategoryDto[];
+  maxSelections: number;
+};
+
+export type UpdateNotificationPreferencesDto = {
+  categoryIds: string[];
+};
+
 export type NotificationsResponse = {
   items: NotificationDto[];
   meta: {

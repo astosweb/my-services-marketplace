@@ -33,6 +33,7 @@ describe("DevicesService", () => {
           appVersion: null,
           ipAddress: null,
           userAgent: null,
+          isActive: true,
           createdAt: new Date("2026-01-01T00:00:00.000Z"),
           updatedAt: new Date("2026-01-01T00:00:00.000Z"),
         }),
@@ -54,8 +55,9 @@ describe("DevicesService", () => {
           appVersion: null,
           ipAddress: null,
           userAgent: null,
+          isActive: true,
         },
-        update: { platform: "ios" },
+        update: { platform: "ios", isActive: true },
       },
     );
   });

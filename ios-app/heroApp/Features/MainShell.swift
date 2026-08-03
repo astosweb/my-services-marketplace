@@ -403,6 +403,7 @@ private struct NotificationsView: View {
         case .paymentReceived: "creditcard.fill"
         case .reminder: "clock.fill"
         case .system: "info.circle.fill"
+        case .newRequest: "bell.badge.fill"
         }
     }
 }

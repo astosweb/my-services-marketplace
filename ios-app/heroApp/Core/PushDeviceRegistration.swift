@@ -2,9 +2,10 @@ import Foundation
 import UIKit
 import UserNotifications
 
-/// Registers the current installation with `POST /devices` so admin can see
-/// signed-in iOS devices. Prefers the APNs token when available; otherwise uses
-/// `identifierForVendor` so the device still appears without Push capability.
+/// Requests notification permission, registers for remote notifications, and
+/// upserts the installation via `POST /devices`. Prefers the real APNs token;
+/// falls back to `identifierForVendor` so the device still appears in admin
+/// without Push capability (fallback tokens are not used for APNs delivery).
 @MainActor
 final class PushDeviceRegistration: NSObject {
     static let shared = PushDeviceRegistration()
@@ -25,7 +26,7 @@ final class PushDeviceRegistration: NSObject {
     func startIfSignedIn() {
         guard auth?.state == .signedIn else { return }
         Task { await registerInstallation() }
-        requestPushAuthorization()
+        Task { await requestAuthorizationAndRegister() }
     }
 
     func handleDidRegisterForRemoteNotifications(deviceToken data: Data) {
@@ -41,6 +42,38 @@ final class PushDeviceRegistration: NSObject {
         #endif
     }
 
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    @discardableResult
+    func requestAuthorizationAndRegister() async -> Bool {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        let granted: Bool
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            granted = true
+        case .denied:
+            granted = false
+        case .notDetermined:
+            granted = (try? await center.requestAuthorization(options: [.alert, .badge, .sound])) ?? false
+        @unknown default:
+            granted = false
+        }
+        if granted {
+            await MainActor.run {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+        return granted
+    }
+
+    func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+
     func unregisterCurrent() async {
         guard let token = registeredToken, let auth else { return }
         let encoded = token.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? token
@@ -50,15 +83,6 @@ final class PushDeviceRegistration: NSObject {
             authenticated: true
         )
         registeredToken = nil
-    }
-
-    private func requestPushAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-            guard granted else { return }
-            DispatchQueue.main.async {
-                UIApplication.shared.registerForRemoteNotifications()
-            }
-        }
     }
 
     private func registerInstallation() async {

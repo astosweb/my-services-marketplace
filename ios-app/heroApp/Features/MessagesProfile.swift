@@ -650,6 +650,14 @@ struct ProfileView: View {
                         .lineLimit(3...8)
                 }
 
+                Section("Notifications") {
+                    NavigationLink {
+                        NotificationPreferencesView()
+                    } label: {
+                        Label("Notification Preferences", systemImage: "bell.badge")
+                    }
+                }
+
                 if let errorMessage {
                     Section {
                         Label(errorMessage, systemImage: "exclamationmark.circle.fill")
