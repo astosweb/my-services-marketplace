@@ -90,6 +90,7 @@ export class AuthController {
 
   @Post("reset-password")
   @HttpCode(HttpStatus.OK)
+  @CredentialRateLimit()
   @ApiOperation({ summary: "Reset a password" })
   async resetPassword(@Body() data: ResetPasswordDto) {
     return { data: await this.authService.resetPassword(data) };

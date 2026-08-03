@@ -7,11 +7,17 @@ import helmet from "helmet";
 import { Logger as PinoLogger } from "nestjs-pino";
 import { AppModule } from "./app.module.js";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
-import { assertProductionCors, corsOrigins, env } from "./lib/env.js";
+import {
+  assertProductionConfiguration,
+  assertProductionCors,
+  corsOrigins,
+  env,
+} from "./lib/env.js";
 import { badRequest } from "./lib/errors.js";
 
 async function bootstrap() {
   assertProductionCors();
+  assertProductionConfiguration();
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
@@ -19,8 +25,8 @@ async function bootstrap() {
   app.enableShutdownHooks();
   app.set("trust proxy", 1);
   app.use(helmet());
-  app.useBodyParser("json", { limit: "80mb" });
-  app.useBodyParser("urlencoded", { limit: "80mb", extended: true });
+  app.useBodyParser("json", { limit: "2mb" });
+  app.useBodyParser("urlencoded", { limit: "2mb", extended: true });
   app.enableCors({
     origin: corsOrigins(),
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
@@ -46,18 +52,20 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const openApi = SwaggerModule.createDocument(
-    app,
-    new DocumentBuilder()
-      .setTitle("Bidy API")
-      .setDescription("Marketplace, messaging, notification, and upload API")
-      .setVersion("1.0")
-      .addBearerAuth()
-      .build(),
-  );
-  SwaggerModule.setup("docs", app, openApi, {
-    jsonDocumentUrl: "docs/openapi.json",
-  });
+  if (env.NODE_ENV !== "production" || env.ENABLE_SWAGGER) {
+    const openApi = SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder()
+        .setTitle("Bidy API")
+        .setDescription("Marketplace, messaging, notification, and upload API")
+        .setVersion("1.0")
+        .addBearerAuth()
+        .build(),
+    );
+    SwaggerModule.setup("docs", app, openApi, {
+      jsonDocumentUrl: "docs/openapi.json",
+    });
+  }
 
   await app.listen(env.PORT, "0.0.0.0");
   Logger.log(`Bidy API listening on port ${env.PORT}`, "Bootstrap");
