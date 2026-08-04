@@ -561,12 +561,7 @@ struct ProfileView: View {
     @Environment(AuthSession.self) private var auth
     @State private var profile: User?
     @State private var stats: ProfileStats?
-    @State private var displayName = ""
-    @State private var businessName = ""
-    @State private var preferBusinessName = true
-    @State private var bio = ""
     @State private var isLoading = true
-    @State private var isSaving = false
     @State private var isUploadingAvatar = false
     @State private var selectedAvatar: PhotosPickerItem?
     @State private var errorMessage: String?
@@ -639,15 +634,14 @@ struct ProfileView: View {
                 }
 
                 Section("Edit Profile") {
-                    TextField("Display name", text: $displayName)
-                        .textContentType(.name)
-                    TextField("Business name", text: $businessName)
-                        .textContentType(.organizationName)
-                    if !businessName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Toggle("Show business name publicly", isOn: $preferBusinessName)
+                    NavigationLink {
+                        EditProfileView()
+                            .onDisappear {
+                                Task { await refreshProfile() }
+                            }
+                    } label: {
+                        Label("Edit Profile", systemImage: "person.text.rectangle")
                     }
-                    TextField("Bio", text: $bio, axis: .vertical)
-                        .lineLimit(3...8)
                 }
 
                 Section("Notifications") {
@@ -682,13 +676,6 @@ struct ProfileView: View {
                 }
 
                 Section {
-                    Button {
-                        Task { await save() }
-                    } label: {
-                        if isSaving { ProgressView() } else { Text("Save Changes") }
-                    }
-                    .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
-
                     Button("Log Out", role: .destructive) {
                         Task { await auth.logout() }
                     }
@@ -740,10 +727,6 @@ struct ProfileView: View {
         do {
             let profileResponse: APIEnvelope<User> = try await auth.api.send(path: "auth/me")
             profile = profileResponse.data
-            displayName = profileResponse.data.displayName
-            businessName = profileResponse.data.businessName ?? ""
-            preferBusinessName = profileResponse.data.preferBusinessName
-            bio = profileResponse.data.bio ?? ""
             auth.updateUser(profileResponse.data)
 
             let statsResponse: APIEnvelope<ProfileStats> = try await auth.api.send(path: "auth/me/stats")
@@ -754,29 +737,14 @@ struct ProfileView: View {
         isLoading = false
     }
 
-    private func save() async {
-        isSaving = true
-        errorMessage = nil
-        successMessage = nil
+    private func refreshProfile() async {
         do {
-            let response: APIEnvelope<User> = try await auth.api.send(
-                "PATCH",
-                path: "auth/me",
-                body: ProfileUpdate(
-                    displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
-                    businessName: businessName.trimmingCharacters(in: .whitespacesAndNewlines),
-                    preferBusinessName: preferBusinessName,
-                    bio: bio.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
-            )
-            profile = response.data
-            auth.updateUser(response.data)
-            successMessage = "Profile updated."
-            feedbackTrigger += 1
+            let profileResponse: APIEnvelope<User> = try await auth.api.send(path: "auth/me")
+            profile = profileResponse.data
+            auth.updateUser(profileResponse.data)
         } catch {
-            errorMessage = error.localizedDescription
+            // Keep showing the last known profile if refresh fails.
         }
-        isSaving = false
     }
 
     private func uploadAvatar() async {
