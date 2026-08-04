@@ -10,6 +10,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
 import {
   assertProductionConfiguration,
   assertProductionCors,
+  assertSpacesEndpointShape,
   corsOrigins,
   env,
 } from "./lib/env.js";
@@ -18,6 +19,7 @@ import { badRequest } from "./lib/errors.js";
 async function bootstrap() {
   assertProductionCors();
   assertProductionConfiguration();
+  assertSpacesEndpointShape();
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });

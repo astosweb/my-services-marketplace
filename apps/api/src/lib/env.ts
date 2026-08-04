@@ -116,6 +116,28 @@ function spacesCredentialsConfigured() {
   );
 }
 
+/**
+ * Virtual-hosted S3 clients prepend `{bucket}.` to the endpoint host.
+ * If SPACES_ENDPOINT already includes the bucket, uploads fail with
+ * ERR_TLS_CERT_ALTNAME_INVALID (e.g. bucket.bucket.fra1.digitaloceanspaces.com).
+ */
+export function assertSpacesEndpointShape() {
+  if (!env.SPACES_ENDPOINT || !env.SPACES_BUCKET) return;
+  let host: string;
+  try {
+    host = new URL(env.SPACES_ENDPOINT).hostname.toLowerCase();
+  } catch {
+    return;
+  }
+  const bucketPrefix = `${env.SPACES_BUCKET.toLowerCase()}.`;
+  if (host.startsWith(bucketPrefix)) {
+    throw new Error(
+      `SPACES_ENDPOINT must be the regional API host (e.g. https://fra1.digitaloceanspaces.com), ` +
+        `not the bucket URL. Got host "${host}" which already includes SPACES_BUCKET.`,
+    );
+  }
+}
+
 /** Fail at boot rather than falling back to unsafe production defaults. */
 export function assertProductionConfiguration() {
   if (env.NODE_ENV !== "production") return;
@@ -131,6 +153,7 @@ export function assertProductionConfiguration() {
   if (!spacesCredentialsConfigured()) {
     throw new Error("Spaces credentials are required for uploads in production.");
   }
+  assertSpacesEndpointShape();
   if (env.UPLOAD_STORAGE === "local") {
     throw new Error("UPLOAD_STORAGE=local is not allowed in production.");
   }

@@ -623,6 +623,7 @@ struct RequestCard: View {
     let request: ServiceRequest
     var distance: String?
 
+    @State private var galleryPage: Int? = 0
     @ScaledMetric(relativeTo: .caption) private var thumbnailHeight: CGFloat = 82
 
     var body: some View {
@@ -679,20 +680,49 @@ struct RequestCard: View {
     private var thumbnail: some View {
         ZStack(alignment: .topLeading) {
             Group {
-                if let url = request.photos.first?.url {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        request.accentTint.opacity(0.12)
-                    }
-                } else {
+                if request.photos.isEmpty {
                     ZStack {
                         request.accentTint.opacity(0.12)
                         Image(systemName: request.categorySymbol)
                             .font(.subheadline)
                             .foregroundStyle(request.accentTint)
+                    }
+                } else {
+                    ZStack(alignment: .bottom) {
+                        ScrollView(.horizontal) {
+                            LazyHStack(spacing: 0) {
+                                ForEach(Array(request.photos.enumerated()), id: \.element.id) { index, photo in
+                                    AsyncImage(url: photo.url) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                    } placeholder: {
+                                        request.accentTint.opacity(0.12)
+                                    }
+                                    .containerRelativeFrame(.horizontal)
+                                    .frame(height: thumbnailHeight)
+                                    .clipped()
+                                    .id(index)
+                                }
+                            }
+                            .scrollTargetLayout()
+                        }
+                        .scrollTargetBehavior(.paging)
+                        .scrollPosition(id: $galleryPage)
+                        .scrollIndicators(.hidden)
+
+                        if request.photos.count > 1 {
+                            HStack(spacing: 4) {
+                                ForEach(0..<request.photos.count, id: \.self) { index in
+                                    Capsule()
+                                        .fill(index == (galleryPage ?? 0) ? Color.white : Color.white.opacity(0.4))
+                                        .frame(width: index == (galleryPage ?? 0) ? 10 : 4, height: 4)
+                                        .animation(.snappy(duration: 0.2), value: galleryPage)
+                                }
+                            }
+                            .padding(.bottom, 5)
+                            .allowsHitTesting(false)
+                        }
                     }
                 }
             }
