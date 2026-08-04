@@ -633,7 +633,7 @@ struct ProfileView: View {
                     }
                 }
 
-                Section("Edit Profile") {
+                Section {
                     NavigationLink {
                         EditProfileView()
                             .onDisappear {
@@ -642,22 +642,22 @@ struct ProfileView: View {
                     } label: {
                         Label("Edit Profile", systemImage: "person.text.rectangle")
                     }
-                }
-
-                Section("Notifications") {
                     NavigationLink {
                         NotificationPreferencesView()
                     } label: {
                         Label("Notification Preferences", systemImage: "bell.badge")
                     }
-                }
-
-                Section("Support") {
                     NavigationLink {
                         SupportView()
                     } label: {
                         Label("Help & Support", systemImage: "lifepreserver")
                     }
+                    Button(role: .destructive) {
+                        Task { await auth.logout() }
+                    } label: {
+                        Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                    .disabled(auth.isWorking)
                 }
 
                 if let errorMessage {
@@ -673,13 +673,6 @@ struct ProfileView: View {
                             .foregroundStyle(.green)
                             .accessibilityAddTraits(.isStaticText)
                     }
-                }
-
-                Section {
-                    Button("Log Out", role: .destructive) {
-                        Task { await auth.logout() }
-                    }
-                    .disabled(auth.isWorking)
                 }
 
                 Section {
