@@ -4,7 +4,7 @@ import { env } from "./env.js";
 const PRIVATE_UPLOAD_TTL_SEC = 15 * 60;
 
 export function isPrivateUploadKey(key: string) {
-  return key.startsWith("messages/");
+  return key.startsWith("messages/") || key.startsWith("support/");
 }
 
 function sign(key: string, exp: number) {

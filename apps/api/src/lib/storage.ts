@@ -249,6 +249,40 @@ export async function uploadMessageAttachment(userId: string, file: File | Uploa
   return { key, name, mimeType };
 }
 
+export async function uploadSupportAttachment(userId: string, file: File | UploadFile) {
+  const rawFile = await fileData(file);
+  const mimeType = rawFile.mimeType || "application/octet-stream";
+  if (!MESSAGE_ATTACHMENT_TYPES.has(mimeType)) {
+    throw badRequest("Unsupported file type. Use images, PDF, or common document formats.");
+  }
+
+  if (rawFile.size > MAX_MESSAGE_ATTACHMENT_BYTES) {
+    throw badRequest("Attachment must be 15 MB or smaller");
+  }
+
+  if (IMAGE_TYPES.has(mimeType)) {
+    const { buffer, contentType, ext } = await compressImageBuffer(rawFile.buffer, {
+      maxDimension: PHOTO_MAX_DIMENSION,
+      quality: PHOTO_JPEG_QUALITY,
+    });
+    const key = `support/${userId}/${randomUUID()}.${ext}`;
+    await storeBuffer(key, buffer, contentType);
+    const name = rawFile.name.trim() || `attachment.${ext}`;
+    return {
+      key,
+      name: name.replace(/\.[^.]+$/, `.${ext}`),
+      mimeType: contentType,
+      sizeBytes: buffer.byteLength,
+    };
+  }
+
+  const ext = extensionFor(mimeType);
+  const key = `support/${userId}/${randomUUID()}.${ext}`;
+  await storeBuffer(key, rawFile.buffer, mimeType);
+  const name = rawFile.name.trim() || `attachment.${ext}`;
+  return { key, name, mimeType, sizeBytes: rawFile.size };
+}
+
 export async function uploadAvatar(userId: string, file: File | UploadFile) {
   const rawFile = await fileData(file);
   if (!IMAGE_TYPES.has(rawFile.mimeType)) {

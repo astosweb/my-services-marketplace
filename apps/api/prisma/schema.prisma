@@ -61,6 +61,55 @@ enum NotificationKind {
   REMINDER
   SYSTEM
   NEW_REQUEST
+  SUPPORT_TICKET_CREATED
+  SUPPORT_TICKET_REPLY
+  SUPPORT_TICKET_STATUS
+  SUPPORT_TICKET_ASSIGNED
+  SUPPORT_TICKET_RESOLVED
+}
+
+enum SupportTicketCategory {
+  BUG
+  FEATURE_REQUEST
+  PAYMENT
+  ACCOUNT
+  VERIFICATION
+  ABUSE
+  OTHER
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SupportTicketStatus {
+  OPEN
+  WAITING_FOR_USER
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SupportActivityType {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNED
+  REASSIGNED
+  MESSAGE_ADDED
+  NOTE_ADDED
+  NOTE_UPDATED
+  NOTE_DELETED
+  ATTACHMENT_ADDED
+  TAG_ADDED
+  TAG_REMOVED
+  MERGED
+  REOPENED
+  SLA_BREACHED
+  READ
 }
 
 enum UserRole {
@@ -101,6 +150,14 @@ model User {
   refreshTokens    RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   auditLogs        AuditLog[]
+  supportTicketsCreated   SupportTicket[]         @relation("SupportTicketCreator")
+  supportTicketsAssigned  SupportTicket[]         @relation("SupportTicketAssignee")
+  supportMessages         SupportMessage[]        @relation("SupportMessageSender")
+  supportInternalNotes    SupportInternalNote[]   @relation("SupportNoteAuthor")
+  supportAttachments      SupportAttachment[]     @relation("SupportAttachmentUploader")
+  supportStatusChanges    SupportStatusHistory[]  @relation("SupportStatusChanger")
+  supportActivities       SupportActivity[]       @relation("SupportActivityActor")
+  supportCannedResponses  SupportCannedResponse[] @relation("SupportCannedAuthor")
 }
 
 model Category {
@@ -343,4 +400,158 @@ model AuditLog {
   @@index([resource, resourceId])
   @@index([actorId])
   @@index([createdAt])
+}
+
+model SupportTicket {
+  id              String                @id @default(cuid())
+  caseNumber      String                @unique
+  subject         String
+  description     String
+  category        SupportTicketCategory
+  priority        SupportTicketPriority @default(NORMAL)
+  status          SupportTicketStatus   @default(OPEN)
+  createdById     String
+  assignedAdminId String?
+  tags            String[]              @default([])
+  mergedIntoId    String?
+  firstResponseAt DateTime?
+  responseDueAt   DateTime?
+  resolveDueAt    DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  lastMessageAt   DateTime?
+  userLastReadAt  DateTime?
+  adminLastReadAt DateTime?
+  unreadByUser    Int                   @default(0)
+  unreadByAdmin   Int                   @default(0)
+  appVersion      String?
+  platform        String?
+  deviceName      String?
+  systemVersion   String?
+  userAgent       String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  createdBy     User                   @relation("SupportTicketCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignedAdmin User?                  @relation("SupportTicketAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  mergedInto    SupportTicket?         @relation("SupportTicketMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom    SupportTicket[]        @relation("SupportTicketMerge")
+  messages      SupportMessage[]
+  attachments   SupportAttachment[]
+  internalNotes SupportInternalNote[]
+  statusHistory SupportStatusHistory[]
+  activities    SupportActivity[]
+
+  @@index([createdById, createdAt])
+  @@index([assignedAdminId])
+  @@index([status, priority])
+  @@index([category])
+  @@index([createdAt])
+  @@index([caseNumber])
+  @@index([lastMessageAt])
+}
+
+model SupportMessage {
+  id        String    @id @default(cuid())
+  ticketId  String
+  senderId  String
+  body      String    @default("")
+  isStaff   Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  ticket      SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender      User                @relation("SupportMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  attachments SupportAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@index([senderId])
+}
+
+model SupportAttachment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  messageId  String?
+  uploaderId String
+  spacesKey  String
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime @default(now())
+
+  ticket   SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message  SupportMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploader User           @relation("SupportAttachmentUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([messageId])
+  @@index([uploaderId])
+}
+
+model SupportInternalNote {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User          @relation("SupportNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+}
+
+model SupportStatusHistory {
+  id          String               @id @default(cuid())
+  ticketId    String
+  fromStatus  SupportTicketStatus?
+  toStatus    SupportTicketStatus
+  changedById String
+  note        String?
+  createdAt   DateTime             @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy User          @relation("SupportStatusChanger", fields: [changedById], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+model SupportActivity {
+  id        String              @id @default(cuid())
+  ticketId  String
+  actorId   String
+  type      SupportActivityType
+  details   Json?
+  createdAt DateTime            @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User          @relation("SupportActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@index([actorId])
+}
+
+model SupportCannedResponse {
+  id          String                 @id @default(cuid())
+  title       String
+  body        String
+  category    SupportTicketCategory?
+  shortcut    String?
+  createdById String
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  createdBy User @relation("SupportCannedAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([category])
+  @@unique([shortcut])
+}
+
+model SupportCaseSequence {
+  dateKey   String   @id
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
 }

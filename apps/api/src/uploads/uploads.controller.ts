@@ -81,6 +81,32 @@ export class UploadsController {
     };
   }
 
+  @Post("support-attachments")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor("files", 9, { limits: { fileSize: 15 * 1024 * 1024 } }))
+  @ApiBearerAuth()
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["files"],
+      properties: { files: { type: "array", items: { type: "string", format: "binary" } } },
+    },
+  })
+  @ApiOperation({ summary: "Upload support ticket attachments (images/documents)" })
+  async supportAttachments(
+    @CurrentUserId() userId: string,
+    @UploadedFiles() files: UploadFile[] | undefined,
+  ) {
+    if (!files?.length) throw badRequest('Include at least one file in the "files" field');
+    const uploaded = [];
+    for (const file of files) {
+      uploaded.push(await this.uploadsService.supportAttachment(userId, file));
+    }
+    return { data: { files: uploaded } };
+  }
+
   @Post("avatars")
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)

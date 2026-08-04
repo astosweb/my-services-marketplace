@@ -1,5 +1,6 @@
 import path from "node:path";
 import { Injectable } from "@nestjs/common";
+import { UserRole } from "../generated/prisma/client.js";
 import { verifyAccessToken } from "../lib/auth.js";
 import { forbidden, notFound, unauthorized } from "../lib/errors.js";
 import {
@@ -7,6 +8,7 @@ import {
   uploadAvatar,
   uploadMessageAttachment,
   uploadRequestPhotos,
+  uploadSupportAttachment,
   type UploadFile,
 } from "../lib/storage.js";
 import { isPrivateUploadKey, verifyPrivateUploadToken } from "../lib/upload-access.js";
@@ -24,6 +26,10 @@ export class UploadsService {
     return uploadMessageAttachment(userId, file);
   }
 
+  supportAttachment(userId: string, file: UploadFile) {
+    return uploadSupportAttachment(userId, file);
+  }
+
   avatar(userId: string, file: UploadFile) {
     return uploadAvatar(userId, file);
   }
@@ -34,19 +40,44 @@ export class UploadsService {
     }
     const userId = await verifyAccessToken(authorization.slice(7));
     if (!userId) throw unauthorized("Authentication required for private uploads");
-    if (key.startsWith(`messages/${userId}/`)) return;
+    if (key.startsWith(`messages/${userId}/`) || key.startsWith(`support/${userId}/`)) return;
 
-    const message = await this.prisma.message.findFirst({
-      where: { attachmentKey: key },
-      select: {
-        conversation: {
-          select: { participants: { select: { userId: true } } },
+    if (key.startsWith("messages/")) {
+      const message = await this.prisma.message.findFirst({
+        where: { attachmentKey: key },
+        select: {
+          conversation: {
+            select: { participants: { select: { userId: true } } },
+          },
         },
-      },
-    });
-    if (!message?.conversation.participants.some((participant) => participant.userId === userId)) {
+      });
+      if (!message?.conversation.participants.some((participant) => participant.userId === userId)) {
+        throw forbidden("You do not have access to this file");
+      }
+      return;
+    }
+
+    if (key.startsWith("support/")) {
+      const attachment = await this.prisma.supportAttachment.findFirst({
+        where: { spacesKey: key },
+        select: {
+          ticket: {
+            select: { createdById: true, assignedAdminId: true },
+          },
+        },
+      });
+      if (!attachment) throw forbidden("You do not have access to this file");
+      const ticket = attachment.ticket;
+      if (ticket.createdById === userId || ticket.assignedAdminId === userId) return;
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      if (user?.role === UserRole.ADMIN) return;
       throw forbidden("You do not have access to this file");
     }
+
+    throw forbidden("You do not have access to this file");
   }
 
   async read(

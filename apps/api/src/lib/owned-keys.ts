@@ -7,7 +7,7 @@ import { badRequest } from "./errors.js";
 export function assertOwnedObjectKey(
   key: string,
   userId: string,
-  namespace: "requests" | "messages" | "avatars",
+  namespace: "requests" | "messages" | "avatars" | "support",
 ) {
   const prefix = `${namespace}/${userId}/`;
   if (!key.startsWith(prefix) || key.includes("..") || key.includes("//")) {
@@ -18,7 +18,7 @@ export function assertOwnedObjectKey(
 export function assertOwnedObjectKeys(
   keys: string[],
   userId: string,
-  namespace: "requests" | "messages" | "avatars",
+  namespace: "requests" | "messages" | "avatars" | "support",
 ) {
   for (const key of keys) {
     assertOwnedObjectKey(key, userId, namespace);

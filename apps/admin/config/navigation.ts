@@ -9,6 +9,7 @@ import {
   Shield,
   Settings,
   HeartPulse,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 import { PERMISSIONS, type PermissionName } from "@/lib/auth/permissions";
@@ -100,6 +101,17 @@ export const navigationGroups: NavGroup[] = [
         url: "/roles",
         icon: Shield,
         permission: PERMISSIONS.ROLES_READ,
+      },
+    ],
+  },
+  {
+    label: "Support",
+    items: [
+      {
+        title: "Help Desk",
+        url: "/support",
+        icon: LifeBuoy,
+        permission: PERMISSIONS.SUPPORT_READ,
       },
     ],
   },
