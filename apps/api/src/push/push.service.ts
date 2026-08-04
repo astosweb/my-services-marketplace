@@ -120,4 +120,91 @@ export class PushService implements OnModuleDestroy {
       pushDelivered,
     };
   }
+
+  /**
+   * Create in-app notifications and deliver APNs for arbitrary events.
+   * Failures on push delivery are logged but do not throw.
+   */
+  async notifyUsers(input: {
+    userIds: string[];
+    kind: NotificationKind;
+    title: string;
+    body: string;
+    contextTag?: string;
+    payload?: Record<string, unknown>;
+  }) {
+    const userIds = [...new Set(input.userIds)].filter(Boolean);
+    if (userIds.length === 0) {
+      return { notifiedUsers: 0, pushAttempted: 0, pushDelivered: 0 };
+    }
+
+    await this.prisma.notification.createMany({
+      data: userIds.map((userId) => ({
+        userId,
+        kind: input.kind,
+        title: input.title,
+        body: input.body,
+        contextTag: input.contextTag,
+        payload: input.payload as object | undefined,
+      })),
+    });
+
+    const devices = await this.prisma.deviceToken.findMany({
+      where: {
+        userId: { in: userIds },
+        isActive: true,
+        platform: "ios",
+        NOT: { token: { startsWith: "idfv-" } },
+      },
+      select: { id: true, token: true, userId: true },
+    });
+
+    if (!this.apns.isConfigured()) {
+      this.logger.warn("APNs is not configured; skipped push delivery");
+      return { notifiedUsers: userIds.length, pushAttempted: 0, pushDelivered: 0 };
+    }
+
+    let pushDelivered = 0;
+    const inactiveIds: string[] = [];
+
+    await Promise.all(
+      devices.map(async (device) => {
+        const result = await this.apns.send(device.token, {
+          aps: {
+            alert: {
+              title: input.title,
+              body: input.body,
+            },
+            sound: "default",
+          },
+          kind: input.kind,
+          ...(input.payload ?? {}),
+        });
+
+        if (result.ok) {
+          pushDelivered += 1;
+          return;
+        }
+        this.logger.warn(
+          `APNs failed for device ${device.id}: ${result.reason} (status ${result.status})`,
+        );
+        if (result.shouldInvalidateToken) {
+          inactiveIds.push(device.id);
+        }
+      }),
+    );
+
+    if (inactiveIds.length > 0) {
+      await this.prisma.deviceToken.updateMany({
+        where: { id: { in: inactiveIds } },
+        data: { isActive: false },
+      });
+    }
+
+    return {
+      notifiedUsers: userIds.length,
+      pushAttempted: devices.length,
+      pushDelivered,
+    };
+  }
 }

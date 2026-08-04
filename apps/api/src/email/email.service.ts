@@ -37,4 +37,39 @@ export class EmailService {
       throw serviceUnavailable("Unable to send password reset email. Please try again later.");
     }
   }
+
+  /** Best-effort transactional email for support events. Never throws to callers. */
+  async sendSupportNotification(input: {
+    recipient: string;
+    subject: string;
+    text: string;
+  }) {
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
+      this.logger.warn("Support email is not configured");
+      return;
+    }
+
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: env.EMAIL_FROM,
+          to: [input.recipient],
+          subject: input.subject,
+          text: input.text,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!response.ok) {
+        this.logger.error({ status: response.status }, "Support email was rejected");
+      }
+    } catch (error: unknown) {
+      this.logger.error({ error }, "Support email request failed");
+    }
+  }
 }

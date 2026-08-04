@@ -705,3 +705,217 @@ struct ResetPasswordRequest: Encodable {
 struct DeleteAccountRequest: Encodable {
     let password: String
 }
+
+enum SupportTicketCategory: String, Codable, CaseIterable, Identifiable, Sendable {
+    case bug = "BUG"
+    case featureRequest = "FEATURE_REQUEST"
+    case payment = "PAYMENT"
+    case account = "ACCOUNT"
+    case verification = "VERIFICATION"
+    case abuse = "ABUSE"
+    case other = "OTHER"
+
+    var id: Self { self }
+
+    var displayName: String {
+        switch self {
+        case .bug: "Bug"
+        case .featureRequest: "Feature Request"
+        case .payment: "Payment"
+        case .account: "Account"
+        case .verification: "Verification"
+        case .abuse: "Abuse or Safety"
+        case .other: "Other"
+        }
+    }
+}
+
+enum SupportTicketPriority: String, Codable, CaseIterable, Identifiable, Sendable {
+    case low = "LOW"
+    case normal = "NORMAL"
+    case high = "HIGH"
+    case urgent = "URGENT"
+
+    var id: Self { self }
+
+    var displayName: String {
+        switch self {
+        case .low: "Low"
+        case .normal: "Normal"
+        case .high: "High"
+        case .urgent: "Urgent"
+        }
+    }
+}
+
+enum SupportTicketStatus: String, Codable, CaseIterable, Identifiable, Sendable {
+    case open = "OPEN"
+    case waitingForUser = "WAITING_FOR_USER"
+    case inProgress = "IN_PROGRESS"
+    case resolved = "RESOLVED"
+    case closed = "CLOSED"
+
+    var id: Self { self }
+
+    var displayName: String {
+        switch self {
+        case .open: "Open"
+        case .waitingForUser: "Waiting for You"
+        case .inProgress: "In Progress"
+        case .resolved: "Resolved"
+        case .closed: "Closed"
+        }
+    }
+
+    var canReopen: Bool {
+        self == .resolved || self == .closed
+    }
+}
+
+struct SupportUserSummary: Decodable, Identifiable, Hashable, Sendable {
+    let id: String
+    let email: String
+    let displayName: String
+    let profileName: String
+    let avatarUrl: URL?
+    let role: String
+    let status: String?
+    let memberSince: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, email, displayName, profileName, avatarUrl, role, status, memberSince
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        email = try c.decode(String.self, forKey: .email)
+        displayName = try c.decode(String.self, forKey: .displayName)
+        profileName = try c.decode(String.self, forKey: .profileName)
+        avatarUrl = try c.decodeIfPresent(URL.self, forKey: .avatarUrl).map(APIConfiguration.resolveMediaURL)
+        role = try c.decode(String.self, forKey: .role)
+        status = try c.decodeIfPresent(String.self, forKey: .status)
+        memberSince = try c.decodeIfPresent(Date.self, forKey: .memberSince)
+    }
+}
+
+struct SupportAttachment: Decodable, Identifiable, Hashable, Sendable {
+    let id: String
+    let spacesKey: String
+    let url: URL
+    let fileName: String
+    let mimeType: String
+    let sizeBytes: Int
+    let messageId: String?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, spacesKey, url, fileName, mimeType, sizeBytes, messageId, createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        spacesKey = try c.decode(String.self, forKey: .spacesKey)
+        url = APIConfiguration.resolveMediaURL(try c.decode(URL.self, forKey: .url))
+        fileName = try c.decode(String.self, forKey: .fileName)
+        mimeType = try c.decode(String.self, forKey: .mimeType)
+        sizeBytes = try c.decode(Int.self, forKey: .sizeBytes)
+        messageId = try c.decodeIfPresent(String.self, forKey: .messageId)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+    }
+}
+
+struct SupportMessage: Decodable, Identifiable, Hashable, Sendable {
+    let id: String
+    let ticketId: String
+    let body: String
+    let isStaff: Bool
+    let createdAt: Date
+    let readAt: Date?
+    let sender: SupportUserSummary
+    let attachments: [SupportAttachment]
+}
+
+struct SupportTicket: Decodable, Identifiable, Hashable, Sendable {
+    let id: String
+    let caseNumber: String
+    let subject: String
+    let description: String
+    let category: SupportTicketCategory
+    let priority: SupportTicketPriority
+    let status: SupportTicketStatus
+    let tags: [String]
+    let mergedIntoId: String?
+    let firstResponseAt: Date?
+    let responseDueAt: Date?
+    let resolveDueAt: Date?
+    let resolvedAt: Date?
+    let closedAt: Date?
+    let lastMessageAt: Date?
+    let unreadCount: Int
+    let slaBreached: Bool
+    let appVersion: String?
+    let platform: String?
+    let deviceName: String?
+    let systemVersion: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let createdBy: SupportUserSummary
+    let assignedAdmin: SupportUserSummary?
+    let attachmentCount: Int?
+    let messageCount: Int?
+}
+
+struct SupportTicketDetail: Decodable, Identifiable, Sendable {
+    let ticket: SupportTicket
+    let userAgent: String?
+    let userLastReadAt: Date?
+    let adminLastReadAt: Date?
+    let messages: [SupportMessage]
+    let attachments: [SupportAttachment]
+
+    var id: String { ticket.id }
+
+    enum CodingKeys: String, CodingKey {
+        case userAgent, userLastReadAt, adminLastReadAt, messages, attachments
+    }
+
+    init(from decoder: Decoder) throws {
+        ticket = try SupportTicket(from: decoder)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        userAgent = try c.decodeIfPresent(String.self, forKey: .userAgent)
+        userLastReadAt = try c.decodeIfPresent(Date.self, forKey: .userLastReadAt)
+        adminLastReadAt = try c.decodeIfPresent(Date.self, forKey: .adminLastReadAt)
+        messages = try c.decode([SupportMessage].self, forKey: .messages)
+        attachments = try c.decode([SupportAttachment].self, forKey: .attachments)
+    }
+}
+
+struct CreateSupportTicketBody: Encodable {
+    let subject: String
+    let description: String
+    let category: SupportTicketCategory
+    let priority: SupportTicketPriority?
+    let attachmentKeys: [String]?
+    let appVersion: String?
+    let platform: String?
+    let deviceName: String?
+    let systemVersion: String?
+}
+
+struct SendSupportMessageBody: Encodable {
+    let body: String?
+    let attachmentKeys: [String]?
+}
+
+struct UploadSupportAttachmentsResponse: Decodable, Sendable {
+    let files: [UploadedSupportAttachment]
+}
+
+struct UploadedSupportAttachment: Decodable, Sendable {
+    let key: String
+    let name: String
+    let mimeType: String
+    let sizeBytes: Int
+}

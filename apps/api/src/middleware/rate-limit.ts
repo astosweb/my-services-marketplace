@@ -153,6 +153,24 @@ const viewRateLimit: RateLimitOptions = {
   },
 };
 
+const supportCreateRateLimit: RateLimitOptions = {
+  limit: 5,
+  windowMs: ONE_MINUTE,
+  key: (request) => {
+    const user = (request as Request & { user?: { id?: string } }).user;
+    return `support:create:${user?.id ?? clientIp(request)}`;
+  },
+};
+
+const supportMessageRateLimit: RateLimitOptions = {
+  limit: 20,
+  windowMs: ONE_MINUTE,
+  key: (request) => {
+    const user = (request as Request & { user?: { id?: string } }).user;
+    return `support:message:${user?.id ?? clientIp(request)}`;
+  },
+};
+
 @Injectable()
 export class RateLimitGuard implements CanActivate, OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RateLimitGuard.name);
@@ -196,3 +214,5 @@ function rateLimitDecorator(options: RateLimitOptions) {
 export const CredentialRateLimit = () => rateLimitDecorator(credentialRateLimit);
 export const RefreshRateLimit = () => rateLimitDecorator(refreshRateLimit);
 export const ViewRateLimit = () => rateLimitDecorator(viewRateLimit);
+export const SupportCreateRateLimit = () => rateLimitDecorator(supportCreateRateLimit);
+export const SupportMessageRateLimit = () => rateLimitDecorator(supportMessageRateLimit);

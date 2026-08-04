@@ -658,6 +658,14 @@ struct ProfileView: View {
                     }
                 }
 
+                Section("Support") {
+                    NavigationLink {
+                        SupportView()
+                    } label: {
+                        Label("Help & Support", systemImage: "lifepreserver")
+                    }
+                }
+
                 if let errorMessage {
                     Section {
                         Label(errorMessage, systemImage: "exclamationmark.circle.fill")

@@ -11,7 +11,9 @@ export const queryKeys = {
       ? (["requests"] as const)
       : (["requests", params] as const),
   offers: (params?: unknown) =>
-    params === undefined ? (["offers"] as const) : (["offers", params] as const),
+    params === undefined
+      ? (["offers"] as const)
+      : (["offers", params] as const),
   reviews: (params?: unknown) =>
     params === undefined
       ? (["reviews"] as const)
@@ -27,4 +29,11 @@ export const queryKeys = {
     params === undefined
       ? (["notifications"] as const)
       : (["notifications", params] as const),
+  supportStats: ["support", "stats"] as const,
+  supportTickets: (params?: unknown) =>
+    params === undefined
+      ? (["support", "tickets"] as const)
+      : (["support", "tickets", params] as const),
+  supportTicket: (id: string) => ["support", "ticket", id] as const,
+  supportCannedResponses: ["support", "canned-responses"] as const,
 };

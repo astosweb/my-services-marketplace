@@ -19,6 +19,10 @@ export const PERMISSIONS = {
   SETTINGS_WRITE: "settings:write",
   HEALTH_READ: "health:read",
   ROLES_READ: "roles:read",
+  SUPPORT_READ: "support:read",
+  SUPPORT_WRITE: "support:write",
+  SUPPORT_DELETE: "support:delete",
+  SUPPORT_ASSIGN: "support:assign",
 } as const;
 
 export type PermissionName = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
