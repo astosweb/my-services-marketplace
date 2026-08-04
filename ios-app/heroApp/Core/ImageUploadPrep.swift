@@ -5,25 +5,26 @@ enum ImageUploadPrep {
     enum Kind {
         case requestPhoto
         case messageAttachment
+        case supportAttachment
         case avatar
 
         var maxDimension: CGFloat {
             switch self {
-            case .requestPhoto, .messageAttachment: return 1920
+            case .requestPhoto, .messageAttachment, .supportAttachment: return 1920
             case .avatar: return 1024
             }
         }
 
         var quality: CGFloat {
             switch self {
-            case .requestPhoto, .messageAttachment: return 0.72
+            case .requestPhoto, .messageAttachment, .supportAttachment: return 0.72
             case .avatar: return 0.78
             }
         }
 
         var maxBytes: Int {
             switch self {
-            case .requestPhoto, .messageAttachment: return 1_500_000
+            case .requestPhoto, .messageAttachment, .supportAttachment: return 1_500_000
             case .avatar: return 500_000
             }
         }
