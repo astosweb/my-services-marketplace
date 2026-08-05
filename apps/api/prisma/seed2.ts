@@ -2,7 +2,6 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { EstonianCity, PrismaClient } from "../src/generated/prisma/client.js";
 import { categoryCatalog } from "../src/lib/category-catalog.js";
-import { databaseSslOptions } from "../src/lib/database-ssl.js";
 
 if (process.env.NODE_ENV === "production" && process.env.ALLOW_SEED !== "true") {
   console.error("Refusing to seed: NODE_ENV=production (set ALLOW_SEED=true to override).");
@@ -18,7 +17,9 @@ if (!databaseUrl) {
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
     connectionString: databaseUrl,
-    ...databaseSslOptions(databaseUrl),
+    ...(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+      ? { ssl: { rejectUnauthorized: false } }
+      : {}),
   }),
 });
 

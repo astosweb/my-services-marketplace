@@ -17,8 +17,6 @@ coverage/
 !.env.example
 !.env.docker.example
 !**/.env.example
-**/secrets/
-!**/secrets/.gitkeep
 
 # Logs & OS
 *.log
