@@ -404,6 +404,12 @@ private struct NotificationsView: View {
         case .reminder: "clock.fill"
         case .system: "info.circle.fill"
         case .newRequest: "bell.badge.fill"
+        case .supportTicketCreated,
+             .supportTicketReply,
+             .supportTicketStatus,
+             .supportTicketAssigned,
+             .supportTicketResolved:
+            "questionmark.circle.fill"
         }
     }
 }

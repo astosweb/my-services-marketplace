@@ -597,6 +597,17 @@ enum NotificationKind: String, Codable, Sendable {
     case reminder = "REMINDER"
     case system = "SYSTEM"
     case newRequest = "NEW_REQUEST"
+    case supportTicketCreated = "SUPPORT_TICKET_CREATED"
+    case supportTicketReply = "SUPPORT_TICKET_REPLY"
+    case supportTicketStatus = "SUPPORT_TICKET_STATUS"
+    case supportTicketAssigned = "SUPPORT_TICKET_ASSIGNED"
+    case supportTicketResolved = "SUPPORT_TICKET_RESOLVED"
+
+    /// Unknown API kinds decode as `.system` so the notifications list never fails entirely.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = NotificationKind(rawValue: raw) ?? .system
+    }
 }
 
 struct NotificationPreferences: Decodable, Sendable {
