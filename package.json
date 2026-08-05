@@ -1,7 +1,7 @@
 {
   "name": "my-services-marketplace",
   "private": true,
-  "packageManager": "pnpm@11.17.0",
+  "packageManager": "pnpm@11.20.0",
   "scripts": {
     "dev:api": "pnpm --filter @hero/api dev",
     "dev:admin": "pnpm --filter admin-panel dev",
