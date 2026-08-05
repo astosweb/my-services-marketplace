@@ -26,6 +26,7 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { PushService } from "../push/push.service.js";
 import type {
   AdminApproveRequestDto,
+  AdminAuditLogsQueryDto,
   AdminBulkUsersDto,
   AdminConversationsQueryDto,
   AdminCreateRequestDto,
@@ -94,7 +95,7 @@ export class AdminService {
       unreadNotifications,
       recentUsers,
       recentRequests,
-      chartRequests,
+      recentAuditLogs,
       database,
     ] = await Promise.all([
       this.prisma.user.count(),
@@ -110,15 +111,30 @@ export class AdminService {
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
-      this.prisma.$queryRaw<Array<{ day: Date; count: bigint }>>`
+      this.prisma.auditLog.findMany({
+        include: { actor: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      this.databaseReachable(),
+    ]);
+
+    let chartRequests: Array<{ day: Date; count: bigint }> = [];
+    try {
+      chartRequests = await this.prisma.$queryRaw<Array<{ day: Date; count: bigint }>>`
         SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::bigint AS count
         FROM "ServiceRequest"
         WHERE "createdAt" >= ${chartStart}
         GROUP BY 1
         ORDER BY 1
-      `,
-      this.databaseReachable(),
-    ]);
+      `;
+    } catch (error) {
+      this.logger.warn(
+        `Dashboard chart query failed; continuing without trend data: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     const requestsByStatus = Object.fromEntries(
       Object.values(ServiceRequestStatus).map((status) => [status, 0]),
@@ -136,6 +152,35 @@ export class AdminService {
       dailyCounts.set(date, Number(row.count));
     }
 
+    const syntheticActivity = [
+      ...recentUsers.map((user) => ({
+        id: `user-${user.id}`,
+        action: "USER_JOINED",
+        resource: "user",
+        createdAt: user.createdAt.toISOString(),
+        actorName: serializeUser(user).profileName,
+      })),
+      ...recentRequests.map((request) => ({
+        id: `request-${request.id}`,
+        action: "REQUEST_CREATED",
+        resource: "request",
+        createdAt: request.createdAt.toISOString(),
+        actorName: serializeUser(request.owner).profileName,
+        title: request.title,
+      })),
+    ]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 10);
+
+    const auditActivity = recentAuditLogs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      resource: log.resource,
+      createdAt: log.createdAt.toISOString(),
+      actorName: log.actor ? profileName(log.actor) : "System",
+      title: log.resourceId,
+    }));
+
     return {
       metrics: {
         totalUsers: users,
@@ -149,28 +194,64 @@ export class AdminService {
       },
       breakdown: { requestsByStatus },
       trend: [...dailyCounts].map(([date, count]) => ({ date, count })),
-      recentActivity: [
-        ...recentUsers.map((user) => ({
-          id: `user-${user.id}`,
-          action: "USER_JOINED",
-          resource: "user",
-          createdAt: user.createdAt.toISOString(),
-          actorName: serializeUser(user).profileName,
-        })),
-        ...recentRequests.map((request) => ({
-          id: `request-${request.id}`,
-          action: "REQUEST_CREATED",
-          resource: "request",
-          createdAt: request.createdAt.toISOString(),
-          actorName: serializeUser(request.owner).profileName,
-          title: request.title,
-        })),
-      ]
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 10),
+      recentActivity: auditActivity.length > 0 ? auditActivity : syntheticActivity,
       recentUsers: recentUsers.map((user) => this.adminUser(user)),
       recentRequests: recentRequests.map((request) => serializeRequest(request)),
       health: { ok: database, api: true, database },
+    };
+  }
+
+  async listAuditLogs(query: AdminAuditLogsQueryDto) {
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (query.from) {
+      const from = new Date(query.from);
+      if (Number.isNaN(from.getTime())) throw badRequest("Invalid from date");
+      createdAt.gte = from;
+    }
+    if (query.to) {
+      const to = new Date(query.to);
+      if (Number.isNaN(to.getTime())) throw badRequest("Invalid to date");
+      createdAt.lte = to;
+    }
+
+    const where: Prisma.AuditLogWhereInput = {
+      ...(query.action ? { action: query.action } : {}),
+      ...(query.resource ? { resource: query.resource } : {}),
+      ...(query.actorId ? { actorId: query.actorId } : {}),
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { action: { contains: query.search, mode: "insensitive" as const } },
+              { resource: { contains: query.search, mode: "insensitive" as const } },
+              { resourceId: { contains: query.search, mode: "insensitive" as const } },
+              {
+                actor: {
+                  OR: [
+                    { email: { contains: query.search, mode: "insensitive" as const } },
+                    { displayName: { contains: query.search, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        include: { actor: true },
+        orderBy: { createdAt: "desc" },
+        take: query.limit,
+        skip: query.offset,
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return {
+      data: logs.map((log) => this.serializeAuditLog(log)),
+      meta: { total, limit: query.limit, offset: query.offset },
     };
   }
 
@@ -363,17 +444,7 @@ export class AdminService {
         createdAt: device.createdAt.toISOString(),
         updatedAt: device.updatedAt.toISOString(),
       })),
-      auditLogs: auditLogs.map((log) => ({
-        id: log.id,
-        actorId: log.actorId,
-        actorName: log.actor ? profileName(log.actor) : "Deleted user",
-        actorEmail: log.actor?.email ?? null,
-        action: log.action,
-        resource: log.resource,
-        resourceId: log.resourceId,
-        details: (log.details as Record<string, unknown> | null) ?? null,
-        createdAt: log.createdAt.toISOString(),
-      })),
+      auditLogs: auditLogs.map((log) => this.serializeAuditLog(log)),
       notifications: notifications.map((notification) => ({
         id: notification.id,
         kind: notification.kind,
@@ -596,6 +667,31 @@ export class AdminService {
     });
   }
 
+  private serializeAuditLog(
+    log: {
+      id: string;
+      actorId: string | null;
+      action: string;
+      resource: string;
+      resourceId: string;
+      details: Prisma.JsonValue | null;
+      createdAt: Date;
+      actor: User | null;
+    },
+  ) {
+    return {
+      id: log.id,
+      actorId: log.actorId,
+      actorName: log.actor ? profileName(log.actor) : "Deleted user",
+      actorEmail: log.actor?.email ?? null,
+      action: log.action,
+      resource: log.resource,
+      resourceId: log.resourceId,
+      details: (log.details as Record<string, unknown> | null) ?? null,
+      createdAt: log.createdAt.toISOString(),
+    };
+  }
+
   async createRequest(adminId: string, data: AdminCreateRequestDto) {
     const owner = await this.prisma.user.findUnique({
       where: { id: data.ownerId },
@@ -673,27 +769,37 @@ export class AdminService {
   }
 
   async getRequest(id: string) {
-    const [request, auditLogs] = await Promise.all([
-      this.prisma.serviceRequest.findUnique({
-        where: { id },
-        include: {
-          ...requestListInclude,
-          owner: true,
-          category: true,
-          photos: { orderBy: { sortOrder: "asc" } },
-          progressEvents: { orderBy: { createdAt: "asc" } },
-          offers: { include: { offerer: true }, orderBy: { createdAt: "desc" } },
-          reviews: { include: { author: true, subject: true, request: true } },
-        },
-      }),
-      this.prisma.auditLog.findMany({
-        where: { resource: "request", resourceId: id },
-        include: { actor: true },
-        orderBy: { createdAt: "desc" },
-      }),
-    ]);
-
+    const request = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      include: {
+        ...requestListInclude,
+        owner: true,
+        category: true,
+        photos: { orderBy: { sortOrder: "asc" } },
+        progressEvents: { orderBy: { createdAt: "asc" } },
+        offers: { include: { offerer: true }, orderBy: { createdAt: "desc" } },
+        reviews: { include: { author: true, subject: true, request: true } },
+      },
+    });
     if (!request) throw notFound("Request not found");
+
+    const offerIds = request.offers.map((offer) => offer.id);
+    const reviewIds = request.reviews.map((review) => review.id);
+    const auditLogs = await this.prisma.auditLog.findMany({
+      where: {
+        OR: [
+          { resource: "request", resourceId: id },
+          ...(offerIds.length > 0
+            ? [{ resource: "offer", resourceId: { in: offerIds } }]
+            : []),
+          ...(reviewIds.length > 0
+            ? [{ resource: "review", resourceId: { in: reviewIds } }]
+            : []),
+        ],
+      },
+      include: { actor: true },
+      orderBy: { createdAt: "desc" },
+    });
 
     return {
       ...serializeRequest(request),
@@ -718,17 +824,7 @@ export class AdminService {
         status: e.status,
         createdAt: e.createdAt.toISOString(),
       })),
-      auditLogs: auditLogs.map((log) => ({
-        id: log.id,
-        actorId: log.actorId,
-        actorName: log.actor ? profileName(log.actor) : "Deleted user",
-        actorEmail: log.actor?.email ?? null,
-        action: log.action,
-        resource: log.resource,
-        resourceId: log.resourceId,
-        details: (log.details as Record<string, unknown> | null) ?? null,
-        createdAt: log.createdAt.toISOString(),
-      })),
+      auditLogs: auditLogs.map((log) => this.serializeAuditLog(log)),
       owner: {
         id: request.owner.id,
         email: request.owner.email,

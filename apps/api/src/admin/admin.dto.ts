@@ -343,3 +343,32 @@ export class AdminReviewsQueryDto extends AdminPaginationQueryDto {
 }
 
 export class AdminConversationsQueryDto extends AdminPaginationQueryDto {}
+
+export class AdminAuditLogsQueryDto extends AdminPaginationQueryDto {
+  @ApiPropertyOptional({ description: "Filter by exact action, e.g. USER_UPDATED" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  action?: string;
+
+  @ApiPropertyOptional({ description: "Filter by resource type, e.g. user|request|offer" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  resource?: string;
+
+  @ApiPropertyOptional({ description: "Filter by actor user id" })
+  @IsOptional()
+  @IsString()
+  actorId?: string;
+
+  @ApiPropertyOptional({ description: "Inclusive start of createdAt range (ISO-8601)" })
+  @IsOptional()
+  @IsString()
+  from?: string;
+
+  @ApiPropertyOptional({ description: "Inclusive end of createdAt range (ISO-8601)" })
+  @IsOptional()
+  @IsString()
+  to?: string;
+}
