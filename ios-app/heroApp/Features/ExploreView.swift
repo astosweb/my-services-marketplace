@@ -356,10 +356,14 @@ struct ExploreView: View {
 
     // MARK: - Map layout
 
+    private var selectedMapRequest: ServiceRequest? {
+        mappableRequests.first(where: { $0.id == selectedRequestID })
+    }
+
     private var mapLayout: some View {
         Map(position: $camera, selection: $selectedRequestID) {
             ForEach(mappableRequests) { request in
-                Annotation(request.title, coordinate: request.coordinate, anchor: .bottom) {
+                Annotation(request.title, coordinate: request.coordinate, anchor: .center) {
                     RequestPin(request: request, isSelected: selectedRequestID == request.id)
                 }
                 .tag(request.id)
@@ -416,36 +420,32 @@ struct ExploreView: View {
             .padding(12)
         }
         .overlay(alignment: .bottom) {
-            if mappableRequests.isEmpty {
-                Text(isLoading ? "Loading requests…" : "No mapped requests match your filters.")
-                    .font(.footnote)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: .capsule)
-                    .padding(.bottom, 18)
-            } else {
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: 10) {
-                        ForEach(mappableRequests) { request in
-                            NavigationLink(value: request) {
-                                MapRequestCard(request: request, distance: distanceText(to: request))
+            Group {
+                if mappableRequests.isEmpty {
+                    Text(isLoading ? "Loading requests…" : "No mapped requests match your filters.")
+                        .font(.footnote)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(.regularMaterial, in: .capsule)
+                } else if let request = selectedMapRequest {
+                    MapRequestDetailCard(
+                        request: request,
+                        distance: distanceText(to: request),
+                        onDismiss: {
+                            withAnimation(.snappy(duration: 0.22)) {
+                                selectedRequestID = nil
                             }
-                            .buttonStyle(.plain)
-                            .frame(width: 280)
-                            .id(request.id)
                         }
-                    }
-                    .scrollTargetLayout()
+                    )
+                    .padding(.horizontal, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $selectedRequestID)
-                .scrollIndicators(.hidden)
-                .contentMargins(.horizontal, 12, for: .scrollContent)
-                .padding(.bottom, 12)
             }
+            .padding(.bottom, 18)
+            .animation(.snappy(duration: 0.28), value: selectedRequestID)
         }
         .onChange(of: selectedRequestID) {
-            guard let request = mappableRequests.first(where: { $0.id == selectedRequestID }) else { return }
+            guard let request = selectedMapRequest else { return }
             withAnimation(.easeInOut) {
                 camera = .region(
                     MKCoordinateRegion(
@@ -765,51 +765,82 @@ struct RequestCard: View {
     }
 }
 
-private struct MapRequestCard: View {
+private struct MapRequestDetailCard: View {
     let request: ServiceRequest
     var distance: String?
+    var onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                if let url = request.photos.first?.url {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        request.accentTint.opacity(0.12)
+        HStack(alignment: .top, spacing: 12) {
+            NavigationLink(value: request) {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        if let url = request.photos.first?.url {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } placeholder: {
+                                request.accentTint.opacity(0.12)
+                            }
+                        } else {
+                            request.accentTint.opacity(0.12)
+                            Image(systemName: request.categorySymbol)
+                                .font(.title3)
+                                .foregroundStyle(request.accentTint)
+                        }
                     }
-                } else {
-                    request.accentTint.opacity(0.12)
-                    Image(systemName: request.categorySymbol)
-                        .foregroundStyle(request.accentTint)
+                    .frame(width: 72, height: 72)
+                    .clipShape(.circle)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(request.title)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Label(request.categoryName, systemImage: request.categorySymbol)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(request.accentTint)
+                            .lineLimit(1)
+
+                        Text(distance.map { "\(request.city) · \($0)" } ?? request.city)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+
+                        HStack(spacing: 8) {
+                            Text(request.budget ?? "Open budget")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(request.accentTint)
+                            Spacer(minLength: 0)
+                            Text("View details")
+                                .font(.caption.weight(.semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.caption2.weight(.bold))
+                        }
+                        .foregroundStyle(.secondary)
+                    }
                 }
             }
-            .frame(width: 56, height: 56)
-            .clipShape(.rect(cornerRadius: 10))
+            .buttonStyle(.plain)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(request.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                Text(distance.map { "\(request.city) · \($0)" } ?? request.city)
-                    .font(.caption2)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Text(request.budget ?? "Open budget")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(request.accentTint)
+                    .frame(width: 28, height: 28)
+                    .background(Color.primary.opacity(0.06), in: .circle)
             }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.tertiary)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
         }
-        .padding(8)
-        .background(.regularMaterial, in: .rect(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
-        .accessibilityElement(children: .combine)
+        .padding(12)
+        .background(.regularMaterial, in: .rect(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.14), radius: 12, y: 4)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -817,21 +848,52 @@ private struct RequestPin: View {
     let request: ServiceRequest
     let isSelected: Bool
 
+    private var size: CGFloat { isSelected ? 52 : 40 }
+
     var body: some View {
-        VStack(spacing: -3) {
-            Image(systemName: request.categorySymbol)
-                .font(.system(size: isSelected ? 16 : 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: isSelected ? 38 : 30, height: isSelected ? 38 : 30)
-                .background(request.accentTint.gradient, in: .circle)
-                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-            Image(systemName: "arrowtriangle.down.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(request.accentTint)
+        ZStack {
+            Circle()
+                .fill(request.accentTint.gradient)
+                .frame(width: size, height: size)
+                .overlay {
+                    if let url = request.photos.first?.url {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            Image(systemName: request.categorySymbol)
+                                .font(.system(size: isSelected ? 18 : 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .frame(width: size, height: size)
+                        .clipShape(.circle)
+                    } else {
+                        Image(systemName: request.categorySymbol)
+                            .font(.system(size: isSelected ? 18 : 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .overlay(
+                    Circle()
+                        .strokeBorder(.white, lineWidth: isSelected ? 3 : 2)
+                )
+                .shadow(color: .black.opacity(isSelected ? 0.3 : 0.2), radius: isSelected ? 8 : 4, y: 2)
+
+            if request.isPremium {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.orange)
+                    .padding(3)
+                    .background(.regularMaterial, in: .circle)
+                    .offset(x: size * 0.32, y: -size * 0.32)
+            }
         }
-        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+        .frame(width: size + 8, height: size + 8)
+        .scaleEffect(isSelected ? 1.08 : 1)
         .animation(.snappy(duration: 0.2), value: isSelected)
         .accessibilityLabel("\(request.title), \(request.categoryName)")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 
