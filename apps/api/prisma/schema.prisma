@@ -257,6 +257,7 @@ model Offer {
   request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   offerer User           @relation(fields: [offererId], references: [id], onDelete: Cascade)
 
+  @@unique([requestId, offererId])
   @@index([requestId])
   @@index([offererId])
 }
@@ -334,6 +335,7 @@ model Review {
   subject User @relation("ReviewSubject", fields: [subjectId], references: [id], onDelete: Cascade)
   request ServiceRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
+  @@unique([authorId, requestId])
   @@index([subjectId])
   @@index([requestId])
 }
@@ -371,6 +373,7 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
 }
 
 model PasswordResetToken {
@@ -388,14 +391,14 @@ model PasswordResetToken {
 
 model AuditLog {
   id         String   @id @default(cuid())
-  actorId    String
+  actorId    String?
   action     String
   resource   String
   resourceId String
   details    Json?
   createdAt  DateTime @default(now())
 
-  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([resource, resourceId])
   @@index([actorId])

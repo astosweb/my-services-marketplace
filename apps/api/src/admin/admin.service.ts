@@ -363,8 +363,8 @@ export class AdminService {
       auditLogs: auditLogs.map((log) => ({
         id: log.id,
         actorId: log.actorId,
-        actorName: profileName(log.actor),
-        actorEmail: log.actor.email,
+        actorName: log.actor ? profileName(log.actor) : "Deleted user",
+        actorEmail: log.actor?.email ?? null,
         action: log.action,
         resource: log.resource,
         resourceId: log.resourceId,
@@ -716,8 +716,8 @@ export class AdminService {
       auditLogs: auditLogs.map((log) => ({
         id: log.id,
         actorId: log.actorId,
-        actorName: profileName(log.actor),
-        actorEmail: log.actor.email,
+        actorName: log.actor ? profileName(log.actor) : "Deleted user",
+        actorEmail: log.actor?.email ?? null,
         action: log.action,
         resource: log.resource,
         resourceId: log.resourceId,

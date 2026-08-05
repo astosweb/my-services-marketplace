@@ -4,11 +4,18 @@ import {
   nestFetch,
 } from "@/lib/api/nest";
 import {
+  assertSameOriginMutation,
+  isProxyPathAllowed,
+} from "@/lib/auth/csrf";
+import {
   clearAuthCookies,
   setAuthCookies,
 } from "@/lib/auth/token-cookies";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3000";
+
+/** Nest paths the admin BFF may forward. */
+const ALLOWED_PREFIXES = ["admin", "notifications", "uploads", "auth"];
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
@@ -49,6 +56,23 @@ async function ensureAccessToken(forceRefresh = false): Promise<string | null> {
 }
 
 async function proxy(request: Request, path: string[]) {
+  const csrf = assertSameOriginMutation(request);
+  if (csrf) return csrf;
+
+  if (!isProxyPathAllowed(path, ALLOWED_PREFIXES)) {
+    return Response.json(
+      { error: { message: "Path not allowed", code: "PROXY_PATH_DENIED" } },
+      { status: 404 },
+    );
+  }
+
+  if (path[0] === "auth" && path[1] && path[1] !== "me") {
+    return Response.json(
+      { error: { message: "Path not allowed", code: "PROXY_PATH_DENIED" } },
+      { status: 404 },
+    );
+  }
+
   const url = new URL(request.url);
   const targetPath = `/${path.join("/")}${url.search}`;
   const accessToken = await ensureAccessToken();

@@ -24,11 +24,7 @@ export const PUBLIC_ROUTES = [
   SESSION_EXPIRED_PATH,
   SESSION_REFRESH_PATH,
   "/sign-in",
-  "/sign-in-2",
-  "/sign-in-3",
   "/forgot-password",
-  "/forgot-password-2",
-  "/forgot-password-3",
   "/reset-password",
   "/errors/unauthorized",
   "/errors/forbidden",
@@ -39,9 +35,5 @@ export const PUBLIC_ROUTES = [
 
 export const AUTH_ROUTES = [
   "/sign-in",
-  "/sign-in-2",
-  "/sign-in-3",
   "/forgot-password",
-  "/forgot-password-2",
-  "/forgot-password-3",
 ] as const;

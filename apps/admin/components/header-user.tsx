@@ -4,7 +4,6 @@ import {
   BellDot,
   ChevronsUpDown,
   CircleUser,
-  CreditCard,
   LogOut,
 } from "lucide-react";
 import Link from "next/link";
@@ -78,21 +77,15 @@ export function HeaderUser() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href="/settings/user">
+            <Link href="/settings/account">
               <CircleUser />
-              Profile
+              Account
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href="/settings/billing">
-              <CreditCard />
-              Billing
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href="/settings/notifications">
+            <Link href="/settings/system">
               <BellDot />
-              Notifications
+              System
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>

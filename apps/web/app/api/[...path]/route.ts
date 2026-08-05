@@ -4,11 +4,28 @@ import {
   nestFetch,
 } from "@/lib/api/nest";
 import {
+  assertSameOriginMutation,
+  isProxyPathAllowed,
+} from "@/lib/auth/csrf";
+import {
   clearAuthCookies,
   setAuthCookies,
 } from "@/lib/auth/token-cookies";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3000";
+
+/** Nest paths the web BFF may forward (auth login/session use dedicated routes). */
+const ALLOWED_PREFIXES = [
+  "categories",
+  "requests",
+  "users",
+  "conversations",
+  "notifications",
+  "uploads",
+  "devices",
+  "support",
+  "auth",
+];
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
@@ -44,6 +61,24 @@ async function ensureAccessToken(forceRefresh = false): Promise<string | null> {
 }
 
 async function proxy(request: Request, path: string[]) {
+  const csrf = assertSameOriginMutation(request);
+  if (csrf) return csrf;
+
+  if (!isProxyPathAllowed(path, ALLOWED_PREFIXES)) {
+    return Response.json(
+      { error: { message: "Path not allowed", code: "PROXY_PATH_DENIED" } },
+      { status: 404 },
+    );
+  }
+
+  // Dedicated Next auth routes own these; block accidental Nest forwarding of session helpers.
+  if (path[0] === "auth" && path[1] && !["me"].includes(path[1])) {
+    return Response.json(
+      { error: { message: "Path not allowed", code: "PROXY_PATH_DENIED" } },
+      { status: 404 },
+    );
+  }
+
   const url = new URL(request.url);
   const targetPath = `/${path.join("/")}${url.search}`;
   const accessToken = await ensureAccessToken();

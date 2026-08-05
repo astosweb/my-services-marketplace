@@ -25,7 +25,7 @@ export function RolesPageClient() {
       <div className="flex flex-col gap-4">
         <PageHeader
           title="Roles & Permissions"
-          description="Read-only catalog from the API — custom roles are not supported yet"
+          description="Binary roles from the API — ADMIN has full access; USER has none. Custom roles are not supported."
         />
         <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">
           <Skeleton className="h-48 rounded-xl" />
@@ -55,7 +55,7 @@ export function RolesPageClient() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Roles & Permissions"
-        description="Read-only catalog from the API — custom roles are not supported yet"
+        description="Binary roles from the API — ADMIN has full access; USER has none. Custom roles are not supported."
       />
 
       <div className="grid gap-4 px-4 lg:px-6 lg:grid-cols-2">
@@ -68,7 +68,9 @@ export function RolesPageClient() {
                   Role: {role.name}
                 </CardTitle>
                 <CardDescription className="pt-1">
-                  System role — permissions enforced dynamically by NestJS API
+                  {role.name === "ADMIN"
+                    ? "API AdminGuard requires this role for /admin routes. Permission strings gate the UI only."
+                    : "Marketplace end-user — no admin API access."}
                 </CardDescription>
               </div>
               <Badge variant="secondary" className="font-mono text-xs">
@@ -93,7 +95,7 @@ export function RolesPageClient() {
           <CardHeader>
             <CardTitle>Permission Catalog</CardTitle>
             <CardDescription>
-              Complete catalog of granular permission definitions exposed by backend API guards
+              UI navigation labels returned by the API. Server authorization is role-based (ADMIN vs USER), not per-permission.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">

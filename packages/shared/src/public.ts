@@ -136,23 +136,24 @@ export type UserStats = {
   reviewCount: number;
 };
 
+/** Limits match Nest `CreateRequestDto`. */
 export const createRequestSchema = z
   .object({
     categoryId: z.string().min(1),
     title: z.string().min(3).max(200),
     description: z.string().min(10).max(5000),
     city: z.enum(ESTONIAN_CITIES),
-    latitude: z.number(),
-    longitude: z.number(),
-    location: z.string().min(1).max(500),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    location: z.string().max(500).default(""),
     budgetCents: z.number().int().positive().optional(),
-    budgetLabel: z.string().max(100).optional(),
+    budgetLabel: z.string().max(50).optional(),
     scheduledAt: z.string().optional(),
     pricingMode: z
       .enum(["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"])
       .default("PROVIDER_OFFERS"),
     isPremium: z.boolean().optional(),
-    photoKeys: z.array(z.string()).max(9).optional(),
+    photoKeys: z.array(z.string().max(500)).max(9).optional(),
   })
   .refine(
     (data) =>
@@ -172,11 +173,36 @@ export const createOfferSchema = z.object({
 
 export type CreateOfferInput = z.infer<typeof createOfferSchema>;
 
+export const updateOfferStatusSchema = z.object({
+  status: z.enum(["ACCEPTED", "DECLINED", "WITHDRAWN"]),
+});
+
+export type UpdateOfferStatusInput = z.infer<typeof updateOfferStatusSchema>;
+
+export const updateRequestStatusSchema = z.object({
+  status: z.enum(["COMPLETED", "CANCELLED"]),
+});
+
+export type UpdateRequestStatusInput = z.infer<typeof updateRequestStatusSchema>;
+
+export const updateProgressSchema = z.object({
+  status: z.enum(["ON_THE_WAY", "STARTED", "PROVIDER_DONE"]),
+});
+
+export type UpdateProgressInput = z.infer<typeof updateProgressSchema>;
+
+export const createReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  body: z.string().max(1000).optional(),
+});
+
+export type CreateReviewInput = z.infer<typeof createReviewSchema>;
+
 export const sendMessageSchema = z.object({
   body: z.string().max(5000).optional(),
   attachmentKey: z.string().optional(),
-  attachmentName: z.string().optional(),
-  attachmentMimeType: z.string().optional(),
+  attachmentName: z.string().max(255).optional(),
+  attachmentMimeType: z.string().max(100).optional(),
 });
 
 /** Default map coordinates for Estonian cities (create-request fallbacks). */

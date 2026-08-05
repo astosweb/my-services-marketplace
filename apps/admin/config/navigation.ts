@@ -124,24 +124,9 @@ export const navigationGroups: NavGroup[] = [
         icon: Settings,
         items: [
           {
-            title: "Profile",
-            url: "/settings/user",
-            permission: PERMISSIONS.SETTINGS_READ,
-          },
-          {
             title: "Account",
             url: "/settings/account",
             permission: PERMISSIONS.SETTINGS_READ,
-          },
-          {
-            title: "Appearance",
-            url: "/settings/appearance",
-            permission: PERMISSIONS.SETTINGS_READ,
-          },
-          {
-            title: "Notifications",
-            url: "/settings/notifications",
-            permission: PERMISSIONS.NOTIFICATIONS_READ,
           },
         ],
       },

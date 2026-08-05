@@ -8,6 +8,12 @@ import { RequestIdMiddleware } from "../common/middleware/request-id.middleware.
 import { PrismaService } from "../prisma/prisma.service.js";
 import { HealthController } from "./health.controller.js";
 
+vi.mock("../lib/env.js", () => ({
+  env: {
+    REDIS_URL: undefined,
+  },
+}));
+
 describe("HealthController", () => {
   let app: INestApplication;
   let server: Server;
@@ -39,7 +45,7 @@ describe("HealthController", () => {
     await request(server)
       .get("/health/ready")
       .expect(200)
-      .expect({ ok: true, database: "connected" });
+      .expect({ ok: true, database: "connected", redis: "skipped" });
     expect(queryRaw).toHaveBeenCalledOnce();
   });
 

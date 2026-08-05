@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CreditCard,
   EllipsisVertical,
   LogOut,
   BellDot,
@@ -80,21 +79,15 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/settings/user">
+                <Link href="/settings/account">
                   <CircleUser />
-                  Profile
+                  Account
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/settings/billing">
-                  <CreditCard />
-                  Billing
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/settings/notifications">
+                <Link href="/settings/system">
                   <BellDot />
-                  Notifications
+                  System
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

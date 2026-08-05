@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { UpdateProfileDto } from "../auth/auth.dto.js";
 import type { UserReviewsQueryDto } from "./users.dto.js";
+import { UserStatus } from "../generated/prisma/client.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKey } from "../lib/owned-keys.js";
 import { serializeMe, serializeReview, serializeUser } from "../lib/serializers.js";
@@ -12,7 +13,7 @@ export class UsersService {
 
   async get(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw notFound("User not found");
+    if (!user || user.status === UserStatus.BANNED) throw notFound("User not found");
     return serializeUser(user);
   }
 

@@ -2,9 +2,12 @@ import { z } from "zod";
 
 export const PASSWORD_MIN_LENGTH = 8;
 
+export const PASSWORD_MAX_LENGTH = 128;
+
 export const passwordSchema = z
   .string()
-  .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+  .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`)
+  .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters`);
 
 export const loginSchema = z.object({
   email: z.email("Invalid email address"),
@@ -45,11 +48,14 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/** Limits match Nest `UpdateProfileDto` / `ProfileFieldsDto`. */
 export const updateProfileSchema = z.object({
-  displayName: z.string().min(1).max(120).optional(),
-  name: z.string().min(1).max(120).optional(),
-  bio: z.string().max(2000).optional(),
-  businessName: z.string().max(120).optional().nullable(),
+  displayName: z.string().min(1).max(100).optional(),
+  name: z.string().min(1).max(100).optional(),
+  bio: z.string().max(1000).optional(),
+  businessName: z.string().max(100).optional().nullable(),
+  preferBusinessName: z.boolean().optional(),
+  avatarKey: z.string().min(1).optional().nullable(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

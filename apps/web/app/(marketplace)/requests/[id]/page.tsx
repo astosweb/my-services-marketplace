@@ -2,12 +2,15 @@
 
 import { use, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MapPin, Star } from "lucide-react";
 import {
   CITY_LABELS,
   createOfferSchema,
+  createReviewSchema,
   type EstonianCity,
+  type MarketplaceOffer,
+  type MarketplaceRequest,
 } from "@monorepo/shared";
 import { statusBadgeClass } from "@/components/marketplace/request-card";
 import { EmptyState, ErrorState } from "@/components/shared/states";
@@ -24,6 +27,12 @@ import { useRequest } from "@/lib/api/hooks";
 import { formatBudget, formatRelativeTime, initials, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+function errorText(error: unknown, fallback: string) {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
+
 export default function RequestDetailPage({
   params,
 }: {
@@ -36,11 +45,24 @@ export default function RequestDetailPage({
   const [priceEuros, setPriceEuros] = useState("");
   const [message, setMessage] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewBody, setReviewBody] = useState("");
 
   useEffect(() => {
     if (!id) return;
     void api.post(`/requests/${id}/views`).catch(() => undefined);
   }, [id]);
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.request(id) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.requestOffers(id) });
+  };
+
+  const offersQuery = useQuery({
+    queryKey: queryKeys.requestOffers(id),
+    queryFn: () => api.get<MarketplaceOffer[]>(`/requests/${id}/offers`),
+    enabled: Boolean(id && user && query.data?.requester.id === user.id),
+  });
 
   const offerMutation = useMutation({
     mutationFn: async () => {
@@ -64,18 +86,84 @@ export default function RequestDetailPage({
       setMessage("");
       setPriceEuros("");
       setFormError(null);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.request(id) });
+      await invalidate();
     },
     onError: (error) => {
-      const text =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : "Could not send offer";
+      const text = errorText(error, "Could not send offer");
       setFormError(text);
       toast.error(text);
     },
+  });
+
+  const offerStatusMutation = useMutation({
+    mutationFn: ({
+      offerId,
+      status,
+    }: {
+      offerId: string;
+      status: "ACCEPTED" | "DECLINED" | "WITHDRAWN";
+    }) => api.patch(`/requests/${id}/offers/${offerId}`, { status }),
+    onSuccess: async (_data, variables) => {
+      toast.success(
+        variables.status === "ACCEPTED"
+          ? "Offer accepted"
+          : variables.status === "DECLINED"
+            ? "Offer declined"
+            : "Offer withdrawn",
+      );
+      await invalidate();
+    },
+    onError: (error) => toast.error(errorText(error, "Could not update offer")),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (status: "COMPLETED" | "CANCELLED") =>
+      api.patch(`/requests/${id}/status`, { status }),
+    onSuccess: async (_data, status) => {
+      toast.success(status === "COMPLETED" ? "Job completed" : "Request cancelled");
+      await invalidate();
+    },
+    onError: (error) => toast.error(errorText(error, "Could not update status")),
+  });
+
+  const progressMutation = useMutation({
+    mutationFn: (status: "ON_THE_WAY" | "STARTED" | "PROVIDER_DONE") =>
+      api.patch(`/requests/${id}/progress`, { status }),
+    onSuccess: async () => {
+      toast.success("Progress updated");
+      await invalidate();
+    },
+    onError: (error) => toast.error(errorText(error, "Could not update progress")),
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: async () => {
+      const parsed = createReviewSchema.safeParse({
+        rating: reviewRating,
+        body: reviewBody.trim() || undefined,
+      });
+      if (!parsed.success) {
+        throw new Error(parsed.error.issues[0]?.message ?? "Invalid review");
+      }
+      return api.post(`/requests/${id}/reviews`, parsed.data);
+    },
+    onSuccess: async () => {
+      toast.success("Review submitted");
+      setReviewBody("");
+      await invalidate();
+    },
+    onError: (error) => toast.error(errorText(error, "Could not submit review")),
+  });
+
+  const conversationMutation = useMutation({
+    mutationFn: async () => {
+      const result = await api.post<{ id: string }>(`/requests/${id}/conversation`);
+      return result;
+    },
+    onSuccess: (conversation) => {
+      window.location.href = `/messages/${conversation.id}`;
+    },
+    onError: (error) => toast.error(errorText(error, "Could not open chat")),
   });
 
   if (query.isLoading || sessionLoading) {
@@ -108,9 +196,139 @@ export default function RequestDetailPage({
     );
   }
 
-  const isOwner = user?.id === request.requester.id;
+  return (
+    <RequestDetailBody
+      id={id}
+      request={request}
+      userId={user?.id}
+      offers={offersQuery.data ?? []}
+      offersLoading={offersQuery.isLoading}
+      priceEuros={priceEuros}
+      setPriceEuros={setPriceEuros}
+      message={message}
+      setMessage={setMessage}
+      formError={formError}
+      reviewRating={reviewRating}
+      setReviewRating={setReviewRating}
+      reviewBody={reviewBody}
+      setReviewBody={setReviewBody}
+      offerPending={offerMutation.isPending}
+      onSubmitOffer={() => offerMutation.mutate()}
+      onOfferStatus={(offerId, status) =>
+        offerStatusMutation.mutate({ offerId, status })
+      }
+      offerStatusPending={offerStatusMutation.isPending}
+      onStatus={(status) => statusMutation.mutate(status)}
+      statusPending={statusMutation.isPending}
+      onProgress={(status) => progressMutation.mutate(status)}
+      progressPending={progressMutation.isPending}
+      onReview={() => reviewMutation.mutate()}
+      reviewPending={reviewMutation.isPending}
+      onOpenChat={() => conversationMutation.mutate()}
+      chatPending={conversationMutation.isPending}
+    />
+  );
+}
+
+function RequestDetailBody({
+  id,
+  request,
+  userId,
+  offers,
+  offersLoading,
+  priceEuros,
+  setPriceEuros,
+  message,
+  setMessage,
+  formError,
+  reviewRating,
+  setReviewRating,
+  reviewBody,
+  setReviewBody,
+  offerPending,
+  onSubmitOffer,
+  onOfferStatus,
+  offerStatusPending,
+  onStatus,
+  statusPending,
+  onProgress,
+  progressPending,
+  onReview,
+  reviewPending,
+  onOpenChat,
+  chatPending,
+}: {
+  id: string;
+  request: MarketplaceRequest;
+  userId?: string;
+  offers: MarketplaceOffer[];
+  offersLoading: boolean;
+  priceEuros: string;
+  setPriceEuros: (value: string) => void;
+  message: string;
+  setMessage: (value: string) => void;
+  formError: string | null;
+  reviewRating: number;
+  setReviewRating: (value: number) => void;
+  reviewBody: string;
+  setReviewBody: (value: string) => void;
+  offerPending: boolean;
+  onSubmitOffer: () => void;
+  onOfferStatus: (
+    offerId: string,
+    status: "ACCEPTED" | "DECLINED" | "WITHDRAWN",
+  ) => void;
+  offerStatusPending: boolean;
+  onStatus: (status: "COMPLETED" | "CANCELLED") => void;
+  statusPending: boolean;
+  onProgress: (status: "ON_THE_WAY" | "STARTED" | "PROVIDER_DONE") => void;
+  progressPending: boolean;
+  onReview: () => void;
+  reviewPending: boolean;
+  onOpenChat: () => void;
+  chatPending: boolean;
+}) {
+  const isOwner = userId === request.requester.id;
+  const isAcceptedProvider = Boolean(
+    userId && request.acceptedOffer?.provider.id === userId,
+  );
   const canOffer =
-    Boolean(user) && !isOwner && request.status === "OPEN" && !request.viewerOffer;
+    Boolean(userId) && !isOwner && request.status === "OPEN" && !request.viewerOffer;
+  const canWithdraw =
+    Boolean(request.viewerOffer) &&
+    request.viewerOffer?.status === "PENDING" &&
+    request.status === "OPEN";
+  const canOwnerManageOffers = isOwner && request.status === "OPEN";
+  const canCancel =
+    isOwner && (request.status === "OPEN" || request.status === "PENDING_REVIEW");
+  const canComplete =
+    isOwner &&
+    request.status === "IN_PROGRESS" &&
+    request.progressStatus === "PROVIDER_DONE";
+  const canProgress =
+    isAcceptedProvider && request.status === "IN_PROGRESS";
+  const canReview =
+    Boolean(userId) &&
+    request.status === "COMPLETED" &&
+    (isOwner || isAcceptedProvider);
+  const canChat =
+    Boolean(userId) &&
+    (isOwner || isAcceptedProvider) &&
+    (request.status === "IN_PROGRESS" || request.status === "COMPLETED");
+
+  const nextProgress: Array<"ON_THE_WAY" | "STARTED" | "PROVIDER_DONE"> = [];
+  if (canProgress) {
+    const current = request.progressStatus ?? "ACCEPTED";
+    if (current === "ACCEPTED") nextProgress.push("ON_THE_WAY");
+    if (current === "ACCEPTED" || current === "ON_THE_WAY") nextProgress.push("STARTED");
+    if (
+      current === "ACCEPTED" ||
+      current === "ON_THE_WAY" ||
+      current === "STARTED"
+    ) {
+      nextProgress.push("PROVIDER_DONE");
+    }
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -118,6 +336,11 @@ export default function RequestDetailPage({
         <Badge className={cn(statusBadgeClass(request.status))}>
           {request.status.replaceAll("_", " ")}
         </Badge>
+        {request.progressStatus ? (
+          <Badge className="border border-border bg-transparent">
+            {request.progressStatus.replaceAll("_", " ")}
+          </Badge>
+        ) : null}
         {request.isPremium ? (
           <Badge className="bg-accent/90 text-accent-foreground">Premium</Badge>
         ) : null}
@@ -140,7 +363,7 @@ export default function RequestDetailPage({
 
       <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
         <MapPin className="size-4" />
-        {request.location}
+        {request.location || "Location shared after accept"}
       </div>
 
       <div className="mt-8 prose-sm whitespace-pre-wrap leading-relaxed text-foreground/90">
@@ -191,6 +414,82 @@ export default function RequestDetailPage({
         </div>
       </div>
 
+      {request.acceptedOffer ? (
+        <div className="mt-8 rounded-2xl border border-border bg-mist/60 p-5">
+          <h2 className="font-display text-lg font-semibold">Accepted provider</h2>
+          <p className="mt-2 text-sm">
+            {request.acceptedOffer.provider.profileName}
+            {request.acceptedOffer.priceCents != null
+              ? ` · ${formatBudget(request.acceptedOffer.priceCents)}`
+              : ""}
+          </p>
+        </div>
+      ) : null}
+
+      {request.progressEvents?.length ? (
+        <div className="mt-8 rounded-2xl border border-border bg-white/70 p-5">
+          <h2 className="font-display text-lg font-semibold">Progress</h2>
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            {request.progressEvents.map((event) => (
+              <li key={event.id}>
+                {event.status.replaceAll("_", " ")} ·{" "}
+                {formatRelativeTime(event.createdAt)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {canOwnerManageOffers ? (
+        <div className="mt-8 space-y-3 rounded-2xl border border-border bg-white p-5">
+          <h2 className="font-display text-lg font-semibold">Offers</h2>
+          {offersLoading ? (
+            <Skeleton className="h-20 w-full" />
+          ) : offers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No offers yet.</p>
+          ) : (
+            offers.map((offer) => (
+              <div
+                key={offer.id}
+                className="flex flex-col gap-3 rounded-xl border border-border/70 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-medium">{offer.offerer.profileName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {offer.status}
+                    {offer.priceCents != null
+                      ? ` · ${formatBudget(offer.priceCents)}`
+                      : ""}
+                  </p>
+                  {offer.message ? (
+                    <p className="mt-1 text-sm">{offer.message}</p>
+                  ) : null}
+                </div>
+                {offer.status === "PENDING" ? (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={offerStatusPending}
+                      onClick={() => onOfferStatus(offer.id, "ACCEPTED")}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={offerStatusPending}
+                      onClick={() => onOfferStatus(offer.id, "DECLINED")}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
+
       {request.viewerOffer ? (
         <div className="mt-8 rounded-2xl border border-border bg-mist/60 p-5">
           <h2 className="font-display text-lg font-semibold">Your offer</h2>
@@ -203,6 +502,19 @@ export default function RequestDetailPage({
           {request.viewerOffer.message ? (
             <p className="mt-2 text-sm">{request.viewerOffer.message}</p>
           ) : null}
+          {canWithdraw ? (
+            <Button
+              className="mt-4"
+              variant="outline"
+              size="sm"
+              disabled={offerStatusPending}
+              onClick={() =>
+                onOfferStatus(request.viewerOffer!.id, "WITHDRAWN")
+              }
+            >
+              Withdraw offer
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -211,7 +523,7 @@ export default function RequestDetailPage({
           className="mt-8 space-y-4 rounded-2xl border border-border bg-white p-5"
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
-            offerMutation.mutate();
+            onSubmitOffer();
           }}
         >
           <h2 className="font-display text-lg font-semibold">Send an offer</h2>
@@ -239,13 +551,95 @@ export default function RequestDetailPage({
           {formError ? (
             <p className="text-sm text-destructive">{formError}</p>
           ) : null}
-          <Button type="submit" disabled={offerMutation.isPending}>
-            {offerMutation.isPending ? "Sending…" : "Submit offer"}
+          <Button type="submit" disabled={offerPending}>
+            {offerPending ? "Sending…" : "Submit offer"}
           </Button>
         </form>
       ) : null}
 
-      {!user && request.status === "OPEN" ? (
+      {canProgress ? (
+        <div className="mt-8 space-y-3 rounded-2xl border border-border bg-white p-5">
+          <h2 className="font-display text-lg font-semibold">Update job progress</h2>
+          <div className="flex flex-wrap gap-2">
+            {nextProgress.map((status) => (
+              <Button
+                key={status}
+                variant="outline"
+                size="sm"
+                disabled={progressPending}
+                onClick={() => onProgress(status)}
+              >
+                Mark {status.replaceAll("_", " ").toLowerCase()}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {(canCancel || canComplete || canChat) && (
+        <div className="mt-8 flex flex-wrap gap-2">
+          {canChat ? (
+            <Button disabled={chatPending} onClick={onOpenChat}>
+              {chatPending ? "Opening…" : "Open chat"}
+            </Button>
+          ) : null}
+          {canComplete ? (
+            <Button disabled={statusPending} onClick={() => onStatus("COMPLETED")}>
+              Confirm completion
+            </Button>
+          ) : null}
+          {canCancel ? (
+            <Button
+              variant="outline"
+              disabled={statusPending}
+              onClick={() => onStatus("CANCELLED")}
+            >
+              Cancel request
+            </Button>
+          ) : null}
+        </div>
+      )}
+
+      {canReview ? (
+        <form
+          className="mt-8 space-y-4 rounded-2xl border border-border bg-white p-5"
+          onSubmit={(event: FormEvent) => {
+            event.preventDefault();
+            onReview();
+          }}
+        >
+          <h2 className="font-display text-lg font-semibold">Leave a review</h2>
+          <div className="space-y-2">
+            <Label htmlFor="rating">Rating</Label>
+            <select
+              id="rating"
+              className="flex h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
+              value={reviewRating}
+              onChange={(event) => setReviewRating(Number(event.target.value))}
+            >
+              {[5, 4, 3, 2, 1].map((value) => (
+                <option key={value} value={value}>
+                  {value} star{value === 1 ? "" : "s"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="review-body">Comment (optional)</Label>
+            <Textarea
+              id="review-body"
+              value={reviewBody}
+              onChange={(event) => setReviewBody(event.target.value)}
+              maxLength={1000}
+            />
+          </div>
+          <Button type="submit" disabled={reviewPending}>
+            {reviewPending ? "Submitting…" : "Submit review"}
+          </Button>
+        </form>
+      ) : null}
+
+      {!userId && request.status === "OPEN" ? (
         <div className="mt-8 rounded-2xl border border-dashed border-border p-5 text-center">
           <p className="text-sm text-muted-foreground">
             Log in to send an offer on this request.
@@ -254,16 +648,6 @@ export default function RequestDetailPage({
             <Link href={`/login?callbackUrl=/requests/${id}`}>Log in</Link>
           </Button>
         </div>
-      ) : null}
-
-      {isOwner ? (
-        <p className="mt-8 text-sm text-muted-foreground">
-          This is your request. Manage offers from your{" "}
-          <Link href="/dashboard" className="text-primary underline-offset-2 hover:underline">
-            dashboard
-          </Link>
-          .
-        </p>
       ) : null}
     </div>
   );
