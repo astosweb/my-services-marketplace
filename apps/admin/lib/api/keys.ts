@@ -2,6 +2,10 @@
 export const queryKeys = {
   session: ["session"] as const,
   dashboard: ["dashboard", "stats"] as const,
+  auditLogs: (params?: unknown) =>
+    params === undefined
+      ? (["audit-logs"] as const)
+      : (["audit-logs", params] as const),
   systemStatus: ["system", "status"] as const,
   users: (params?: unknown) =>
     params === undefined ? (["users"] as const) : (["users", params] as const),

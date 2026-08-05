@@ -2,6 +2,7 @@
 
 import { formatDistanceToNow } from "date-fns";
 import { History } from "lucide-react";
+import Link from "next/link";
 import type { ActivityLogDto } from "@monorepo/shared";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,18 +17,26 @@ import { EmptyState } from "@/components/ui/empty-state";
 export function RecentActivityCard({ items }: { items: ActivityLogDto[] }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Recent activity</CardTitle>
-        <CardDescription>
-          Latest marketplace events from the live API
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
+        <div className="space-y-1.5">
+          <CardTitle>Recent activity</CardTitle>
+          <CardDescription>
+            Latest admin audit events, or recent marketplace activity when none exist yet
+          </CardDescription>
+        </div>
+        <Link
+          href="/audit-logs"
+          className="text-sm text-primary hover:underline shrink-0"
+        >
+          View all
+        </Link>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
           <EmptyState
             icon={History}
             title="Nothing has happened yet"
-            description="New users and requests will show up here."
+            description="Admin actions and new users or requests will show up here."
           />
         ) : (
           <ul className="divide-y">

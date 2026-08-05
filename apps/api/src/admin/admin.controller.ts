@@ -18,6 +18,7 @@ import { AdminGuard } from "../common/guards/admin.guard.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import {
   AdminApproveRequestDto,
+  AdminAuditLogsQueryDto,
   AdminBulkUsersDto,
   AdminConversationsQueryDto,
   AdminCreateRequestDto,
@@ -44,6 +45,12 @@ export class AdminController {
   @ApiOperation({ summary: "Marketplace dashboard metrics" })
   async dashboardStats() {
     return { data: await this.adminService.dashboardStats() };
+  }
+
+  @Get("audit-logs")
+  @ApiOperation({ summary: "List admin audit logs" })
+  async listAuditLogs(@Query() query: AdminAuditLogsQueryDto) {
+    return this.adminService.listAuditLogs(query);
   }
 
   @Get("users/export")

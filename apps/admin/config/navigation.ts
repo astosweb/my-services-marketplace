@@ -10,6 +10,7 @@ import {
   Settings,
   HeartPulse,
   LifeBuoy,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 import { PERMISSIONS, type PermissionName } from "@/lib/auth/permissions";
@@ -42,6 +43,12 @@ export const navigationGroups: NavGroup[] = [
         title: "Dashboard",
         url: "/dashboard",
         icon: LayoutDashboard,
+        permission: PERMISSIONS.DASHBOARD_READ,
+      },
+      {
+        title: "Audit Logs",
+        url: "/audit-logs",
+        icon: ScrollText,
         permission: PERMISSIONS.DASHBOARD_READ,
       },
       {
