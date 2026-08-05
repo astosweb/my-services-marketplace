@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   IsArray,
-  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -36,7 +35,7 @@ export class RequestListQueryDto {
 
   @ApiPropertyOptional({
     enum: ServiceRequestStatus,
-    description: "Defaults to OPEN and PENDING_REVIEW when omitted",
+    description: "Defaults to OPEN when omitted. Only OPEN is publicly listable.",
   })
   @IsOptional()
   @IsEnum(ServiceRequestStatus)
@@ -140,11 +139,6 @@ export class CreateRequestDto {
   @IsOptional()
   @IsEnum(RequestPricingMode)
   pricingMode?: RequestPricingMode;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  isPremium?: boolean;
 
   @ApiPropertyOptional({ type: [String], maxItems: 9 })
   @IsOptional()

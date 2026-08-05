@@ -1,14 +1,28 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, Length, MaxLength } from "class-validator";
+import {
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  MaxLength,
+  ValidateIf,
+} from "class-validator";
 
 export class RegisterDto {
   @ApiProperty({ example: "user@example.com" })
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ minLength: 8, maxLength: 128, writeOnly: true })
+  @ApiProperty({
+    minLength: 8,
+    maxLength: 72,
+    writeOnly: true,
+    description: "Max 72 characters (bcrypt limit)",
+  })
   @IsString()
-  @Length(8, 128)
+  @Length(8, 72)
   password!: string;
 
   @ApiProperty({ minLength: 1, maxLength: 100 })
@@ -25,6 +39,7 @@ export class LoginDto {
   @ApiProperty({ writeOnly: true })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(72)
   password!: string;
 }
 
@@ -47,9 +62,14 @@ export class ResetPasswordDto {
   @IsNotEmpty()
   token!: string;
 
-  @ApiProperty({ minLength: 8, maxLength: 128, writeOnly: true })
+  @ApiProperty({
+    minLength: 8,
+    maxLength: 72,
+    writeOnly: true,
+    description: "Max 72 characters (bcrypt limit)",
+  })
   @IsString()
-  @Length(8, 128)
+  @Length(8, 72)
   password!: string;
 }
 
@@ -77,7 +97,7 @@ class ProfileFieldsDto {
   bio!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
   @IsString()
   @IsNotEmpty()
   avatarKey!: string | null;
@@ -89,5 +109,6 @@ export class DeleteAccountDto {
   @ApiProperty({ writeOnly: true })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(72)
   password!: string;
 }

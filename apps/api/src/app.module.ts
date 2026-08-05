@@ -7,6 +7,7 @@ import { AdminModule } from "./admin/admin.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { CategoriesModule } from "./categories/categories.module.js";
 import { CommonModule } from "./common/common.module.js";
+import { JwtAuthGuard } from "./common/guards/jwt-auth.guard.js";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware.js";
 import { ConversationsModule } from "./conversations/conversations.module.js";
 import { DevicesModule } from "./devices/devices.module.js";
@@ -34,9 +35,14 @@ import { UsersModule } from "./users/users.module.js";
         redact: {
           paths: [
             "req.headers.authorization",
+            "req.headers.cookie",
+            "req.query.token",
+            "req.query.exp",
             "req.body.password",
+            "req.body.currentPassword",
             "req.body.refreshToken",
             "req.body.token",
+            "req.url",
           ],
           censor: "[REDACTED]",
         },
@@ -60,12 +66,16 @@ import { UsersModule } from "./users/users.module.js";
     UsersModule,
     DevicesModule,
     SupportModule,
-    ...(env.REDIS_URL ? [JobsModule] : []),
+    JobsModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

@@ -4,6 +4,7 @@ import { RequestsService } from "./requests.service.js";
 
 describe("RequestsService", () => {
   it.each([
+    ServiceRequestStatus.PENDING_REVIEW,
     ServiceRequestStatus.IN_PROGRESS,
     ServiceRequestStatus.COMPLETED,
     ServiceRequestStatus.CANCELLED,
@@ -11,12 +12,12 @@ describe("RequestsService", () => {
     const service = new RequestsService({} as never);
 
     await expect(service.list({ limit: 50, offset: 0, status })).rejects.toMatchObject({
-      message: "Only open and pending review requests are publicly listed",
+      message: "Only open requests are publicly listed",
       status: 400,
     });
   });
 
-  it("lists open and pending review requests by default", async () => {
+  it("lists only open requests from active owners by default", async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const count = vi.fn().mockResolvedValue(0);
     const service = new RequestsService({
@@ -30,30 +31,32 @@ describe("RequestsService", () => {
         where: {
           city: undefined,
           categoryId: undefined,
-          status: {
-            in: [ServiceRequestStatus.OPEN, ServiceRequestStatus.PENDING_REVIEW],
-          },
+          status: ServiceRequestStatus.OPEN,
+          owner: { status: "ACTIVE" },
         },
       }),
     );
   });
 
-  it("allows filtering public list to pending review", async () => {
-    const findMany = vi.fn().mockResolvedValue([]);
-    const count = vi.fn().mockResolvedValue(0);
+  it("rejects chat when users are unrelated to the request", async () => {
     const service = new RequestsService({
-      serviceRequest: { findMany, count },
+      serviceRequest: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "req-1",
+          title: "Help",
+          ownerId: "owner-1",
+          status: ServiceRequestStatus.OPEN,
+          offers: [],
+        }),
+      },
+      user: { findUnique: vi.fn() },
     } as never);
 
-    await service.list({ limit: 50, offset: 0, status: ServiceRequestStatus.PENDING_REVIEW });
-
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
-        where: expect.objectContaining({
-          status: ServiceRequestStatus.PENDING_REVIEW,
-        }),
-      }),
-    );
+    await expect(
+      service["assertCanOpenRequestChat"]("req-1", "stranger-1", "owner-1"),
+    ).rejects.toMatchObject({
+      status: 403,
+      message: "You can only message participants related to this request",
+    });
   });
 });

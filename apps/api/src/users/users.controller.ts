@@ -4,6 +4,7 @@ import { UpdateProfileDto } from "../auth/auth.dto.js";
 import { UserReviewsQueryDto } from "./users.dto.js";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
+import { Public } from "../common/decorators/public.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { UsersService } from "./users.service.js";
 
@@ -14,12 +15,14 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get(":id/reviews")
+  @Public()
   @ApiOperation({ summary: "List reviews received by a user" })
   async reviews(@Param("id") id: string, @Query() query: UserReviewsQueryDto) {
     return this.usersService.reviews(id, query);
   }
 
   @Get(":id")
+  @Public()
   @ApiOperation({ summary: "Get a public user profile" })
   async get(@Param("id") id: string) {
     return { data: await this.usersService.get(id) };

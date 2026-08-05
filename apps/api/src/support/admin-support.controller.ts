@@ -19,7 +19,6 @@ import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js
 import { AdminGuard } from "../common/guards/admin.guard.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { SupportMessageRateLimit } from "../middleware/rate-limit.js";
-import { PrismaService } from "../prisma/prisma.service.js";
 import {
   CreateCannedResponseDto,
   CreateSupportNoteDto,
@@ -39,10 +38,7 @@ import { SupportService } from "./support.service.js";
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("admin/support")
 export class AdminSupportController {
-  constructor(
-    private readonly supportService: SupportService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly supportService: SupportService) {}
 
   @Get("stats")
   @ApiOperation({ summary: "Support desk dashboard statistics" })
@@ -193,24 +189,14 @@ export class AdminSupportController {
     @CurrentUserId() userId: string,
     @Body() body: SupportTypingDto,
   ) {
-    await this.supportService.getTicket(id, { userId, isAdmin: true });
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { displayName: true },
-    });
     return {
-      data: this.supportService.setTyping(
-        id,
-        { userId, displayName: user.displayName },
-        body.isTyping,
-      ),
+      data: await this.supportService.publishTyping(id, userId, true, body.isTyping),
     };
   }
 
   @Get("tickets/:id/typing")
   @ApiOperation({ summary: "Get typing indicators for a ticket" })
   async getTyping(@Param("id") id: string, @CurrentUserId() userId: string) {
-    await this.supportService.getTicket(id, { userId, isAdmin: true });
-    return { data: this.supportService.getTyping(id, userId) };
+    return { data: await this.supportService.getTypingForViewer(id, userId, true) };
   }
 }

@@ -48,6 +48,7 @@ services:
       DATABASE_URL: postgresql://hero:hero@postgres:5432/hero
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Set a strong JWT_SECRET in the deployment environment}
+      UPLOAD_SIGNING_SECRET: ${UPLOAD_SIGNING_SECRET:-}
       JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
       JWT_REFRESH_EXPIRES_DAYS: ${JWT_REFRESH_EXPIRES_DAYS:-30}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001,http://localhost:3002}

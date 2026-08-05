@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   HttpCode,
@@ -20,6 +19,7 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from "@nes
 import type { Request, Response } from "express";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
+import { Public } from "../common/decorators/public.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { badRequest } from "../lib/errors.js";
 import type { UploadFile } from "../lib/storage.js";
@@ -133,6 +133,7 @@ export class UploadsController {
   }
 
   @Get("*key")
+  @Public()
   @ApiOperation({ summary: "Read a public or authorized private upload" })
   async read(
     @Param("key") pathSegments: string | string[],
@@ -142,7 +143,7 @@ export class UploadsController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const encodedKey = Array.isArray(pathSegments) ? pathSegments.join("/") : pathSegments;
-    if (!encodedKey) throw new BadRequestException("File key is required");
+    if (!encodedKey) throw badRequest("File key is required");
     const object = await this.uploadsService.read(
       encodedKey,
       token,
@@ -150,6 +151,9 @@ export class UploadsController {
       request.header("authorization"),
     );
     response.setHeader("Content-Type", object.contentType);
+    if (!object.contentType.startsWith("image/")) {
+      response.setHeader("Content-Disposition", "attachment");
+    }
     response.setHeader(
       "Cache-Control",
       object.private ? "private, max-age=60" : "public, max-age=86400",

@@ -15,6 +15,7 @@ import {
   serializeRequest,
   serializeReview,
 } from "../lib/serializers.js";
+import { refreshUserRating } from "../lib/user-rating.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
   CreateOfferDto,
@@ -85,7 +86,18 @@ export class RequestsService {
   ) {
     const request = await this.prisma.serviceRequest.findUnique({
       where: { id: requestId },
-      select: { id: true, title: true, ownerId: true },
+      select: {
+        id: true,
+        title: true,
+        ownerId: true,
+        status: true,
+        offers: {
+          where: {
+            status: { in: [OfferStatus.PENDING, OfferStatus.ACCEPTED] },
+          },
+          select: { offererId: true, status: true },
+        },
+      },
     });
     if (!request) throw notFound("Request not found");
 
@@ -93,11 +105,25 @@ export class RequestsService {
     if (!peer) throw badRequest("peerUserId is required");
     if (peer === userId) throw badRequest("Cannot message yourself");
 
+    const isOwner = request.ownerId === userId;
+    const isPeerOwner = request.ownerId === peer;
+    const userOffer = request.offers.find((offer) => offer.offererId === userId);
+    const peerOffer = request.offers.find((offer) => offer.offererId === peer);
+
+    // Owner may chat with anyone who has a pending or accepted offer.
+    // Offerer may chat with the owner when they have a pending or accepted offer.
+    const allowed =
+      (isOwner && isPeerOwner === false && Boolean(peerOffer)) ||
+      (!isOwner && isPeerOwner && Boolean(userOffer));
+    if (!allowed) {
+      throw forbidden("You can only message participants related to this request");
+    }
+
     const peerUser = await this.prisma.user.findUnique({
       where: { id: peer },
-      select: { id: true },
+      select: { id: true, status: true },
     });
-    if (!peerUser) throw notFound("User not found");
+    if (!peerUser || peerUser.status === "BANNED") throw notFound("User not found");
 
     return { request, peerUserId: peer };
   }
@@ -112,7 +138,8 @@ export class RequestsService {
       include: {
         messages: {
           include: { sender: true },
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: "desc" },
+          take: 100,
         },
         participants: { select: { userId: true, lastReadAt: true } },
       },
@@ -120,33 +147,15 @@ export class RequestsService {
     });
   }
 
-  private async refreshUserRating(userId: string) {
-    const aggregate = await this.prisma.review.aggregate({
-      where: { subjectId: userId },
-      _avg: { rating: true },
-      _count: { _all: true },
-    });
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        rating: aggregate._avg.rating ?? 0,
-        reviewCount: aggregate._count._all,
-      },
-    });
-  }
-
   async list(query: RequestListQueryDto) {
-    const publicStatuses: ServiceRequestStatus[] = [
-      ServiceRequestStatus.OPEN,
-      ServiceRequestStatus.PENDING_REVIEW,
-    ];
-    if (query.status && !publicStatuses.includes(query.status)) {
-      throw badRequest("Only open and pending review requests are publicly listed");
+    if (query.status && query.status !== ServiceRequestStatus.OPEN) {
+      throw badRequest("Only open requests are publicly listed");
     }
     const where = {
       city: query.city,
       categoryId: query.categoryId,
-      status: query.status ?? { in: publicStatuses },
+      status: ServiceRequestStatus.OPEN,
+      owner: { status: "ACTIVE" as const },
     };
     const [requests, total] = await Promise.all([
       this.prisma.serviceRequest.findMany({
@@ -154,7 +163,7 @@ export class RequestsService {
         include: {
           category: true,
           owner: true,
-          photos: true,
+          photos: { orderBy: { sortOrder: "asc" }, take: 1 },
           offers: {
             where: { status: OfferStatus.ACCEPTED },
             include: { offerer: true },
@@ -224,16 +233,31 @@ export class RequestsService {
       },
     });
     if (!request) throw notFound("Request not found");
+    if (request.owner.status === "BANNED" && request.ownerId !== viewerUserId) {
+      throw notFound("Request not found");
+    }
+
+    const isParticipant =
+      Boolean(viewerUserId) &&
+      (request.ownerId === viewerUserId ||
+        request.offers.some((offer) => offer.offererId === viewerUserId));
+
+    if (request.status === ServiceRequestStatus.PENDING_REVIEW) {
+      if (request.ownerId !== viewerUserId) throw notFound("Request not found");
+    } else if (request.status !== ServiceRequestStatus.OPEN && !isParticipant) {
+      throw notFound("Request not found");
+    }
+
     return serializeRequest(request, viewerUserId);
   }
 
   async view(id: string, viewerUserId?: string) {
     const existing = await this.prisma.serviceRequest.findUnique({
       where: { id },
-      select: { ownerId: true, updatedAt: true },
+      select: { ownerId: true, updatedAt: true, status: true },
     });
     if (!existing) throw notFound("Request not found");
-    if (viewerUserId !== existing.ownerId) {
+    if (viewerUserId !== existing.ownerId && existing.status === ServiceRequestStatus.OPEN) {
       await this.prisma.serviceRequest.update({
         where: { id },
         data: { viewCount: { increment: 1 }, updatedAt: existing.updatedAt },
@@ -248,7 +272,6 @@ export class RequestsService {
       throw badRequest("Fixed price is required");
     }
     if (data.photoKeys?.length) assertOwnedObjectKeys(data.photoKeys, ownerId, "requests");
-    // ensureCategoryCatalog(this.prisma) is handled at startup by CategoriesService
     if (!(await this.prisma.category.findUnique({ where: { id: data.categoryId } }))) {
       throw badRequest("Category not found");
     }
@@ -269,7 +292,7 @@ export class RequestsService {
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
         pricingMode,
         status: ServiceRequestStatus.PENDING_REVIEW,
-        isPremium: data.isPremium ?? false,
+        isPremium: false,
         photos: data.photoKeys?.length
           ? {
               create: data.photoKeys.map((spacesKey, sortOrder) => ({
@@ -310,7 +333,6 @@ export class RequestsService {
     if (existing._count.offers > 0) {
       throw conflict("Cannot edit a request that already has offers");
     }
-    // ensureCategoryCatalog(this.prisma) is handled at startup by CategoriesService
     if (!(await this.prisma.category.findUnique({ where: { id: data.categoryId } }))) {
       throw badRequest("Category not found");
     }
@@ -343,7 +365,6 @@ export class RequestsService {
             (data.budgetCents != null ? `€${(data.budgetCents / 100).toFixed(0)}` : null),
           scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
           pricingMode,
-          isPremium: data.isPremium ?? false,
         },
         include: {
           category: true,
@@ -393,10 +414,14 @@ export class RequestsService {
       if (offer.offererId !== userId) {
         throw forbidden("Only the offer author can withdraw an offer");
       }
+      const withdrawn = await this.prisma.offer.updateMany({
+        where: { id: offer.id, status: OfferStatus.PENDING },
+        data: { status: OfferStatus.WITHDRAWN },
+      });
+      if (!withdrawn.count) throw badRequest("Only pending offers can be updated");
       return serializeOffer(
-        await this.prisma.offer.update({
+        await this.prisma.offer.findUniqueOrThrow({
           where: { id: offer.id },
-          data: { status: OfferStatus.WITHDRAWN },
           include: { offerer: true },
         }),
       );
@@ -524,8 +549,19 @@ export class RequestsService {
           data: { status: OfferStatus.DECLINED },
         });
       }
-      await transaction.serviceRequest.update({
-        where: { id: requestId },
+      const changed = await transaction.serviceRequest.updateMany({
+        where:
+          data.status === ServiceRequestStatus.COMPLETED
+            ? {
+                id: requestId,
+                status: ServiceRequestStatus.IN_PROGRESS,
+                progressStatus: JobProgressStatus.PROVIDER_DONE,
+              }
+            : {
+                id: requestId,
+                status: { not: ServiceRequestStatus.COMPLETED },
+                NOT: { status: ServiceRequestStatus.CANCELLED },
+              },
         data:
           data.status === ServiceRequestStatus.COMPLETED
             ? {
@@ -542,6 +578,13 @@ export class RequestsService {
                 updatedAt: existing.updatedAt,
               },
       });
+      if (!changed.count) {
+        throw badRequest(
+          data.status === ServiceRequestStatus.COMPLETED
+            ? "Request is not ready to complete"
+            : "Request cannot be cancelled",
+        );
+      }
       if (data.status === ServiceRequestStatus.COMPLETED) {
         await transaction.jobProgressEvent.create({
           data: {
@@ -613,14 +656,21 @@ export class RequestsService {
     }
     const now = new Date();
     const request = await this.prisma.$transaction(async (transaction) => {
-      await transaction.serviceRequest.update({
-        where: { id: requestId },
+      const changed = await transaction.serviceRequest.updateMany({
+        where: {
+          id: requestId,
+          status: ServiceRequestStatus.IN_PROGRESS,
+          progressStatus: currentProgress,
+        },
         data: {
           progressStatus: data.status,
           progressUpdatedAt: now,
           updatedAt: acceptedOffer.request.updatedAt,
         },
       });
+      if (!changed.count) {
+        throw badRequest("Progress was updated concurrently; refresh and try again");
+      }
       await transaction.jobProgressEvent.create({
         data: {
           requestId,
@@ -686,21 +736,34 @@ export class RequestsService {
           ? request.ownerId
           : undefined;
     if (!subjectId) throw forbidden("Only the owner and accepted provider can review this job");
-    if (await this.prisma.review.findFirst({ where: { authorId, requestId } })) {
-      throw conflict("You already reviewed this job");
-    }
     const body = data.body?.trim();
-    const review = await this.prisma.review.create({
-      data: {
-        authorId,
-        subjectId,
-        requestId,
-        rating: data.rating,
-        body: body || undefined,
-      },
-      include: { author: true, request: true },
-    });
-    await this.refreshUserRating(subjectId);
+    let review;
+    try {
+      review = await this.prisma.$transaction(async (transaction) => {
+        const created = await transaction.review.create({
+          data: {
+            authorId,
+            subjectId,
+            requestId,
+            rating: data.rating,
+            body: body || undefined,
+          },
+          include: { author: true, request: true },
+        });
+        await refreshUserRating(transaction, subjectId);
+        return created;
+      });
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code: string }).code === "P2002"
+      ) {
+        throw conflict("You already reviewed this job");
+      }
+      throw error;
+    }
     await this.prisma.notification.create({
       data: {
         userId: subjectId,
@@ -734,9 +797,10 @@ export class RequestsService {
     }
     const conversation = await this.findUserConversation(requestId, userId, resolvedPeer);
     if (!conversation) return { id: null, messages: [] };
+    const messages = [...conversation.messages].reverse();
     return {
       id: conversation.id,
-      messages: conversation.messages.map((message) =>
+      messages: messages.map((message) =>
         serializeMessage(message, userId, conversation.participants),
       ),
     };
@@ -751,9 +815,10 @@ export class RequestsService {
     await this.ensureConversation(request.id, userId, peer);
     const conversation = await this.findUserConversation(request.id, userId, peer);
     if (!conversation) throw notFound("Conversation not found");
+    const messages = [...conversation.messages].reverse();
     return {
       id: conversation.id,
-      messages: conversation.messages.map((message) =>
+      messages: messages.map((message) =>
         serializeMessage(message, userId, conversation.participants),
       ),
     };
@@ -769,27 +834,57 @@ export class RequestsService {
       throw badRequest("Request is not open for offers");
     }
     if (request.ownerId === offererId) throw badRequest("Cannot offer on your own request");
-    if (
-      await this.prisma.offer.findFirst({
-        where: { requestId, offererId, status: OfferStatus.PENDING },
-      })
-    ) {
-      throw conflict("You already have a pending offer on this request");
-    }
     const isFixedPrice = request.pricingMode === RequestPricingMode.OWNER_FIXED_PRICE;
     if (isFixedPrice && data.priceCents != null) {
       throw badRequest("Fixed-price requests only accept interest");
     }
     if (!isFixedPrice && data.priceCents == null) throw badRequest("Price is required");
-    const offer = await this.prisma.offer.create({
-      data: {
-        requestId,
-        offererId,
-        priceCents: isFixedPrice ? null : data.priceCents,
-        message: data.message,
-      },
-      include: { offerer: true },
+
+    const existing = await this.prisma.offer.findUnique({
+      where: { requestId_offererId: { requestId, offererId } },
     });
+    if (existing?.status === OfferStatus.PENDING) {
+      throw conflict("You already have a pending offer on this request");
+    }
+    if (existing?.status === OfferStatus.ACCEPTED) {
+      throw conflict("You already have an accepted offer on this request");
+    }
+
+    let offer;
+    try {
+      if (existing && (existing.status === OfferStatus.WITHDRAWN || existing.status === OfferStatus.DECLINED)) {
+        offer = await this.prisma.offer.update({
+          where: { id: existing.id },
+          data: {
+            status: OfferStatus.PENDING,
+            priceCents: isFixedPrice ? null : data.priceCents,
+            message: data.message,
+          },
+          include: { offerer: true },
+        });
+      } else {
+        offer = await this.prisma.offer.create({
+          data: {
+            requestId,
+            offererId,
+            priceCents: isFixedPrice ? null : data.priceCents,
+            message: data.message,
+          },
+          include: { offerer: true },
+        });
+      }
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code: string }).code === "P2002"
+      ) {
+        throw conflict("You already have a pending offer on this request");
+      }
+      throw error;
+    }
+
     await this.prisma.notification.create({
       data: {
         userId: request.ownerId,

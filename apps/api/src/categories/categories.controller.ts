@@ -1,10 +1,12 @@
 import { Controller, Get } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
+import { Public } from "../common/decorators/public.decorator.js";
 import { CategoriesService } from "./categories.service.js";
 
 @ApiTags("Categories")
 @ApiStandardErrors()
+@Public()
 @Controller("categories")
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}

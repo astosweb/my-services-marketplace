@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
-import { NotificationKind, UserStatus } from "../generated/prisma/client.js";
+import { NotificationKind, Prisma, UserStatus } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ApnsClient } from "./apns.client.js";
 
@@ -145,7 +145,9 @@ export class PushService implements OnModuleDestroy {
         title: input.title,
         body: input.body,
         contextTag: input.contextTag,
-        payload: input.payload as object | undefined,
+        payload: input.payload
+          ? (JSON.parse(JSON.stringify(input.payload)) as Prisma.InputJsonValue)
+          : undefined,
       })),
     });
 
