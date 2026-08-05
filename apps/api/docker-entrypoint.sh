@@ -6,7 +6,7 @@ chown -R hero:hero /app/.data
 
 if [ "${SKIP_DB_PUSH}" != "true" ]; then
   echo "Applying database schema..."
-  runuser -u hero -- ./node_modules/.bin/prisma db push
+  runuser -u hero -- ./node_modules/.bin/prisma db push --accept-data-loss
 fi
 
 exec runuser -u hero -- "$@"
