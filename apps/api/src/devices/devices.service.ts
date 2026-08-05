@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "../generated/prisma/client.js";
 import type { RequestClientMeta } from "../lib/request-meta.js";
-import { forbidden } from "../lib/errors.js";
+import { conflict, forbidden } from "../lib/errors.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type { RegisterDeviceDto } from "./devices.dto.js";
 
@@ -9,19 +10,16 @@ export class DevicesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async register(userId: string, data: RegisterDeviceDto, meta?: RequestClientMeta) {
-    const existing = await this.prisma.deviceToken.findUnique({
-      where: { token: data.token },
-      select: { userId: true },
-    });
-    if (existing && existing.userId !== userId) {
-      throw forbidden("This device is already registered to another account");
-    }
+    const device = await this.prisma.$transaction(async (transaction) => {
+      const existing = await transaction.deviceToken.findUnique({
+        where: { token: data.token },
+        select: { id: true, userId: true },
+      });
+      if (existing && existing.userId !== userId) {
+        throw forbidden("This device is already registered to another account");
+      }
 
-    const device = await this.prisma.deviceToken.upsert({
-      where: { token: data.token },
-      create: {
-        userId,
-        token: data.token,
+      const fields = {
         platform: data.platform,
         name: data.name ?? null,
         systemVersion: data.systemVersion ?? null,
@@ -29,17 +27,38 @@ export class DevicesService {
         ipAddress: meta?.ipAddress ?? null,
         userAgent: meta?.userAgent ?? null,
         isActive: true,
-      },
-      update: {
-        platform: data.platform,
-        isActive: true,
-        ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.systemVersion !== undefined ? { systemVersion: data.systemVersion } : {}),
-        ...(data.appVersion !== undefined ? { appVersion: data.appVersion } : {}),
-        ...(meta?.ipAddress ? { ipAddress: meta.ipAddress } : {}),
-        ...(meta?.userAgent ? { userAgent: meta.userAgent } : {}),
-      },
+      };
+
+      if (existing) {
+        return transaction.deviceToken.update({
+          where: { id: existing.id },
+          data: {
+            platform: data.platform,
+            isActive: true,
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.systemVersion !== undefined ? { systemVersion: data.systemVersion } : {}),
+            ...(data.appVersion !== undefined ? { appVersion: data.appVersion } : {}),
+            ...(meta?.ipAddress ? { ipAddress: meta.ipAddress } : {}),
+            ...(meta?.userAgent ? { userAgent: meta.userAgent } : {}),
+          },
+        });
+      }
+
+      try {
+        return await transaction.deviceToken.create({
+          data: { userId, token: data.token, ...fields },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          throw conflict("Device token registration conflict; retry");
+        }
+        throw error;
+      }
     });
+
     return {
       id: device.id,
       token: device.token,

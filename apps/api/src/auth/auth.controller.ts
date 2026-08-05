@@ -22,6 +22,7 @@ import {
 } from "@nestjs/swagger";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
+import { Public } from "../common/decorators/public.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { requestClientMeta } from "../lib/request-meta.js";
 import { CredentialRateLimit, RefreshRateLimit } from "../middleware/rate-limit.js";
@@ -48,6 +49,7 @@ export class AuthController {
   ) {}
 
   @Post("register")
+  @Public()
   @CredentialRateLimit()
   @ApiOperation({ summary: "Create an account" })
   @ApiCreatedResponse({ description: "Account and token pair created" })
@@ -56,6 +58,7 @@ export class AuthController {
   }
 
   @Post("login")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @CredentialRateLimit()
   @ApiOperation({ summary: "Sign in" })
@@ -66,6 +69,7 @@ export class AuthController {
   }
 
   @Post("refresh")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @RefreshRateLimit()
   @ApiOperation({ summary: "Rotate a refresh token" })
@@ -74,6 +78,7 @@ export class AuthController {
   }
 
   @Post("logout")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @RefreshRateLimit()
   @ApiOperation({ summary: "Revoke a refresh token" })
@@ -82,6 +87,7 @@ export class AuthController {
   }
 
   @Post("forgot-password")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @CredentialRateLimit()
   @ApiOperation({ summary: "Create a password reset token" })
@@ -90,6 +96,7 @@ export class AuthController {
   }
 
   @Post("reset-password")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @CredentialRateLimit()
   @ApiOperation({ summary: "Reset a password" })

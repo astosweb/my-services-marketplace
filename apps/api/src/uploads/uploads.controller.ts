@@ -19,6 +19,7 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from "@nes
 import type { Request, Response } from "express";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
+import { Public } from "../common/decorators/public.decorator.js";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { badRequest } from "../lib/errors.js";
 import type { UploadFile } from "../lib/storage.js";
@@ -132,6 +133,7 @@ export class UploadsController {
   }
 
   @Get("*key")
+  @Public()
   @ApiOperation({ summary: "Read a public or authorized private upload" })
   async read(
     @Param("key") pathSegments: string | string[],

@@ -7,6 +7,7 @@ import { AdminModule } from "./admin/admin.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { CategoriesModule } from "./categories/categories.module.js";
 import { CommonModule } from "./common/common.module.js";
+import { JwtAuthGuard } from "./common/guards/jwt-auth.guard.js";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware.js";
 import { ConversationsModule } from "./conversations/conversations.module.js";
 import { DevicesModule } from "./devices/devices.module.js";
@@ -71,6 +72,10 @@ import { UsersModule } from "./users/users.module.js";
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

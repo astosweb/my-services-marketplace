@@ -1,6 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
+import { Public } from "../common/decorators/public.decorator.js";
 import { env } from "../lib/env.js";
 import { serviceUnavailable } from "../lib/errors.js";
 import { getRateLimitStore, RedisRateLimitStore } from "../middleware/rate-limit.js";
@@ -8,6 +9,7 @@ import { PrismaService } from "../prisma/prisma.service.js";
 
 @ApiTags("Health")
 @ApiStandardErrors()
+@Public()
 @Controller("health")
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}

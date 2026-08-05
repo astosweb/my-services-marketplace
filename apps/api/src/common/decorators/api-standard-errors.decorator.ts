@@ -5,6 +5,7 @@ import {
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiProperty,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 
@@ -30,5 +31,6 @@ export const ApiStandardErrors = () =>
     ApiUnauthorizedResponse({ type: ErrorResponseDto }),
     ApiForbiddenResponse({ type: ErrorResponseDto }),
     ApiNotFoundResponse({ type: ErrorResponseDto }),
+    ApiTooManyRequestsResponse({ type: ErrorResponseDto }),
     ApiInternalServerErrorResponse({ type: ErrorResponseDto }),
   );

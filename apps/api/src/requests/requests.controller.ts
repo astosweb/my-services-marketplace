@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { CurrentUserId } from "../common/decorators/current-user-id.decorator.js";
+import { Public } from "../common/decorators/public.decorator.js";
 import { JwtAuthGuard, OptionalJwtAuthGuard } from "../common/guards/jwt-auth.guard.js";
 import { ViewRateLimit } from "../middleware/rate-limit.js";
 import {
@@ -37,6 +38,7 @@ export class RequestsController {
   constructor(private readonly requestsService: RequestsService) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: "List service requests" })
   list(@Query() query: RequestListQueryDto) {
     return this.requestsService.list(query);
@@ -59,6 +61,7 @@ export class RequestsController {
   }
 
   @Get(":id")
+  @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Get a service request" })
@@ -67,6 +70,7 @@ export class RequestsController {
   }
 
   @Post(":id/views")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @UseGuards(OptionalJwtAuthGuard)
   @ViewRateLimit()
