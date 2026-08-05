@@ -63,6 +63,11 @@ The NestJS API already had solid foundations (strict TypeScript, hashed refresh 
 | Admin lat/long as `@IsInt @Min(0)` | Invalid geo validation | Proper `@IsNumber` bounds |
 | Attachment key length unbounded | Oversized keys | `@MaxLength(500, { each: true })` |
 | Non-image downloads inline | Content sniffing / XSS risk in browsers | `Content-Disposition: attachment` |
+| Opt-in JWT only | Easy to ship unauthenticated private routes | Global `JwtAuthGuard` + `@Public()` |
+| Device token race | Concurrent register could mutate another user's device row | Transactional ownership check |
+| bcrypt >72 char passwords | False strength / truncated hash | Cap password DTOs at 72 |
+| `avatarKey: null` failed validation | Could not clear avatar | `@ValidateIf` for null clears |
+| Standard errors missing 429 | Incomplete OpenAPI | `ApiTooManyRequestsResponse` |
 
 ### Lower / documented honesty (fixed or annotated)
 
@@ -122,15 +127,14 @@ God-service splits (`admin.service` / `support.service` / `requests.service`) we
 ## Remaining recommendations
 
 1. **Split god services** into domain modules (offers, progress, reviews, support tickets/ops/canned).
-2. **Enforce or stop advertising** fine-grained admin permissions.
-3. **Global `JwtAuthGuard` + `@Public()`** to prevent missing auth on new routes.
-4. **Cursor pagination** for feeds (requests, notifications, messages).
-5. **OpenAPI response DTOs** for all success payloads.
-6. **E2E tests** for offer accept, refresh reuse, private upload ACL, admin support guard.
-7. **Throttler Redis storage** so Nest global throttle is multi-instance safe.
-8. **Document MIME** further (OLE `.xls` vs `.doc` distinction) or restrict to PDF+images only.
-9. **Outbox pattern** for notifications after transactional domain commits.
-10. **Align Nest DTOs with `@monorepo/shared` Zod** to stop contract drift.
+2. **Enforce or stop advertising** fine-grained admin permissions (catalog is documented as UI-only).
+3. **Cursor pagination** for feeds (requests, notifications, messages).
+4. **OpenAPI response DTOs** for all success payloads.
+5. **E2E tests** for offer accept, refresh reuse, private upload ACL, admin support guard.
+6. **Throttler Redis storage** so Nest global throttle is multi-instance safe.
+7. **Document MIME** further (OLE `.xls` vs `.doc` distinction) or restrict to PDF+images only.
+8. **Outbox pattern** for notifications after transactional domain commits.
+9. **Align Nest DTOs with `@monorepo/shared` Zod** to stop contract drift.
 
 ---
 
