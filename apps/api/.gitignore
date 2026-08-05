@@ -7,3 +7,7 @@ coverage/
 .env
 .env.local
 .env.*.local
+
+# Local secrets (keep CA cert out of git; private keys never commit)
+secrets/
+!secrets/.gitkeep

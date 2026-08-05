@@ -6,7 +6,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   DATABASE_URL: z.string().min(1),
-  /** Set to "false" for managed Postgres (e.g. DigitalOcean) if SSL cert validation fails. */
+  /** Path to CA cert for managed Postgres (DigitalOcean Download CA Certificate). */
+  DATABASE_SSL_CA: z.string().min(1).optional(),
+  /** Set to "false" only if SSL cert validation must be skipped (prefer DATABASE_SSL_CA). */
   DATABASE_SSL_REJECT_UNAUTHORIZED: z.enum(["true", "false"]).optional(),
   SPACES_ENDPOINT: z.url().optional(),
   SPACES_REGION: z.string().optional(),
