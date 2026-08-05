@@ -24,7 +24,9 @@ layouts, toggled from the navigation bar:
   and a swipeable card carousel that stays in sync with the selected pin.
 
 Search, category filtering and sorting (Recommended, Newest, Highest Budget, Nearest) are
-applied client side on the page loaded from `GET /requests?limit=50`. Categories come from
+applied client side on the page loaded from `GET /requests?limit=50`. Category and city
+filters plus sort controls live in the Explore toolbar (there is no free-text search field).
+Categories come from
 `GET /categories` so the full catalog is available even when a city has no open requests.
 Category cards support Dynamic Type and wrap category names up to two lines.
 

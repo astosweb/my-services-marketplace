@@ -1,0 +1,74 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/admin/**"
+      - "apps/web/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "apps/admin/**"
+      - "apps/web/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - ".github/workflows/frontend-ci.yml"
+
+jobs:
+  admin:
+    name: Admin lint, typecheck, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+      - name: Lint
+        working-directory: apps/admin
+        run: pnpm lint
+      - name: Typecheck
+        working-directory: apps/admin
+        run: pnpm typecheck
+      - name: Test
+        working-directory: apps/admin
+        run: pnpm test
+
+  web:
+    name: Web lint, typecheck, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: apps/web
+        run: pnpm lint
+      - name: Typecheck
+        working-directory: apps/web
+        run: pnpm typecheck
+      - name: Test
+        working-directory: apps/web
+        run: pnpm test

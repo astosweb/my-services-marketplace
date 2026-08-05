@@ -173,6 +173,16 @@ export default function SettingsPage() {
         ) : null}
       </section>
 
+      <section className="mt-10">
+        <h2 className="font-display text-xl font-semibold">Help & support</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Need help with your account or a job? Open a support ticket.
+        </p>
+        <Button asChild className="mt-4" variant="outline">
+          <a href="/support">Go to support</a>
+        </Button>
+      </section>
+
       <section className="mt-14 border-t border-border pt-10">
         <h2 className="font-display text-xl font-semibold text-destructive">
           Delete account

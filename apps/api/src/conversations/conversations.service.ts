@@ -76,9 +76,18 @@ export class ConversationsService {
       if (first.isPinned !== second.isPinned) return first.isPinned ? -1 : 1;
       return new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime();
     });
+
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
+    const page = data.slice(offset, offset + limit);
     return {
-      data,
-      meta: { unreadCount: data.reduce((sum, conversation) => sum + conversation.unreadCount, 0) },
+      data: page,
+      meta: {
+        total: data.length,
+        limit,
+        offset,
+        unreadCount: data.reduce((sum, conversation) => sum + conversation.unreadCount, 0),
+      },
     };
   }
 

@@ -32,9 +32,9 @@ export type ServiceRequestDto = {
 
 export type AuditLogDto = {
   id: string;
-  actorId: string;
+  actorId: string | null;
   actorName: string;
-  actorEmail?: string;
+  actorEmail?: string | null;
   action: string;
   resource: string;
   resourceId: string;

@@ -1491,7 +1491,8 @@ export function RequestsPageClient() {
                                 </span>
                               </div>
                               <p className="text-muted-foreground">
-                                By <span className="font-medium text-foreground">{log.actorName}</span> ({log.actorEmail})
+                                By <span className="font-medium text-foreground">{log.actorName}</span>
+                                {log.actorEmail ? ` (${log.actorEmail})` : null}
                               </p>
                               {log.details && Object.keys(log.details).length > 0 && (
                                 <pre className="mt-1 rounded bg-muted p-1.5 font-mono text-[10px] overflow-x-auto">

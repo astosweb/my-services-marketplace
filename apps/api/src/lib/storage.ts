@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import { badRequest, serviceUnavailable } from "./errors.js";
 import { env, uploadUsesSpaces } from "./env.js";
@@ -157,6 +157,34 @@ async function fileData(file: File | UploadFile) {
   }
   const buffer = Buffer.from(await file.arrayBuffer());
   return { buffer, mimeType: file.type, name: file.name, size: buffer.byteLength };
+}
+
+/** Return byte size of a stored upload without loading the full object when possible. */
+export async function getUploadObjectSize(key: string): Promise<number | null> {
+  const client = getS3();
+  if (client && env.SPACES_BUCKET) {
+    try {
+      const result = await client.send(
+        new HeadObjectCommand({
+          Bucket: env.SPACES_BUCKET,
+          Key: key,
+        }),
+      );
+      return typeof result.ContentLength === "number" ? result.ContentLength : null;
+    } catch (err) {
+      const code =
+        (err as { name?: string; Code?: string }).name ?? (err as { Code?: string }).Code;
+      if (code === "NoSuchKey" || code === "NotFound" || code === "404") return null;
+      rethrowStorageError(err);
+    }
+  }
+
+  try {
+    const info = await stat(localUploadPath(key));
+    return info.size;
+  } catch {
+    return null;
+  }
 }
 
 /** Read an uploaded object from Spaces or local disk. */

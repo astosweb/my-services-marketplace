@@ -46,5 +46,6 @@ export const PROTECTED_PREFIXES = [
   "/messages",
   "/profile",
   "/settings",
+  "/support",
   "/requests/new",
 ] as const;

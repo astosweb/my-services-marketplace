@@ -130,21 +130,25 @@ export class SupportService {
 
   private async resolveAttachmentMeta(keys: string[], userId: string) {
     assertOwnedObjectKeys(keys, userId, "support");
-    return keys.map((key) => {
-      const fileName = key.split("/").pop() ?? "attachment";
-      const ext = fileName.includes(".") ? fileName.split(".").pop()!.toLowerCase() : "";
-      const mimeType =
-        ext === "pdf"
-          ? "application/pdf"
-          : ext === "png"
-            ? "image/png"
-            : ext === "webp"
-              ? "image/webp"
-              : ext === "txt"
-                ? "text/plain"
-                : "image/jpeg";
-      return { spacesKey: key, fileName, mimeType, sizeBytes: 0 };
-    });
+    const { getUploadObjectSize } = await import("../lib/storage.js");
+    return Promise.all(
+      keys.map(async (key) => {
+        const fileName = key.split("/").pop() ?? "attachment";
+        const ext = fileName.includes(".") ? fileName.split(".").pop()!.toLowerCase() : "";
+        const mimeType =
+          ext === "pdf"
+            ? "application/pdf"
+            : ext === "png"
+              ? "image/png"
+              : ext === "webp"
+                ? "image/webp"
+                : ext === "txt"
+                  ? "text/plain"
+                  : "image/jpeg";
+        const sizeBytes = (await getUploadObjectSize(key)) ?? 0;
+        return { spacesKey: key, fileName, mimeType, sizeBytes };
+      }),
+    );
   }
 
   private async notifySupportEvent(input: {

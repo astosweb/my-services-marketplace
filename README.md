@@ -376,17 +376,24 @@ Templates: `apps/api/.env.example`, `.env.docker.example`.
 
 - Passwords hashed (bcrypt); refresh tokens stored hashed and rotatable.
 - Helmet, CORS allowlist, body size limits, throttling.
+- Web/Admin BFF proxies enforce same-origin checks on mutating requests and allowlisted Nest path prefixes.
 - Message/support attachments are private; request photos and avatars are public (or proxied).
-- Admin routes require elevated role; admin UI also enforces fine-grained permissions.
+- Admin API requires `ADMIN` role; admin UI permission strings gate navigation only (binary RBAC).
 - Never commit `.env` or Spaces/APNs secrets.
 
 ---
+
+## Deployment
+
+See [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for backups, health checks, and schema/ops notes.
 
 ## Further reading
 
 - [`apps/api/README.md`](apps/api/README.md) — API setup & env
 - [`apps/admin/README.md`](apps/admin/README.md) — Admin panel
 - [`ios-app/README.md`](ios-app/README.md) — iOS client
+- [`AGENTS.md`](./AGENTS.md) — agent / contributor conventions
+- [`PROJECT_AUDIT_REPORT.md`](./PROJECT_AUDIT_REPORT.md) — architecture audit
 - Swagger UI — `http://localhost:3000/docs` when enabled
 
 Private repository — see repository owner for license and access.
