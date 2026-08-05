@@ -102,6 +102,7 @@ import {
   useUpdateRequest,
 } from "@/lib/api/marketplace";
 import { useUsers } from "@/lib/api/users";
+import { resolveMediaUrl } from "@/lib/media-url";
 
 const CITIES = [
   { value: "TALLINN", label: "Tallinn" },
@@ -545,7 +546,7 @@ export function RequestsPageClient() {
                     <TableCell className="whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
                         <Avatar className="size-6">
-                          <AvatarImage src={request.requester.avatarUrl ?? undefined} />
+                          <AvatarImage src={resolveMediaUrl(request.requester.avatarUrl)} />
                           <AvatarFallback className="text-[10px]">
                             {request.requester.profileName.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
@@ -1379,21 +1380,24 @@ export function RequestsPageClient() {
                       </CardHeader>
                       <CardContent>
                         <div className="flex flex-wrap gap-2">
-                          {requestDetail.photos.map((photo) => (
-                            <a
-                              key={photo.id}
-                              href={photo.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="group relative overflow-hidden rounded-md border size-20"
-                            >
-                              <img
-                                src={photo.url}
-                                alt="Request photo"
-                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                              />
-                            </a>
-                          ))}
+                          {requestDetail.photos.map((photo) => {
+                            const src = resolveMediaUrl(photo.url) ?? photo.url;
+                            return (
+                              <a
+                                key={photo.id}
+                                href={src}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group relative overflow-hidden rounded-md border size-20"
+                              >
+                                <img
+                                  src={src}
+                                  alt="Request photo"
+                                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                />
+                              </a>
+                            );
+                          })}
                         </div>
                       </CardContent>
                     </Card>
@@ -1406,7 +1410,7 @@ export function RequestsPageClient() {
                     <CardHeader>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-12">
-                          <AvatarImage src={requestDetail.owner.avatarUrl ?? undefined} />
+                          <AvatarImage src={resolveMediaUrl(requestDetail.owner.avatarUrl)} />
                           <AvatarFallback>
                             {requestDetail.owner.profileName.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
