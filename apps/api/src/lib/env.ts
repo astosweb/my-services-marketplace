@@ -65,8 +65,12 @@ const envSchema = z.object({
   /**
    * Separate HMAC secret for private upload signed URLs.
    * Falls back to JWT_SECRET when unset (dev convenience only).
+   * Empty string (common from docker compose `${VAR:-}`) is treated as unset.
    */
-  UPLOAD_SIGNING_SECRET: z.string().min(32).optional(),
+  UPLOAD_SIGNING_SECRET: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().min(32).optional(),
+  ),
   /** Apple Push Notification key id (from Apple Developer → Keys). */
   APNS_KEY_ID: z.string().optional(),
   /** Apple Developer Team ID. */
