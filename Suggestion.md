@@ -94,6 +94,8 @@ The NestJS API already had solid foundations (strict TypeScript, hashed refresh 
 10. Login timing equalization; register uniqueness race handled.
 11. Forced download disposition for non-image uploads.
 12. Ban + session wipe atomic.
+13. Global JWT by default (`@Public` escape hatch).
+14. Device registration ownership race closed.
 
 ---
 
@@ -153,6 +155,7 @@ God-service splits (`admin.service` / `support.service` / `requests.service`) we
 
 ### New
 - `apps/api/src/common/dto/pagination.dto.ts`
+- `apps/api/src/common/decorators/public.decorator.ts`
 - `apps/api/src/lib/csv.ts`
 - `apps/api/src/lib/user-rating.ts`
 - `apps/api/src/lib/mime-sniff.ts`
@@ -162,10 +165,11 @@ God-service splits (`admin.service` / `support.service` / `requests.service`) we
 ### Updated (selected)
 - `apps/api/prisma/schema.prisma`
 - `apps/api/src/lib/env.ts`, `upload-access.ts`, `storage.ts`, `admin-permissions.ts`
-- `apps/api/src/requests/*`, `conversations/*`, `auth/*`, `users/*`
+- `apps/api/src/requests/*`, `conversations/*`, `auth/*`, `users/*`, `devices/*`
 - `apps/api/src/admin/*`, `support/*`, `jobs/*`, `middleware/rate-limit.ts`
-- `apps/api/src/common/*`, `health/*`, `uploads/*`, `prisma/prisma.service.ts`, `app.module.ts`
+- `apps/api/src/common/*`, `health/*`, `uploads/*`, `categories/*`, `prisma/prisma.service.ts`, `app.module.ts`
 - `apps/api/.env.example`, `apps/api/package.json`, `pnpm-lock.yaml`
+- `docker-compose.yml`, `.env.docker.example`
 
 ### Deleted
 - `apps/api/src/lib/create-prisma.ts`
@@ -181,6 +185,8 @@ God-service splits (`admin.service` / `support.service` / `requests.service`) we
 5. **Support ticket payloads:** `email` omitted for non-admin viewers (including assigned admin email).
 6. **Message endpoints** return at most the latest N messages (100 default) instead of full history.
 7. **Admin `deleteReview` response** simplified to `{ deleted, id }` (rating refresh still applied).
+8. **Passwords capped at 72 characters** (bcrypt limit) on register/reset/login/delete.
+9. **Global JWT auth:** routes without `@Public()` require a Bearer token by default.
 
 Run `pnpm db:push` (or equivalent) after deploy to apply new indexes.
 
