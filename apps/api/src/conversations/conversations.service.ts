@@ -28,23 +28,32 @@ export class ConversationsService {
   }
 
   async list(userId: string, query: ConversationListQueryDto) {
-    const memberships = await this.prisma.conversationParticipant.findMany({
-      where: { userId, isArchived: query.archived === "true" },
-      include: {
-        conversation: {
-          include: {
-            request: { include: { category: true, owner: true } },
-            messages: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
-              include: { sender: true },
+    const where = { userId, isArchived: query.archived === "true" };
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
+
+    const [memberships, total] = await Promise.all([
+      this.prisma.conversationParticipant.findMany({
+        where,
+        include: {
+          conversation: {
+            include: {
+              request: { include: { category: true, owner: true } },
+              messages: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: { sender: true },
+              },
+              participants: { include: { user: true } },
             },
-            participants: { include: { user: true } },
           },
         },
-      },
-      orderBy: { conversation: { updatedAt: "desc" } },
-    });
+        orderBy: [{ isPinned: "desc" }, { conversation: { updatedAt: "desc" } }],
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.conversationParticipant.count({ where }),
+    ]);
 
     const unreadMessages =
       memberships.length === 0
@@ -72,21 +81,35 @@ export class ConversationsService {
         unreadByConversation.get(membership.conversationId) ?? 0,
       ),
     );
-    data.sort((first, second) => {
-      if (first.isPinned !== second.isPinned) return first.isPinned ? -1 : 1;
-      return new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime();
-    });
 
-    const limit = query.limit ?? 50;
-    const offset = query.offset ?? 0;
-    const page = data.slice(offset, offset + limit);
+    const unreadWhere = {
+      userId,
+      isArchived: false,
+    };
+    const allActive = await this.prisma.conversationParticipant.findMany({
+      where: unreadWhere,
+      select: { conversationId: true, lastReadAt: true },
+    });
+    const globalUnread =
+      allActive.length === 0
+        ? 0
+        : await this.prisma.message.count({
+            where: {
+              senderId: { not: userId },
+              OR: allActive.map((membership) => ({
+                conversationId: membership.conversationId,
+                createdAt: { gt: membership.lastReadAt ?? new Date(0) },
+              })),
+            },
+          });
+
     return {
-      data: page,
+      data,
       meta: {
-        total: data.length,
+        total,
         limit,
         offset,
-        unreadCount: data.reduce((sum, conversation) => sum + conversation.unreadCount, 0),
+        unreadCount: globalUnread,
       },
     };
   }
@@ -109,13 +132,15 @@ export class ConversationsService {
     return { id: conversationId, isPinned: updated.isPinned };
   }
 
-  async messages(conversationId: string, userId: string) {
+  async messages(conversationId: string, userId: string, limit = 100) {
     await this.requireMembership(conversationId, userId);
+    const take = Math.min(Math.max(limit, 1), 200);
     const [messages, readStates] = await Promise.all([
       this.prisma.message.findMany({
         where: { conversationId },
         include: { sender: true },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
+        take,
       }),
       this.prisma.conversationParticipant.findMany({
         where: { conversationId },
@@ -126,7 +151,7 @@ export class ConversationsService {
       where: { conversationId_userId: { conversationId, userId } },
       data: { lastReadAt: new Date() },
     });
-    return messages.map((message) => serializeMessage(message, userId, readStates));
+    return [...messages].reverse().map((message) => serializeMessage(message, userId, readStates));
   }
 
   async send(conversationId: string, userId: string, data: SendConversationMessageDto) {

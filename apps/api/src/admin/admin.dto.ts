@@ -8,6 +8,7 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -175,18 +176,20 @@ export class AdminCreateRequestDto {
   @MinLength(1)
   location!: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ minimum: -90, maximum: 90 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(0)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
   latitude?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ minimum: -180, maximum: 180 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(0)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
   longitude?: number;
 
   @ApiPropertyOptional()

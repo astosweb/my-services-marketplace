@@ -62,6 +62,11 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((v) => v === "true"),
+  /**
+   * Separate HMAC secret for private upload signed URLs.
+   * Falls back to JWT_SECRET when unset (dev convenience only).
+   */
+  UPLOAD_SIGNING_SECRET: z.string().min(32).optional(),
   /** Apple Push Notification key id (from Apple Developer → Keys). */
   APNS_KEY_ID: z.string().optional(),
   /** Apple Developer Team ID. */
@@ -138,12 +143,20 @@ export function assertSpacesEndpointShape() {
   }
 }
 
+function isLocalHostname(hostname: string) {
+  const host = hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
+}
+
 /** Fail at boot rather than falling back to unsafe production defaults. */
 export function assertProductionConfiguration() {
   if (env.NODE_ENV !== "production") return;
 
   if (env.JWT_SECRET.includes("change-me-to-a-long-random-secret")) {
     throw new Error("JWT_SECRET must not use the example value in production.");
+  }
+  if (new Set(env.JWT_SECRET).size < 16) {
+    throw new Error("JWT_SECRET appears low-entropy; use a long random secret in production.");
   }
   if (!env.REDIS_URL && !env.RATE_LIMIT_ALLOW_MEMORY) {
     throw new Error(
@@ -159,6 +172,22 @@ export function assertProductionConfiguration() {
   }
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
     throw new Error("RESEND_API_KEY and EMAIL_FROM are required for password-reset emails.");
+  }
+  if (!env.API_PUBLIC_URL || isLocalHostname(new URL(env.API_PUBLIC_URL).hostname)) {
+    throw new Error("API_PUBLIC_URL must be set to a public non-localhost URL in production.");
+  }
+  if (isLocalHostname(new URL(env.PASSWORD_RESET_URL).hostname)) {
+    throw new Error("PASSWORD_RESET_URL must not point at localhost in production.");
+  }
+  if (env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false") {
+    throw new Error(
+      "DATABASE_SSL_REJECT_UNAUTHORIZED=false is not allowed in production (TLS MITM risk).",
+    );
+  }
+  if (!env.UPLOAD_SIGNING_SECRET) {
+    throw new Error(
+      "UPLOAD_SIGNING_SECRET is required in production (do not reuse JWT_SECRET for upload URLs).",
+    );
   }
 }
 

@@ -18,7 +18,6 @@ import {
   SupportCreateRateLimit,
   SupportMessageRateLimit,
 } from "../middleware/rate-limit.js";
-import { PrismaService } from "../prisma/prisma.service.js";
 import {
   CreateSupportTicketDto,
   SendSupportMessageDto,
@@ -33,10 +32,7 @@ import { SupportService } from "./support.service.js";
 @UseGuards(JwtAuthGuard)
 @Controller("support")
 export class SupportController {
-  constructor(
-    private readonly supportService: SupportService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly supportService: SupportService) {}
 
   @Post("tickets")
   @SupportCreateRateLimit()
@@ -98,24 +94,14 @@ export class SupportController {
     @CurrentUserId() userId: string,
     @Body() body: SupportTypingDto,
   ) {
-    await this.supportService.getTicket(id, { userId, isAdmin: false });
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { displayName: true },
-    });
     return {
-      data: this.supportService.setTyping(
-        id,
-        { userId, displayName: user.displayName },
-        body.isTyping,
-      ),
+      data: await this.supportService.publishTyping(id, userId, false, body.isTyping),
     };
   }
 
   @Get("tickets/:id/typing")
   @ApiOperation({ summary: "Get active typing indicators for a ticket" })
   async getTyping(@Param("id") id: string, @CurrentUserId() userId: string) {
-    await this.supportService.getTicket(id, { userId, isAdmin: false });
-    return { data: this.supportService.getTyping(id, userId) };
+    return { data: await this.supportService.getTypingForViewer(id, userId, false) };
   }
 }

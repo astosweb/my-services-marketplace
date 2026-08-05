@@ -8,6 +8,7 @@ import {
   type User,
 } from "../generated/prisma/client.js";
 import { ADMIN_PERMISSIONS, permissionsForRole } from "../lib/admin-permissions.js";
+import { toCsv } from "../lib/csv.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import {
   mediaUrlForKey,
@@ -20,6 +21,7 @@ import {
   serializeReview,
   serializeUser,
 } from "../lib/serializers.js";
+import { refreshUserRating } from "../lib/user-rating.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { PushService } from "../push/push.service.js";
 import type {
@@ -47,8 +49,6 @@ const requestListInclude = {
 };
 
 const userCountsSelect = { requests: true, offers: true, reviewsReceived: true };
-
-const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
 @Injectable()
 export class AdminService {
@@ -110,10 +110,13 @@ export class AdminService {
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
-      this.prisma.serviceRequest.findMany({
-        where: { createdAt: { gte: chartStart } },
-        select: { createdAt: true },
-      }),
+      this.prisma.$queryRaw<Array<{ day: Date; count: bigint }>>`
+        SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::bigint AS count
+        FROM "ServiceRequest"
+        WHERE "createdAt" >= ${chartStart}
+        GROUP BY 1
+        ORDER BY 1
+      `,
       this.databaseReachable(),
     ]);
 
@@ -128,9 +131,9 @@ export class AdminService {
       date.setUTCDate(chartStart.getUTCDate() + day);
       dailyCounts.set(date.toISOString().slice(0, 10), 0);
     }
-    for (const request of chartRequests) {
-      const date = request.createdAt.toISOString().slice(0, 10);
-      dailyCounts.set(date, (dailyCounts.get(date) ?? 0) + 1);
+    for (const row of chartRequests) {
+      const date = new Date(row.day).toISOString().slice(0, 10);
+      dailyCounts.set(date, Number(row.count));
     }
 
     return {
@@ -430,14 +433,14 @@ export class AdminService {
       throw forbidden("You cannot ban your own account");
     }
 
-    const updated = await this.prisma.user.update({ where: { id }, data });
-
-    if (data.status === UserStatus.BANNED && existing.status !== UserStatus.BANNED) {
-      await Promise.all([
-        this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
-        this.prisma.deviceToken.deleteMany({ where: { userId: id } }),
-      ]);
-    }
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.update({ where: { id }, data });
+      if (data.status === UserStatus.BANNED && existing.status !== UserStatus.BANNED) {
+        await transaction.refreshToken.deleteMany({ where: { userId: id } });
+        await transaction.deviceToken.deleteMany({ where: { userId: id } });
+      }
+      return user;
+    });
 
     await this.logAudit(adminId, "USER_UPDATED", "user", id, {
       changes: data,
@@ -556,21 +559,23 @@ export class AdminService {
   }
 
   async exportUsersCsv() {
-    const users = await this.prisma.user.findMany({ orderBy: { createdAt: "desc" } });
-    const rows = [
+    const users = await this.prisma.user.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10_000,
+    });
+    return toCsv(
       ["id", "email", "displayName", "businessName", "role", "rating", "reviewCount", "createdAt"],
-      ...users.map((user) => [
+      users.map((user) => [
         user.id,
         user.email,
         user.displayName,
         user.businessName ?? "",
         user.role,
         user.rating.toFixed(2),
-        String(user.reviewCount),
+        user.reviewCount,
         user.createdAt.toISOString(),
       ]),
-    ];
-    return rows.map((row) => row.map(csvCell).join(",")).join("\n");
+    );
   }
 
   private async logAudit(
@@ -1010,17 +1015,9 @@ export class AdminService {
       select: { subjectId: true, authorId: true, requestId: true, rating: true },
     });
     if (!review) throw notFound("Review not found");
-    const aggregate = await this.prisma.$transaction(async (transaction) => {
+    await this.prisma.$transaction(async (transaction) => {
       await transaction.review.delete({ where: { id } });
-      const rating = await transaction.review.aggregate({
-        where: { subjectId: review.subjectId },
-        _avg: { rating: true },
-        _count: { _all: true },
-      });
-      await transaction.user.update({
-        where: { id: review.subjectId },
-        data: { rating: rating._avg.rating ?? 0, reviewCount: rating._count._all },
-      });
+      await refreshUserRating(transaction, review.subjectId);
       await transaction.auditLog.create({
         data: {
           actorId: adminId,
@@ -1035,9 +1032,8 @@ export class AdminService {
           },
         },
       });
-      return rating;
     });
-    return aggregate;
+    return { deleted: true as const, id };
   }
 
   async listCategories() {
@@ -1105,7 +1101,8 @@ export class AdminService {
     };
   }
 
-  async getConversationMessages(conversationId: string) {
+  async getConversationMessages(conversationId: string, limit = 200) {
+    const take = Math.min(Math.max(limit, 1), 500);
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: {
@@ -1113,11 +1110,13 @@ export class AdminService {
         participants: { include: { user: true } },
         messages: {
           include: { sender: true },
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: "desc" },
+          take,
         },
       },
     });
     if (!conversation) throw notFound("Conversation not found");
+    const messages = [...conversation.messages].reverse();
 
     return {
       id: conversation.id,
@@ -1125,7 +1124,7 @@ export class AdminService {
       requestTitle: conversation.request.title,
       requestStatus: conversation.request.status,
       participants: conversation.participants.map((p) => serializeUser(p.user)),
-      messages: conversation.messages.map((message) => ({
+      messages: messages.map((message) => ({
         id: message.id,
         senderId: message.senderId,
         senderName: profileName(message.sender),

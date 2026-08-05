@@ -57,8 +57,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         typeof payload === "object" && payload !== null && "message" in payload
           ? (payload as { message: string | string[] }).message
           : exception.message;
-      message = Array.isArray(payloadMessage) ? payloadMessage.join("; ") : payloadMessage;
-      if (status === HttpStatus.NOT_FOUND) message = "Not found";
+      if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+        message = "Internal server error";
+      } else if (status === HttpStatus.NOT_FOUND) {
+        message = "Not found";
+      } else {
+        message = Array.isArray(payloadMessage) ? payloadMessage.join("; ") : payloadMessage;
+      }
       code = statusCodes[status] ?? "HTTP_ERROR";
     } else if (exception instanceof SyntaxError && /JSON/i.test(exception.message)) {
       status = HttpStatus.BAD_REQUEST;
@@ -68,8 +73,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const statusCode = Number(status);
     if (statusCode >= 500) {
+      const logPayload =
+        exception instanceof Error
+          ? {
+              name: exception.name,
+              message: exception.message,
+              ...(exception instanceof Prisma.PrismaClientKnownRequestError
+                ? { code: exception.code }
+                : {}),
+            }
+          : { message: String(exception) };
       this.logger.error(
-        { requestId, path: request.originalUrl, exception },
+        { requestId, path: request.originalUrl, error: logPayload },
         exception instanceof Error ? exception.stack : undefined,
       );
     }

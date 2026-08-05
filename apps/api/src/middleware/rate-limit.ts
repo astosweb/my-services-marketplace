@@ -26,9 +26,19 @@ type MemoryEntry = { count: number; resetAt: number };
 /** Fixed-window counter store for single-node / tests. */
 export class MemoryRateLimitStore implements RateLimitStore {
   private readonly entries = new Map<string, MemoryEntry>();
+  private lastSweepAt = Date.now();
+
+  private sweep(now: number) {
+    if (now - this.lastSweepAt < 60_000) return;
+    this.lastSweepAt = now;
+    for (const [key, entry] of this.entries) {
+      if (entry.resetAt <= now) this.entries.delete(key);
+    }
+  }
 
   async hit(key: string, windowMs: number) {
     const now = Date.now();
+    this.sweep(now);
     const existing = this.entries.get(key);
     if (!existing || existing.resetAt <= now) {
       const resetAt = now + windowMs;
@@ -48,6 +58,15 @@ export class MemoryRateLimitStore implements RateLimitStore {
   }
 }
 
+const RATE_LIMIT_LUA = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+local pttl = redis.call('PTTL', KEYS[1])
+return {count, pttl}
+`;
+
 export class RedisRateLimitStore implements RateLimitStore {
   constructor(private readonly client: RedisClientType) {}
 
@@ -57,13 +76,19 @@ export class RedisRateLimitStore implements RateLimitStore {
     return new RedisRateLimitStore(client);
   }
 
+  /** Expose client for readiness probes / shared Redis usage. */
+  getClient() {
+    return this.client;
+  }
+
   async hit(key: string, windowMs: number) {
     const redisKey = `rl:${key}`;
-    const count = await this.client.incr(redisKey);
-    if (count === 1) {
-      await this.client.pExpire(redisKey, windowMs);
-    }
-    const pttl = await this.client.pTTL(redisKey);
+    const result = (await this.client.eval(RATE_LIMIT_LUA, {
+      keys: [redisKey],
+      arguments: [String(windowMs)],
+    })) as [number, number];
+    const count = Number(result[0]);
+    const pttl = Number(result[1]);
     const retryAfterSec = Math.max(1, Math.ceil((pttl > 0 ? pttl : windowMs) / 1000));
     return { count, retryAfterSec };
   }

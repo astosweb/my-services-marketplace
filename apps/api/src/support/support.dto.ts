@@ -150,6 +150,7 @@ export class CreateSupportTicketDto {
   @IsArray()
   @ArrayMaxSize(9)
   @IsString({ each: true })
+  @MaxLength(500, { each: true })
   attachmentKeys?: string[];
 
   @ApiPropertyOptional({ maxLength: 40 })
@@ -189,6 +190,7 @@ export class SendSupportMessageDto {
   @IsArray()
   @ArrayMaxSize(9)
   @IsString({ each: true })
+  @MaxLength(500, { each: true })
   attachmentKeys?: string[];
 }
 

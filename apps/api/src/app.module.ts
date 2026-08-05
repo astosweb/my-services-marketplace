@@ -34,9 +34,14 @@ import { UsersModule } from "./users/users.module.js";
         redact: {
           paths: [
             "req.headers.authorization",
+            "req.headers.cookie",
+            "req.query.token",
+            "req.query.exp",
             "req.body.password",
+            "req.body.currentPassword",
             "req.body.refreshToken",
             "req.body.token",
+            "req.url",
           ],
           censor: "[REDACTED]",
         },
@@ -60,7 +65,7 @@ import { UsersModule } from "./users/users.module.js";
     UsersModule,
     DevicesModule,
     SupportModule,
-    ...(env.REDIS_URL ? [JobsModule] : []),
+    JobsModule,
   ],
   providers: [
     {

@@ -32,6 +32,10 @@ import type {
   ResetPasswordDto,
 } from "./auth.dto.js";
 
+/** Dummy bcrypt hash used to equalize login timing when the user is missing. */
+const LOGIN_DUMMY_HASH =
+  "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.G2oQ.Y5K5Y5K5u";
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -69,23 +73,36 @@ export class AuthService {
 
   async register(data: RegisterDto, meta?: RequestClientMeta) {
     const email = data.email.trim().toLowerCase();
-    if (await this.prisma.user.findUnique({ where: { email } })) {
-      throw conflict("Email already registered");
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email,
+          displayName: data.displayName,
+          passwordHash: await hashPassword(data.password),
+        },
+      });
+      return this.authPayload(user, await this.issueTokens(user.id, meta));
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code: string }).code === "P2002"
+      ) {
+        throw conflict("Email already registered");
+      }
+      throw error;
     }
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        displayName: data.displayName,
-        passwordHash: await hashPassword(data.password),
-      },
-    });
-    return this.authPayload(user, await this.issueTokens(user.id, meta));
   }
 
   async login(data: LoginDto, meta?: RequestClientMeta) {
     const email = data.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user?.passwordHash || !(await verifyPassword(data.password, user.passwordHash))) {
+    const passwordOk = await verifyPassword(
+      data.password,
+      user?.passwordHash ?? LOGIN_DUMMY_HASH,
+    );
+    if (!user?.passwordHash || !passwordOk) {
       throw unauthorized("Invalid email or password");
     }
     this.assertNotBanned(user);

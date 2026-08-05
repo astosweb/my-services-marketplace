@@ -15,10 +15,10 @@ type UserPick = Pick<
   "id" | "email" | "displayName" | "businessName" | "preferBusinessName" | "avatarKey" | "role" | "status" | "createdAt"
 >;
 
-function serializeSupportUser(user: UserPick) {
+function serializeSupportUser(user: UserPick, options?: { includeEmail?: boolean }) {
   return {
     id: user.id,
-    email: user.email,
+    ...(options?.includeEmail ? { email: user.email } : {}),
     displayName: user.displayName,
     profileName: profileName(user),
     avatarUrl: user.avatarKey ? mediaUrlForKey(user.avatarKey) : null,
@@ -46,6 +46,7 @@ export function serializeSupportMessage(
     sender: UserPick;
     attachments: SupportAttachment[];
   },
+  options?: { includeEmail?: boolean },
 ) {
   return {
     id: message.id,
@@ -54,7 +55,7 @@ export function serializeSupportMessage(
     isStaff: message.isStaff,
     createdAt: message.createdAt.toISOString(),
     readAt: message.readAt?.toISOString() ?? null,
-    sender: serializeSupportUser(message.sender),
+    sender: serializeSupportUser(message.sender, { includeEmail: options?.includeEmail }),
     attachments: message.attachments.map(serializeSupportAttachment),
   };
 }
@@ -75,6 +76,7 @@ export function serializeSupportTicketListItem(
   viewer: { isAdmin: boolean; userId: string },
 ) {
   const unreadCount = viewer.isAdmin ? ticket.unreadByAdmin : ticket.unreadByUser;
+  const includeEmail = viewer.isAdmin;
   return {
     id: ticket.id,
     caseNumber: ticket.caseNumber,
@@ -99,8 +101,10 @@ export function serializeSupportTicketListItem(
     systemVersion: ticket.systemVersion,
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
-    createdBy: serializeSupportUser(ticket.createdBy),
-    assignedAdmin: ticket.assignedAdmin ? serializeSupportUser(ticket.assignedAdmin) : null,
+    createdBy: serializeSupportUser(ticket.createdBy, { includeEmail }),
+    assignedAdmin: ticket.assignedAdmin
+      ? serializeSupportUser(ticket.assignedAdmin, { includeEmail })
+      : null,
     attachmentCount: ticket._count?.attachments,
     messageCount: ticket._count?.messages,
   };
@@ -129,12 +133,15 @@ export function serializeSupportTicketDetail(
     updatedAt: Date;
   }>,
 ) {
+  const includeEmail = viewer.isAdmin;
   return {
     ...serializeSupportTicketListItem(ticket, viewer),
     userAgent: ticket.userAgent,
     userLastReadAt: ticket.userLastReadAt?.toISOString() ?? null,
     adminLastReadAt: ticket.adminLastReadAt?.toISOString() ?? null,
-    messages: ticket.messages.map(serializeSupportMessage),
+    messages: ticket.messages.map((message) =>
+      serializeSupportMessage(message, { includeEmail }),
+    ),
     attachments: ticket.attachments.map(serializeSupportAttachment),
     internalNotes: viewer.isAdmin
       ? ticket.internalNotes.map((note) => ({
@@ -143,7 +150,7 @@ export function serializeSupportTicketDetail(
           body: note.body,
           createdAt: note.createdAt.toISOString(),
           updatedAt: note.updatedAt.toISOString(),
-          author: serializeSupportUser(note.author),
+          author: serializeSupportUser(note.author, { includeEmail: true }),
         }))
       : [],
     statusHistory: ticket.statusHistory.map((row) => ({
@@ -152,14 +159,14 @@ export function serializeSupportTicketDetail(
       toStatus: row.toStatus,
       note: row.note,
       createdAt: row.createdAt.toISOString(),
-      changedBy: serializeSupportUser(row.changedBy),
+      changedBy: serializeSupportUser(row.changedBy, { includeEmail }),
     })),
     activities: ticket.activities.map((activity) => ({
       id: activity.id,
       type: activity.type,
       details: (activity.details as Record<string, unknown> | null) ?? null,
       createdAt: activity.createdAt.toISOString(),
-      actor: serializeSupportUser(activity.actor),
+      actor: serializeSupportUser(activity.actor, { includeEmail }),
     })),
     devices: devices?.map((device) => ({
       id: device.id,

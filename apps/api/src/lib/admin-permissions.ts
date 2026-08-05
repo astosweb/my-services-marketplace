@@ -1,5 +1,10 @@
 import { UserRole } from "../generated/prisma/client.js";
 
+/**
+ * Permission catalog returned to admin clients for UI gating.
+ * Server authorization remains binary ADMIN via AdminGuard until fine-grained
+ * RBAC is implemented end-to-end. Do not treat these strings as enforced ACLs.
+ */
 export const ADMIN_PERMISSIONS = [
   "dashboard:read",
   "users:read",

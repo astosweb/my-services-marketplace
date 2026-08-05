@@ -194,7 +194,11 @@ export class RequestsController {
   @Post(":id/messages")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Send a legacy request-scoped message" })
+  @ApiOperation({
+    summary: "Send a legacy request-scoped message",
+    deprecated: true,
+    description: "Prefer POST /conversations/:id/messages",
+  })
   async sendMessage(
     @Param("id") id: string,
     @CurrentUserId() userId: string,

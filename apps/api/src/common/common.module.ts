@@ -1,10 +1,11 @@
 import { Global, Module } from "@nestjs/common";
+import { AdminGuard } from "./guards/admin.guard.js";
 import { JwtAuthGuard, OptionalJwtAuthGuard } from "./guards/jwt-auth.guard.js";
 import { RateLimitGuard } from "../middleware/rate-limit.js";
 
 @Global()
 @Module({
-  providers: [JwtAuthGuard, OptionalJwtAuthGuard, RateLimitGuard],
-  exports: [JwtAuthGuard, OptionalJwtAuthGuard, RateLimitGuard],
+  providers: [JwtAuthGuard, OptionalJwtAuthGuard, AdminGuard, RateLimitGuard],
+  exports: [JwtAuthGuard, OptionalJwtAuthGuard, AdminGuard, RateLimitGuard],
 })
 export class CommonModule {}

@@ -8,7 +8,8 @@ export function isPrivateUploadKey(key: string) {
 }
 
 function sign(key: string, exp: number) {
-  return createHmac("sha256", env.JWT_SECRET).update(`${key}:${exp}`).digest("hex");
+  const secret = env.UPLOAD_SIGNING_SECRET ?? env.JWT_SECRET;
+  return createHmac("sha256", secret).update(`${key}:${exp}`).digest("hex");
 }
 
 /** Short-lived API URL for private uploads (works with clients that cannot send Bearer on media). */

@@ -184,12 +184,12 @@ describe("SupportService", () => {
     ).rejects.toMatchObject({ status: 400, code: "BAD_REQUEST" });
   });
 
-  it("tracks typing indicators with expiry", () => {
-    service.setTyping("ticket-1", { userId: "u1", displayName: "Ada" }, true);
-    expect(service.getTyping("ticket-1", "admin").typers).toEqual([
+  it("tracks typing indicators with expiry", async () => {
+    await service.setTyping("ticket-1", { userId: "u1", displayName: "Ada" }, true);
+    expect((await service.getTyping("ticket-1", "admin")).typers).toEqual([
       { userId: "u1", displayName: "Ada" },
     ]);
-    service.setTyping("ticket-1", { userId: "u1", displayName: "Ada" }, false);
-    expect(service.getTyping("ticket-1").typers).toEqual([]);
+    await service.setTyping("ticket-1", { userId: "u1", displayName: "Ada" }, false);
+    expect((await service.getTyping("ticket-1")).typers).toEqual([]);
   });
 });

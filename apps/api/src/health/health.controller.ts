@@ -1,8 +1,9 @@
-import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
+import { Controller, Get } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
-import { createClient } from "redis";
 import { ApiStandardErrors } from "../common/decorators/api-standard-errors.decorator.js";
 import { env } from "../lib/env.js";
+import { serviceUnavailable } from "../lib/errors.js";
+import { getRateLimitStore, RedisRateLimitStore } from "../middleware/rate-limit.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @ApiTags("Health")
@@ -26,22 +27,19 @@ export class HealthController {
 
     let redis: "connected" | "skipped" | "error" = "skipped";
     if (env.REDIS_URL) {
-      const client = createClient({ url: env.REDIS_URL });
       try {
-        await client.connect();
-        const pong = await client.ping();
-        redis = pong === "PONG" ? "connected" : "error";
+        const store = getRateLimitStore();
+        if (store instanceof RedisRateLimitStore) {
+          const pong = await store.getClient().ping();
+          redis = pong === "PONG" ? "connected" : "error";
+        } else {
+          redis = "error";
+        }
       } catch {
         redis = "error";
-      } finally {
-        await client.quit().catch(() => undefined);
       }
       if (redis === "error") {
-        throw new ServiceUnavailableException({
-          ok: false,
-          database: "connected",
-          redis: "error",
-        });
+        throw serviceUnavailable("Redis is unavailable");
       }
     }
 

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   HttpCode,
@@ -142,7 +141,7 @@ export class UploadsController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const encodedKey = Array.isArray(pathSegments) ? pathSegments.join("/") : pathSegments;
-    if (!encodedKey) throw new BadRequestException("File key is required");
+    if (!encodedKey) throw badRequest("File key is required");
     const object = await this.uploadsService.read(
       encodedKey,
       token,
@@ -150,6 +149,9 @@ export class UploadsController {
       request.header("authorization"),
     );
     response.setHeader("Content-Type", object.contentType);
+    if (!object.contentType.startsWith("image/")) {
+      response.setHeader("Content-Disposition", "attachment");
+    }
     response.setHeader(
       "Cache-Control",
       object.private ? "private, max-age=60" : "public, max-age=86400",

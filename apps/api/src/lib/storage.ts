@@ -5,6 +5,7 @@ import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from 
 import sharp from "sharp";
 import { badRequest, serviceUnavailable } from "./errors.js";
 import { env, uploadUsesSpaces } from "./env.js";
+import { assertMimeMatchesContent } from "./mime-sniff.js";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MESSAGE_FILE_TYPES = new Set([
@@ -258,6 +259,8 @@ export async function uploadMessageAttachment(userId: string, file: File | Uploa
     throw badRequest("Attachment must be 15 MB or smaller");
   }
 
+  assertMimeMatchesContent(mimeType, rawFile.buffer);
+
   if (IMAGE_TYPES.has(mimeType)) {
     const { buffer, contentType, ext } = await compressImageBuffer(rawFile.buffer, {
       maxDimension: PHOTO_MAX_DIMENSION,
@@ -287,6 +290,8 @@ export async function uploadSupportAttachment(userId: string, file: File | Uploa
   if (rawFile.size > MAX_MESSAGE_ATTACHMENT_BYTES) {
     throw badRequest("Attachment must be 15 MB or smaller");
   }
+
+  assertMimeMatchesContent(mimeType, rawFile.buffer);
 
   if (IMAGE_TYPES.has(mimeType)) {
     const { buffer, contentType, ext } = await compressImageBuffer(rawFile.buffer, {

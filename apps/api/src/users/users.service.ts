@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { UpdateProfileDto } from "../auth/auth.dto.js";
 import type { UserReviewsQueryDto } from "./users.dto.js";
-import { UserStatus } from "../generated/prisma/client.js";
+import { Prisma, UserStatus } from "../generated/prisma/client.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKey } from "../lib/owned-keys.js";
 import { serializeMe, serializeReview, serializeUser } from "../lib/serializers.js";
@@ -18,8 +18,11 @@ export class UsersService {
   }
 
   async reviews(id: string, query: UserReviewsQueryDto) {
-    const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
-    if (!user) throw notFound("User not found");
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!user || user.status === UserStatus.BANNED) throw notFound("User not found");
     const [reviews, total] = await Promise.all([
       this.prisma.review.findMany({
         where: { subjectId: id },
@@ -42,8 +45,11 @@ export class UsersService {
     if (data.avatarKey) assertOwnedObjectKey(data.avatarKey, userId, "avatars");
     try {
       return serializeMe(await this.prisma.user.update({ where: { id }, data }));
-    } catch {
-      throw notFound("User not found");
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw notFound("User not found");
+      }
+      throw error;
     }
   }
 }

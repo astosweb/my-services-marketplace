@@ -75,6 +75,7 @@ export class AuthController {
 
   @Post("logout")
   @HttpCode(HttpStatus.OK)
+  @RefreshRateLimit()
   @ApiOperation({ summary: "Revoke a refresh token" })
   async logout(@Body() data: RefreshTokenDto) {
     return { data: await this.authService.logout(data) };

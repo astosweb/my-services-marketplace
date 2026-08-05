@@ -54,8 +54,19 @@ export class ConversationsController {
 
   @Get(":id/messages")
   @ApiOperation({ summary: "List messages and mark the conversation read" })
-  async messages(@Param("id") id: string, @CurrentUserId() userId: string) {
-    return { data: await this.conversationsService.messages(id, userId) };
+  async messages(
+    @Param("id") id: string,
+    @CurrentUserId() userId: string,
+    @Query("limit") limit?: string,
+  ) {
+    const parsed = limit ? Number(limit) : 100;
+    return {
+      data: await this.conversationsService.messages(
+        id,
+        userId,
+        Number.isFinite(parsed) ? parsed : 100,
+      ),
+    };
   }
 
   @Post(":id/messages")

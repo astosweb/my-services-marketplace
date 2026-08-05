@@ -9,6 +9,7 @@ import {
   UserStatus,
 } from "../generated/prisma/client.js";
 import { EmailService } from "../email/email.service.js";
+import { toCsv } from "../lib/csv.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKeys } from "../lib/owned-keys.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -125,6 +126,8 @@ export class SupportService {
   }
 
   private sanitizeText(value: string) {
+    // Strip C0 control chars except tab/LF/CR
+    // eslint-disable-next-line no-control-regex -- intentional sanitization of control characters
     return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
   }
 
@@ -1071,7 +1074,7 @@ export class SupportService {
     const startOfWeek = new Date(startOfDay);
     startOfWeek.setUTCDate(startOfWeek.getUTCDate() - 7);
 
-    const base = { mergedIntoId: null as null };
+    const base = { mergedIntoId: null };
 
     const [
       open,
@@ -1185,40 +1188,36 @@ export class SupportService {
       take: 5000,
     });
 
-    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
-    const header = [
-      "caseNumber",
-      "subject",
-      "category",
-      "priority",
-      "status",
-      "createdBy",
-      "assignedAdmin",
-      "tags",
-      "slaBreached",
-      "createdAt",
-      "updatedAt",
-      "closedAt",
-    ].join(",");
-
-    const lines = rows.map((row) =>
+    return toCsv(
       [
+        "caseNumber",
+        "subject",
+        "category",
+        "priority",
+        "status",
+        "createdBy",
+        "assignedAdmin",
+        "tags",
+        "slaBreached",
+        "createdAt",
+        "updatedAt",
+        "closedAt",
+      ],
+      rows.map((row) => [
         row.caseNumber,
-        escape(row.subject),
+        row.subject,
         row.category,
         row.priority,
         row.status,
-        escape(row.createdBy.email),
-        escape(row.assignedAdmin?.email ?? ""),
-        escape(row.tags.join("|")),
-        String(isSlaBreached(row)),
+        row.createdBy.email,
+        row.assignedAdmin?.email ?? "",
+        row.tags.join("|"),
+        isSlaBreached(row),
         row.createdAt.toISOString(),
         row.updatedAt.toISOString(),
         row.closedAt?.toISOString() ?? "",
-      ].join(","),
+      ]),
     );
-
-    return [header, ...lines].join("\n");
   }
 
   async listCannedResponses() {
@@ -1268,7 +1267,46 @@ export class SupportService {
     return { deleted: true as const };
   }
 
-  setTyping(
+  private async readTyping(ticketId: string, excludeUserId?: string) {
+    const typers = new Map<string, { userId: string; displayName: string }>();
+    const bucket = this.typingByTicket.get(ticketId);
+    const now = Date.now();
+    if (bucket) {
+      for (const [userId, state] of bucket) {
+        if (state.expiresAt < now) {
+          bucket.delete(userId);
+          continue;
+        }
+        typers.set(userId, { userId: state.userId, displayName: state.displayName });
+      }
+    }
+
+    try {
+      const { getRateLimitStore, RedisRateLimitStore } = await import("../middleware/rate-limit.js");
+      const store = getRateLimitStore();
+      if (store instanceof RedisRateLimitStore) {
+        const client = store.getClient();
+        const keys = await client.keys(`support:typing:${ticketId}:*`);
+        if (keys.length) {
+          const values = await client.mGet(keys);
+          keys.forEach((key, index) => {
+            const displayName = values[index];
+            if (!displayName) return;
+            const userId = key.slice(`support:typing:${ticketId}:`.length);
+            typers.set(userId, { userId, displayName });
+          });
+        }
+      }
+    } catch {
+      // Local map is the fallback.
+    }
+
+    return {
+      typers: [...typers.values()].filter((typer) => typer.userId !== excludeUserId),
+    };
+  }
+
+  private applyTyping(
     ticketId: string,
     actor: { userId: string; displayName: string },
     isTyping: boolean,
@@ -1284,22 +1322,58 @@ export class SupportService {
       bucket.delete(actor.userId);
     }
     this.typingByTicket.set(ticketId, bucket);
-    return this.getTyping(ticketId, actor.userId);
+    void this.syncTypingToRedis(ticketId, actor, isTyping);
+    return this.readTyping(ticketId, actor.userId);
+  }
+
+  setTyping(
+    ticketId: string,
+    actor: { userId: string; displayName: string },
+    isTyping: boolean,
+  ) {
+    return this.applyTyping(ticketId, actor, isTyping);
   }
 
   getTyping(ticketId: string, excludeUserId?: string) {
-    const bucket = this.typingByTicket.get(ticketId);
-    if (!bucket) return { typers: [] as Array<{ userId: string; displayName: string }> };
-    const now = Date.now();
-    const typers: Array<{ userId: string; displayName: string }> = [];
-    for (const [userId, state] of bucket) {
-      if (state.expiresAt < now) {
-        bucket.delete(userId);
-        continue;
+    return this.readTyping(ticketId, excludeUserId);
+  }
+
+  async publishTyping(
+    ticketId: string,
+    userId: string,
+    isAdmin: boolean,
+    isTyping: boolean,
+  ) {
+    await this.getTicket(ticketId, { userId, isAdmin });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    return this.applyTyping(ticketId, { userId, displayName: user.displayName }, isTyping);
+  }
+
+  async getTypingForViewer(ticketId: string, userId: string, isAdmin: boolean) {
+    await this.getTicket(ticketId, { userId, isAdmin });
+    return this.readTyping(ticketId, userId);
+  }
+
+  private async syncTypingToRedis(
+    ticketId: string,
+    actor: { userId: string; displayName: string },
+    isTyping: boolean,
+  ) {
+    try {
+      const { getRateLimitStore, RedisRateLimitStore } = await import("../middleware/rate-limit.js");
+      const store = getRateLimitStore();
+      if (!(store instanceof RedisRateLimitStore)) return;
+      const key = `support:typing:${ticketId}:${actor.userId}`;
+      if (isTyping) {
+        await store.getClient().set(key, actor.displayName, { PX: 8_000 });
+      } else {
+        await store.getClient().del(key);
       }
-      if (excludeUserId && userId === excludeUserId) continue;
-      typers.push({ userId: state.userId, displayName: state.displayName });
+    } catch {
+      // Typing is best-effort; local map still works on this instance.
     }
-    return { typers };
   }
 }
