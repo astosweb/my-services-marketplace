@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, MapPin } from "lucide-react";
+import { Eye, Heart, Inbox, MapPin, Sparkles } from "lucide-react";
 import type { MarketplaceRequest } from "@monorepo/shared";
 import { CITY_LABELS, type EstonianCity } from "@monorepo/shared";
 import { Badge } from "@/components/ui/badge";
@@ -24,59 +24,118 @@ function cityLabel(city: string) {
 export function RequestCard({ request }: { request: MarketplaceRequest }) {
   const favorites = useFavorites();
   const isFavorite = favorites.has(request.id);
+  const cover = request.photos[0];
+  const showStatus = request.status !== "OPEN";
 
   return (
-    <article className="group relative flex h-full flex-col gap-3 rounded-xl border border-border/80 bg-white/85 p-4 transition duration-200 hover:border-primary/35 hover:shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-            <CategoryIcon categoryId={request.categoryId} className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-muted-foreground">
-              {request.categoryName}
-            </p>
-            <Link
-              href={`/requests/${request.id}`}
-              className="block truncate font-display text-base font-semibold text-foreground transition group-hover:text-primary"
+    <article
+      className={cn(
+        "group relative flex h-full flex-col overflow-hidden rounded-xl border bg-white/85 transition duration-200 hover:shadow-sm",
+        request.isPremium
+          ? "border-accent/45 hover:border-accent/70"
+          : "border-border/80 hover:border-primary/35",
+      )}
+    >
+      <Link
+        href={`/requests/${request.id}`}
+        className="flex h-full flex-col outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-secondary">
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={cover.url}
+              alt=""
+              className="size-full object-cover transition duration-300 group-hover:scale-[1.02]"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center text-primary/70">
+              <CategoryIcon categoryId={request.categoryId} className="size-8" />
+            </div>
+          )}
+
+          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-2">
+            <span className="inline-flex max-w-[70%] items-center gap-1 rounded-md bg-white/90 px-2 py-1 text-[11px] font-semibold text-primary backdrop-blur-sm">
+              <CategoryIcon categoryId={request.categoryId} className="size-3 shrink-0" />
+              <span className="truncate">{request.categoryName}</span>
+            </span>
+            {request.isPremium ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-md bg-white/90 px-1.5 py-1 text-accent backdrop-blur-sm"
+                aria-label="Boosted"
+              >
+                <Sparkles className="size-3.5" />
+              </span>
+            ) : null}
+          </div>
+
+          {showStatus ? (
+            <Badge
+              className={cn(
+                "absolute left-2 top-2",
+                STATUS_STYLES[request.status] ?? "",
+              )}
             >
+              {request.status.replaceAll("_", " ")}
+            </Badge>
+          ) : null}
+        </div>
+
+        <div className="flex flex-1 flex-col gap-2 p-3.5">
+          <div className="min-w-0">
+            <h3 className="truncate font-display text-base font-semibold text-foreground transition group-hover:text-primary">
               {request.title}
-            </Link>
+            </h3>
+            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              {request.description}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="size-3.5 shrink-0" />
+              {cityLabel(request.city)}
+            </span>
+            <span aria-hidden>·</span>
+            <span>{formatRelativeTime(request.createdAt)}</span>
+          </div>
+
+          <div className="mt-auto flex items-center gap-3 pt-1">
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-primary">
+              {formatBudget(request.budgetCents, request.budget)}
+            </p>
+            <span
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+              aria-label={`${request.offerCount} offers`}
+            >
+              <Inbox className="size-3.5" />
+              {request.offerCount}
+            </span>
+            <span
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+              aria-label={`${request.viewCount} views`}
+            >
+              <Eye className="size-3.5" />
+              {request.viewCount}
+            </span>
           </div>
         </div>
-        <button
-          type="button"
-          aria-label={isFavorite ? "Remove favorite" : "Save favorite"}
-          onClick={(event) => {
-            event.preventDefault();
-            favorites.toggle(request.id);
-          }}
-          className="rounded-lg p-2 text-muted-foreground transition hover:bg-secondary hover:text-primary"
-        >
-          <Heart
-            className={cn("size-4", isFavorite && "fill-primary text-primary")}
-          />
-        </button>
-      </div>
+      </Link>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <MapPin className="size-3.5" />
-          {cityLabel(request.city)}
-        </span>
-        <span aria-hidden>·</span>
-        <span>{formatRelativeTime(request.createdAt)}</span>
-        {request.isPremium ? (
-          <Badge className="bg-accent/90 text-accent-foreground">Premium</Badge>
-        ) : null}
-        <Badge className={cn(STATUS_STYLES[request.status] ?? "")}>
-          {request.status.replaceAll("_", " ")}
-        </Badge>
-      </div>
-
-      <p className="mt-auto text-sm font-semibold text-primary">
-        {formatBudget(request.budgetCents, request.budget)}
-      </p>
+      <button
+        type="button"
+        aria-label={isFavorite ? "Remove favorite" : "Save favorite"}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          favorites.toggle(request.id);
+        }}
+        className="absolute right-2 top-2 z-10 rounded-lg bg-white/90 p-2 text-muted-foreground shadow-sm backdrop-blur-sm transition hover:bg-secondary hover:text-primary"
+      >
+        <Heart
+          className={cn("size-4", isFavorite && "fill-primary text-primary")}
+        />
+      </button>
     </article>
   );
 }
