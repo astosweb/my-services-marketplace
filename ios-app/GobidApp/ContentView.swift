@@ -15,9 +15,11 @@ struct ContentView: View {
             switch auth.state {
             case .restoring:
                 VStack(spacing: 16) {
-                    Image(systemName: "hand.raised.fingers.spread.fill")
-                        .font(.system(size: 46))
-                        .foregroundStyle(.tint)
+                    Image("GobidMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     ProgressView("Restoring session")
                 }
             case .signedOut:

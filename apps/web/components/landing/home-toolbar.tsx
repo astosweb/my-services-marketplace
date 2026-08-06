@@ -23,12 +23,12 @@ export function HomeToolbar() {
       <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
         <div className="animate-rise flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <h1
+            <h2
               id="home-heading"
               className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]"
             >
               Find local help nearby
-            </h1>
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Search open jobs across Tallinn, Tartu, Pärnu &amp; Narva.
             </p>

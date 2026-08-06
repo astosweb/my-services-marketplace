@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { Bell, Heart, Menu, MessageCircle, Search, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SiteLogo } from "@/components/brand/logo";
 import { useOptionalUser } from "@/hooks/use-session";
-import { SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,9 +38,10 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
-          className="font-display text-2xl font-bold tracking-tight text-primary"
+          aria-label="Gobid home"
+          className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          {SITE_NAME}
+          <SiteLogo priority />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">

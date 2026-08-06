@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SiteLogo } from "@/components/brand/logo";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 const columns = [
@@ -35,8 +36,8 @@ export function SiteFooter() {
     <footer className="mt-auto border-t border-border bg-primary text-primary-foreground">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
         <div>
-          <p className="font-display text-2xl font-bold">{SITE_NAME}</p>
-          <p className="mt-2 max-w-xs text-sm text-primary-foreground/75">
+          <SiteLogo inverse />
+          <p className="mt-3 max-w-xs text-sm text-primary-foreground/75">
             {SITE_TAGLINE}. Trusted local help across Tallinn, Tartu, Pärnu &
             Narva.
           </p>

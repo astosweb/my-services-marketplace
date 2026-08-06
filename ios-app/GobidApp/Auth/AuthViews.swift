@@ -46,12 +46,12 @@ private struct AuthShell<Content: View>: View {
         ScrollView {
             VStack(spacing: 32) {
                 VStack(spacing: 16) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 56, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(colors: [.accentColor, .accentColor.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        )
-                        .symbolEffect(.bounce, options: .nonRepeating)
+                    Image("GobidMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 88, height: 88)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
                         .accessibilityHidden(true)
                     
                     Text(title)
@@ -89,13 +89,13 @@ private struct AuthShell<Content: View>: View {
                 Color(.systemGroupedBackground).ignoresSafeArea()
                 
                 Circle()
-                    .fill(Color.accentColor.opacity(0.15))
+                    .fill(Color(red: 0.059, green: 0.290, blue: 0.267).opacity(0.18))
                     .frame(width: 300, height: 300)
                     .blur(radius: 60)
                     .offset(x: -100, y: -200)
                 
                 Circle()
-                    .fill(Color.purple.opacity(0.15))
+                    .fill(Color(red: 0.941, green: 0.706, blue: 0.161).opacity(0.16))
                     .frame(width: 300, height: 300)
                     .blur(radius: 60)
                     .offset(x: 150, y: 100)

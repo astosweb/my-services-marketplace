@@ -1,3 +1,4 @@
+export { LandingHero } from "./hero";
 export { HomeToolbar } from "./home-toolbar";
 export { CategoryGrid } from "./category-grid";
 export { FeaturedRequests } from "./featured-requests";
