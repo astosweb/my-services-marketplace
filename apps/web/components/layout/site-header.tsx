@@ -106,7 +106,7 @@ export function SiteHeader() {
                 <Link href="/login">Log in</Link>
               </Button>
               <Button asChild>
-                <Link href="/register">Join Bidy</Link>
+                <Link href="/register">Join Gobid</Link>
               </Button>
             </>
           )}
@@ -194,7 +194,7 @@ export function SiteHeader() {
                   onClick={() => setOpen(false)}
                   className="rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-secondary"
                 >
-                  Join Bidy
+                  Join Gobid
                 </Link>
               </>
             )}

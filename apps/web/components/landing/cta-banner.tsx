@@ -21,13 +21,13 @@ export function CtaBanner() {
               Ready when you are
             </h2>
             <p className="mt-2 text-sm text-primary-foreground/80 sm:text-base">
-              Join Bidy to post a request or offer your skills to neighbors
+              Join Gobid to post a request or offer your skills to neighbors
               nearby.
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <Button asChild variant="accent" size="lg">
-              <Link href="/register">Join Bidy</Link>
+              <Link href="/register">Join Gobid</Link>
             </Button>
             <Button
               asChild

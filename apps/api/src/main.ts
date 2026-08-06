@@ -58,7 +58,7 @@ async function bootstrap() {
     const openApi = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()
-        .setTitle("Bidy API")
+        .setTitle("Gobid API")
         .setDescription("Marketplace, messaging, notification, and upload API")
         .setVersion("1.0")
         .addBearerAuth()
@@ -70,7 +70,7 @@ async function bootstrap() {
   }
 
   await app.listen(env.PORT, "0.0.0.0");
-  Logger.log(`Bidy API listening on port ${env.PORT}`, "Bootstrap");
+  Logger.log(`Gobid API listening on port ${env.PORT}`, "Bootstrap");
 }
 
 await bootstrap();

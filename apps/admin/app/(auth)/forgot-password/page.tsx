@@ -10,7 +10,7 @@ export default function ForgotPasswordPage() {
           <div className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-md">
             <Logo size={24} />
           </div>
-          Bidy Admin
+          Gobid Admin
         </Link>
         <ForgotPasswordForm1 />
       </div>

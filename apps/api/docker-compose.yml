@@ -1,25 +1,25 @@
 services:
   postgres:
     image: postgres:18
-    container_name: hero-postgres
+    container_name: gobid-postgres
     restart: unless-stopped
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_USER: hero
-      POSTGRES_PASSWORD: hero
-      POSTGRES_DB: hero
+      POSTGRES_USER: gobid
+      POSTGRES_PASSWORD: gobid
+      POSTGRES_DB: gobid
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hero -d hero"]
+      test: ["CMD-SHELL", "pg_isready -U gobid -d gobid"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   redis:
     image: redis:8
-    container_name: hero-redis
+    container_name: gobid-redis
     restart: unless-stopped
     ports:
       - "6380:6379"
@@ -34,14 +34,14 @@ services:
 
   api:
     build: .
-    container_name: hero-api
+    container_name: gobid-api
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: development
       PORT: "3000"
-      DATABASE_URL: postgresql://hero:hero@postgres:5432/hero
+      DATABASE_URL: postgresql://gobid:gobid@postgres:5432/gobid
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-chars}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}

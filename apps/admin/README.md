@@ -1,6 +1,6 @@
-# Bidy Admin
+# Gobid Admin
 
-Next.js 16 ops dashboard for the Bidy marketplace. Authenticates against `@hero/api` with HttpOnly JWT cookies and proxies Nest admin routes through a same-origin BFF.
+Next.js 16 ops dashboard for the Gobid marketplace. Authenticates against `@gobid/api` with HttpOnly JWT cookies and proxies Nest admin routes through a same-origin BFF.
 
 ## Stack
 
@@ -20,9 +20,9 @@ Admin does **not** talk to Postgres directly. Schema and seeding live in `apps/a
 # From repo root — API must be running with Postgres seeded
 pnpm install
 cp apps/admin/.env.example apps/admin/.env   # set API_URL
-pnpm --filter @hero/api db:generate
-pnpm --filter @hero/api db:push
-pnpm --filter @hero/api db:seed
+pnpm --filter @gobid/api db:generate
+pnpm --filter @gobid/api db:push
+pnpm --filter @gobid/api db:seed
 pnpm dev:api      # :3000
 pnpm dev:admin    # :3001
 ```
@@ -33,7 +33,7 @@ Open [http://localhost:3001](http://localhost:3001) — unauthenticated users ar
 
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | `admin@hero.test` | `password123` |
+| Admin | `admin@gobid.test` | `password123` |
 
 ## Environment
 

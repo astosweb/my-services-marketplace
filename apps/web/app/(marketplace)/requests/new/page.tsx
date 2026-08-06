@@ -44,7 +44,7 @@ export default function NewRequestPage() {
       <div className="mx-auto max-w-xl px-4 py-16 text-center sm:px-6">
         <h1 className="font-display text-3xl font-bold">Post a request</h1>
         <p className="mt-2 text-muted-foreground">
-          Log in to create a service request on Bidy.
+          Log in to create a service request on Gobid.
         </p>
         <Button asChild className="mt-6">
           <Link href="/login?callbackUrl=/requests/new">Log in</Link>

@@ -1,6 +1,6 @@
 //
-//  heroAppApp.swift
-//  heroApp
+//  GobidApp.swift
+//  GobidApp
 //
 //  Created by Serhat on 28.07.2026.
 //
@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct heroAppApp: App {
+struct GobidApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var auth = AuthSession()
 

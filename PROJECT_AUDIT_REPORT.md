@@ -1,4 +1,4 @@
-# Bidy — Project Audit Report
+# Gobid — Project Audit Report
 
 **Date:** 2026-08-05 (remediation pass same day)  
 **Scope:** Full monorepo (`apps/api`, `apps/admin`, `apps/web`, `packages/shared`, `ios-app`, Docker/CI)  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Bidy is a NestJS-centered marketplace monorepo with a strong API domain model, admin/support ops, public web, and SwiftUI client. A remediation pass closed the highest-risk audit gaps: **admin docs rewritten**, **fake auth templates removed**, **BFF CSRF + path allowlists**, **web job lifecycle + support**, **schema integrity (uniques/indexes/audit retention)**, **shared↔Nest contract alignment**, **frontend CI**, **env examples**, and **deployment/backup notes**.
+Gobid is a NestJS-centered marketplace monorepo with a strong API domain model, admin/support ops, public web, and SwiftUI client. A remediation pass closed the highest-risk audit gaps: **admin docs rewritten**, **fake auth templates removed**, **BFF CSRF + path allowlists**, **web job lifecycle + support**, **schema integrity (uniques/indexes/audit retention)**, **shared↔Nest contract alignment**, **frontend CI**, **env examples**, and **deployment/backup notes**.
 
 Remaining intentional/deferred items: payments/escrow, realtime messaging, map-on-web, offline iOS, multi-role server RBAC (honestly documented as binary), and full E2E/APM.
 
@@ -82,7 +82,7 @@ Remaining intentional/deferred items: payments/escrow, realtime messaging, map-o
 | Issue | Detail |
 |-------|--------|
 | Dual validators | Zod (clients) + class-validator (Nest) — limits synced; still two systems |
-| Naming mix | `@hero/api` / Bidy / hero seed emails |
+| Naming mix | `@gobid/api` / Gobid / gobid.test seed emails |
 | Typing indicators | Still in-memory across instances |
 | Payments | Explicitly deferred |
 
@@ -182,7 +182,7 @@ Remaining intentional/deferred items: payments/escrow, realtime messaging, map-o
 
 ## 🟢 Nice to Have
 
-### N1. Realtime chat · N2. Offline iOS · N3. Brand/`hero` rename · N4. Payments epic  
+### N1. Realtime chat · N2. Offline iOS · N3. Brand rename (Gobid) · N4. Payments epic  
 
 ---
 
@@ -216,7 +216,7 @@ Critical/High items C1–C5, H1–H2, H4–H7, docs, CSRF, web lifecycle, fronte
 
 Commands run after remediation:
 
-- `pnpm --filter @hero/api test` → 35 passed  
+- `pnpm --filter @gobid/api test` → 35 passed  
 - `pnpm --filter admin-panel test` → 13 passed  
 - `pnpm --filter web test` → 4 passed  
 - Typecheck: api, admin, web, shared → clean  

@@ -1,25 +1,25 @@
 services:
   postgres:
     image: postgres:18
-    container_name: hero-postgres
+    container_name: gobid-postgres
     restart: unless-stopped
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_USER: hero
-      POSTGRES_PASSWORD: hero
-      POSTGRES_DB: hero
+      POSTGRES_USER: gobid
+      POSTGRES_PASSWORD: gobid
+      POSTGRES_DB: gobid
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hero -d hero"]
+      test: ["CMD-SHELL", "pg_isready -U gobid -d gobid"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   redis:
     image: redis:8
-    container_name: hero-redis
+    container_name: gobid-redis
     restart: unless-stopped
     ports:
       - "6380:6379"
@@ -37,7 +37,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: api
-    container_name: hero-api
+    container_name: gobid-api
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -45,7 +45,7 @@ services:
       NODE_ENV: development
       PORT: "3000"
       LOG_LEVEL: info
-      DATABASE_URL: postgresql://hero:hero@postgres:5432/hero
+      DATABASE_URL: postgresql://gobid:gobid@postgres:5432/gobid
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Set a strong JWT_SECRET in the deployment environment}
       UPLOAD_SIGNING_SECRET: ${UPLOAD_SIGNING_SECRET:-}
@@ -66,7 +66,7 @@ services:
       SPACES_SECRET_ACCESS_KEY: ${SPACES_SECRET_ACCESS_KEY:?Set SPACES_SECRET_ACCESS_KEY}
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
-      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.serhatsabuncu.heroApp}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-ee.gobid.app}
       APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
       APNS_PRODUCTION: ${APNS_PRODUCTION:-false}
     volumes:
@@ -94,7 +94,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: admin
-    container_name: hero-admin
+    container_name: gobid-admin
     restart: unless-stopped
     ports:
       - "3001:3001"
@@ -114,7 +114,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: web
-    container_name: hero-web
+    container_name: gobid-web
     restart: unless-stopped
     ports:
       - "3002:3002"

@@ -9,7 +9,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      "As a handyman in Tartu, Bidy is where real jobs show up. Clear briefs, fair budgets, less time chasing leads.",
+      "As a handyman in Tartu, Gobid is where real jobs show up. Clear briefs, fair budgets, less time chasing leads.",
     name: "Mart R.",
     place: "Tartu",
   },

@@ -53,10 +53,10 @@ export function CategoryIcon({
   });
 }
 
-export const SITE_NAME = "Bidy";
+export const SITE_NAME = "Gobid";
 export const SITE_TAGLINE = "Local help, when you need it";
 export const SITE_DESCRIPTION =
-  "Bidy connects neighbors across Estonia with trusted local service providers — post a request, get offers, get it done.";
+  "Gobid connects neighbors across Estonia with trusted local service providers — post a request, get offers, get it done.";
 
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3002";

@@ -15,7 +15,7 @@ export default function CategoriesPage() {
           Categories
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Every kind of local help Bidy covers.
+          Every kind of local help Gobid covers.
         </p>
       </div>
 

@@ -6,9 +6,9 @@ import { tmpdir } from "node:os";
 const API_URL = (process.env.API_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "");
 
 const owners = [
-  { email: "moonika@hero.test", password: "password123" },
-  { email: "raivo@hero.test", password: "password123" },
-  { email: "siiri@hero.test", password: "password123" },
+  { email: "moonika@gobid.test", password: "password123" },
+  { email: "raivo@gobid.test", password: "password123" },
+  { email: "siiri@gobid.test", password: "password123" },
 ] as const;
 
 const posts = [
@@ -229,7 +229,7 @@ async function main() {
     const ownerTokens = await Promise.all(
       owners.map(async (owner) => login(owner.email, owner.password)),
     );
-    const adminToken = await login("admin@hero.test", "password123");
+    const adminToken = await login("admin@gobid.test", "password123");
 
     for (let i = 0; i < posts.length; i++) {
       const post = posts[i]!;

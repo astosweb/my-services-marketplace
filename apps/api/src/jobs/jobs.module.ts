@@ -27,7 +27,7 @@ const bullImports = env.REDIS_URL
               maxRetriesPerRequest: null,
               ...(redisUrl.protocol === "rediss:" ? { tls: {} } : {}),
             },
-            prefix: "hero",
+            prefix: "gobid",
           };
         },
       }),

@@ -91,10 +91,10 @@ final class PushDeviceRegistration: NSObject {
             return
         }
         let vendorId = UIDevice.current.identifierForVendor?.uuidString
-            ?? UserDefaults.standard.string(forKey: "hero.installationId")
+            ?? UserDefaults.standard.string(forKey: "gobid.installationId")
             ?? {
                 let id = UUID().uuidString
-                UserDefaults.standard.set(id, forKey: "hero.installationId")
+                UserDefaults.standard.set(id, forKey: "gobid.installationId")
                 return id
             }()
         await register(token: "idfv-\(vendorId)")

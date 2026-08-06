@@ -1,6 +1,6 @@
-# Bidy — Local Services Marketplace
+# Gobid — Local Services Marketplace
 
-**Bidy** connects neighbors across Estonia with trusted local service providers. Post a request, receive offers, chat, track job progress, and leave reviews — from web, admin, or the native iOS app.
+**Gobid** connects neighbors across Estonia with trusted local service providers. Post a request, receive offers, chat, track job progress, and leave reviews — from web, admin, or the native iOS app.
 
 Tagline: *Local help, when you need it.*
 
@@ -33,14 +33,14 @@ Pricing modes: **provider offers** a price, or **owner sets a fixed price**.
 ## Monorepo layout
 
 ```
-my-services-marketplace/
+gobid/
 ├── apps/
 │   ├── api/          # NestJS REST API (port 3000)
 │   ├── admin/        # Next.js admin dashboard (port 3001)
 │   └── web/          # Next.js public marketplace (port 3002)
 ├── packages/
 │   └── shared/       # Shared Zod schemas, types, permissions (@monorepo/shared)
-├── ios-app/          # Native SwiftUI client (Bidy EE)
+├── ios-app/          # Native SwiftUI client (Gobid)
 ├── docker/           # Docker helpers
 ├── docker-compose.yml
 └── Dockerfile
@@ -50,11 +50,11 @@ Package manager: **pnpm** (workspaces). Database schema lives in `apps/api/prism
 
 | App | Package name | Role |
 |-----|--------------|------|
-| API | `@hero/api` | Auth, marketplace, messaging, uploads, admin, support |
+| API | `@gobid/api` | Auth, marketplace, messaging, uploads, admin, support |
 | Admin | `admin-panel` | Internal ops dashboard (RBAC) |
 | Web | `web` | Public landing + marketplace UI |
 | Shared | `@monorepo/shared` | API contracts, auth/marketplace/support Zod types |
-| iOS | `ios-app/heroApp` | Native Explore / requests / auth client |
+| iOS | `ios-app/GobidApp` | Native Explore / requests / auth client |
 
 ---
 
@@ -91,12 +91,12 @@ cp apps/api/.env.example apps/api/.env
 pnpm install
 
 # Start Postgres (5433) + Redis (6380)
-pnpm --filter @hero/api docker:up
+pnpm --filter @gobid/api docker:up
 
 # Schema + seed
-pnpm --filter @hero/api db:generate
-pnpm --filter @hero/api db:push
-pnpm --filter @hero/api db:seed
+pnpm --filter @gobid/api db:generate
+pnpm --filter @gobid/api db:push
+pnpm --filter @gobid/api db:seed
 
 # Run apps (separate terminals)
 pnpm dev:api      # http://localhost:3000  — Swagger: /docs
@@ -310,8 +310,8 @@ Important models: `User`, `Category`, `ServiceRequest`, `Offer`, `Conversation` 
 Apply schema changes with:
 
 ```bash
-pnpm --filter @hero/api db:generate
-pnpm --filter @hero/api db:push
+pnpm --filter @gobid/api db:generate
+pnpm --filter @gobid/api db:push
 ```
 
 Prefer `prisma db push` over migrate in this project.

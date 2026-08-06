@@ -47,7 +47,7 @@ export function LoginForm1({
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
-      email: "admin@hero.test",
+      email: "admin@gobid.test",
       password: "password123",
     },
   });
@@ -109,7 +109,7 @@ export function LoginForm1({
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder="admin@hero.test"
+                          placeholder="admin@gobid.test"
                           autoComplete="email"
                           disabled={pending}
                           {...field}
@@ -159,7 +159,7 @@ export function LoginForm1({
       </Card>
       <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
         {process.env.NODE_ENV !== "production"
-          ? "Dev: pre-filled admin@hero.test / password123"
+          ? "Dev: pre-filled admin@gobid.test / password123"
           : "Protected admin access"}
       </div>
     </div>

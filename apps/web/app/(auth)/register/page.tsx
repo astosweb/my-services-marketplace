@@ -36,7 +36,7 @@ export default function RegisterPage() {
     try {
       await api.post("/auth/register", parsed.data);
       await queryClient.invalidateQueries({ queryKey: queryKeys.session });
-      toast.success("Welcome to Bidy");
+      toast.success("Welcome to Gobid");
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -51,7 +51,7 @@ export default function RegisterPage() {
 
   return (
     <>
-      <h1 className="font-display text-2xl font-bold">Join Bidy</h1>
+      <h1 className="font-display text-2xl font-bold">Join Gobid</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Create an account to post requests or send offers.
       </p>
