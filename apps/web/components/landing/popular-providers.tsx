@@ -6,6 +6,7 @@ import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRequests } from "@/lib/api/hooks";
 import type { PublicUser } from "@monorepo/shared";
+import { SectionHeader } from "./section-header";
 
 export function PopularProviders() {
   const { data, isLoading, isError, refetch } = useRequests({
@@ -29,21 +30,24 @@ export function PopularProviders() {
   }, [data]);
 
   return (
-    <section className="bg-primary py-16 text-primary-foreground">
+    <section
+      aria-labelledby="neighbors-heading"
+      className="border-y border-border/60 bg-primary py-10 text-primary-foreground sm:py-12"
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mb-8 max-w-xl">
-          <h2 className="font-display text-3xl font-bold tracking-tight">
-            Active neighbors
-          </h2>
-          <p className="mt-2 text-primary-foreground/75">
-            People posting and completing work across Estonia right now.
-          </p>
-        </div>
+        <SectionHeader
+          id="neighbors-heading"
+          title="Active neighbors"
+          description="People posting and completing work across Estonia right now."
+          tone="inverted"
+          actionHref="/explore"
+          actionLabel="Browse jobs"
+        />
 
         {isLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-20 rounded-2xl bg-white/10" />
+              <Skeleton key={index} className="h-20 rounded-xl bg-white/10" />
             ))}
           </div>
         ) : isError ? (
@@ -57,9 +61,12 @@ export function PopularProviders() {
             description="Active requesters will appear here."
           />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {providers.map((user) => (
-              <div key={user.id} className="[&_a]:bg-white/95 [&_a]:text-foreground">
+              <div
+                key={user.id}
+                className="[&_a]:border-transparent [&_a]:bg-white/95 [&_a]:text-foreground [&_a]:shadow-none"
+              >
                 <ProviderCard user={user} />
               </div>
             ))}

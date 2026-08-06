@@ -1,3 +1,5 @@
+import { SectionHeader } from "./section-header";
+
 const TESTIMONIALS = [
   {
     quote:
@@ -21,23 +23,27 @@ const TESTIMONIALS = [
 
 export function Testimonials() {
   return (
-    <section id="testimonials" className="bg-mist/50 py-16">
+    <section
+      id="testimonials"
+      aria-labelledby="testimonials-heading"
+      className="bg-mist/40 py-10 sm:py-12"
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mb-10 max-w-xl">
-          <h2 className="font-display text-3xl font-bold tracking-tight">
-            Stories from around Estonia
-          </h2>
-          <p className="mt-2 text-muted-foreground">
-            Neighbors helping neighbors — that’s the whole point.
-          </p>
-        </div>
-        <div className="grid gap-8 md:grid-cols-3">
+        <SectionHeader
+          id="testimonials-heading"
+          title="Stories from around Estonia"
+          description="Neighbors helping neighbors — that’s the whole point."
+        />
+        <div className="grid gap-6 md:grid-cols-3 md:gap-8">
           {TESTIMONIALS.map((item) => (
-            <blockquote key={item.name} className="flex flex-col gap-4">
-              <p className="text-base leading-relaxed text-foreground/90">
+            <blockquote
+              key={item.name}
+              className="flex flex-col border-l-2 border-primary/30 pl-4"
+            >
+              <p className="text-sm leading-relaxed text-foreground/90 sm:text-[0.9375rem]">
                 “{item.quote}”
               </p>
-              <footer className="mt-auto text-sm font-medium text-primary">
+              <footer className="mt-3 text-sm font-medium text-primary">
                 {item.name}
                 <span className="font-normal text-muted-foreground">
                   {" "}

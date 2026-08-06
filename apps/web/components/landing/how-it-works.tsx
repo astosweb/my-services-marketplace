@@ -1,45 +1,51 @@
+import { SectionHeader } from "./section-header";
+
 const STEPS = [
   {
-    step: "01",
+    step: "1",
     title: "Post what you need",
     description:
-      "Describe the job, pick your city, and add a budget if you have one. It takes a couple of minutes.",
+      "Describe the job, pick your city, and add a budget. Takes a couple of minutes.",
   },
   {
-    step: "02",
+    step: "2",
     title: "Compare local offers",
     description:
-      "Providers nearby message you with prices and availability. Chat in-app before you decide.",
+      "Providers nearby reply with prices and availability. Chat before you decide.",
   },
   {
-    step: "03",
+    step: "3",
     title: "Get it done",
     description:
-      "Accept an offer, track progress, and leave a review so the next neighbor knows who to trust.",
+      "Accept an offer, track progress, and leave a review for the next neighbor.",
   },
 ];
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <div className="mb-10 max-w-xl">
-        <h2 className="font-display text-3xl font-bold tracking-tight">
-          How Bidy works
-        </h2>
-        <p className="mt-2 text-muted-foreground">
-          A simple path from “I need help” to “done.”
-        </p>
-      </div>
-      <ol className="grid gap-8 md:grid-cols-3">
+    <section
+      id="how-it-works"
+      aria-labelledby="how-heading"
+      className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12"
+    >
+      <SectionHeader
+        id="how-heading"
+        title="How Bidy works"
+        description="A simple path from “I need help” to “done.”"
+      />
+      <ol className="grid gap-6 sm:grid-cols-3 sm:gap-8">
         {STEPS.map((item) => (
           <li key={item.step} className="relative">
-            <p className="font-display text-4xl font-bold text-primary/20">
+            <p
+              className="flex size-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground"
+              aria-hidden
+            >
               {item.step}
             </p>
-            <h3 className="mt-2 font-display text-xl font-semibold">
+            <h3 className="mt-3 font-display text-lg font-semibold tracking-tight">
               {item.title}
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               {item.description}
             </p>
           </li>
