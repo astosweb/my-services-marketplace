@@ -1,4 +1,4 @@
-export { LandingHero } from "./hero";
+export { HomeToolbar } from "./home-toolbar";
 export { CategoryGrid } from "./category-grid";
 export { FeaturedRequests } from "./featured-requests";
 export { LatestRequests } from "./latest-requests";
@@ -7,3 +7,4 @@ export { HowItWorks } from "./how-it-works";
 export { Testimonials } from "./testimonials";
 export { Faq } from "./faq";
 export { CtaBanner } from "./cta-banner";
+export { SectionHeader } from "./section-header";

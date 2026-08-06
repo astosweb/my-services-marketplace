@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { RequestCard } from "@/components/marketplace/request-card";
 import { EmptyState, ErrorState } from "@/components/shared/states";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRequests } from "@/lib/api/hooks";
+import { SectionHeader } from "./section-header";
 
 export function FeaturedRequests() {
   const { data, isLoading, isError, refetch } = useRequests({
@@ -14,31 +13,28 @@ export function FeaturedRequests() {
   });
 
   return (
-    <section className="bg-mist/60 py-16">
+    <section
+      aria-labelledby="featured-heading"
+      className="border-y border-border/60 bg-mist/50 py-10 sm:py-12"
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div className="max-w-xl">
-            <h2 className="font-display text-3xl font-bold tracking-tight">
-              Featured open requests
-            </h2>
-            <p className="mt-2 text-muted-foreground">
-              Live jobs waiting for offers from trusted locals.
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/requests">View all</Link>
-          </Button>
-        </div>
+        <SectionHeader
+          id="featured-heading"
+          title="Open requests"
+          description="Live jobs waiting for offers from trusted locals."
+          actionHref="/requests"
+          actionLabel="View all"
+        />
 
         {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-40 rounded-2xl" />
+              <Skeleton key={index} className="h-36 rounded-xl" />
             ))}
           </div>
         ) : isError ? (
           <ErrorState
-            description="Featured requests failed to load."
+            description="Open requests failed to load."
             onRetry={() => void refetch()}
           />
         ) : !data?.items.length ? (
@@ -49,9 +45,15 @@ export function FeaturedRequests() {
             actionHref="/requests/new"
           />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.items.map((request) => (
-              <RequestCard key={request.id} request={request} />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {data.items.map((request, index) => (
+              <div
+                key={request.id}
+                className="animate-rise"
+                style={{ animationDelay: `${Math.min(index, 5) * 0.06}s` }}
+              >
+                <RequestCard request={request} />
+              </div>
             ))}
           </div>
         )}

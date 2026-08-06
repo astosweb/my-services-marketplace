@@ -26,7 +26,7 @@ export function RequestCard({ request }: { request: MarketplaceRequest }) {
   const isFavorite = favorites.has(request.id);
 
   return (
-    <article className="group relative flex flex-col gap-3 rounded-2xl border border-border/80 bg-white/80 p-4 transition hover:border-primary/30 hover:shadow-sm">
+    <article className="group relative flex h-full flex-col gap-3 rounded-xl border border-border/80 bg-white/85 p-4 transition duration-200 hover:border-primary/35 hover:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">

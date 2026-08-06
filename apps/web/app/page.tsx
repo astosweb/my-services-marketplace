@@ -3,8 +3,8 @@ import {
   CtaBanner,
   Faq,
   FeaturedRequests,
+  HomeToolbar,
   HowItWorks,
-  LandingHero,
   LatestRequests,
   PopularProviders,
   Testimonials,
@@ -13,7 +13,7 @@ import {
 export default function HomePage() {
   return (
     <>
-      <LandingHero />
+      <HomeToolbar />
       <CategoryGrid />
       <FeaturedRequests />
       <HowItWorks />

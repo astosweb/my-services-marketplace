@@ -138,6 +138,6 @@
   .animate-rise,
   .animate-fade,
   .animate-scale-in {
-    animation: none;
+    animation: none !important;
   }
 }

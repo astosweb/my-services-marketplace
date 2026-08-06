@@ -19,30 +19,40 @@ const FAQS = [
 
 export function Faq() {
   return (
-    <section id="faq" className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <div className="mb-8 text-center">
-        <h2 className="font-display text-3xl font-bold tracking-tight">
+    <section
+      id="faq"
+      aria-labelledby="faq-heading"
+      className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-12"
+    >
+      <div className="mb-6 text-center sm:mb-7">
+        <h2
+          id="faq-heading"
+          className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]"
+        >
           Questions, answered
         </h2>
-        <p className="mt-2 text-muted-foreground">
+        <p className="mt-1.5 text-sm text-muted-foreground sm:text-[0.9375rem]">
           Straight answers for first-time posters and providers.
         </p>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {FAQS.map((item) => (
           <details
             key={item.q}
-            className="group rounded-2xl border border-border/80 bg-white/60 px-5 py-4 open:bg-white"
+            className="group rounded-xl border border-border/80 bg-white/70 px-4 py-3.5 open:bg-white open:shadow-sm"
           >
-            <summary className="cursor-pointer list-none font-display text-base font-semibold marker:content-none [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none font-display text-sm font-semibold marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:text-base [&::-webkit-details-marker]:hidden">
               <span className="flex items-center justify-between gap-4">
                 {item.q}
-                <span className="text-muted-foreground transition group-open:rotate-45">
+                <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary text-sm text-muted-foreground transition group-open:rotate-45 group-open:bg-primary group-open:text-primary-foreground"
+                  aria-hidden
+                >
                   +
                 </span>
               </span>
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
               {item.a}
             </p>
           </details>

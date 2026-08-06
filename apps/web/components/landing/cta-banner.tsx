@@ -3,20 +3,29 @@ import { Button } from "@/components/ui/button";
 
 export function CtaBanner() {
   return (
-    <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-      <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary via-primary to-[#163f3a] px-8 py-14 text-primary-foreground sm:px-12">
+    <section
+      aria-labelledby="cta-heading"
+      className="mx-auto max-w-6xl px-4 pb-14 sm:px-6 sm:pb-16"
+    >
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary to-[#163f3a] px-6 py-10 text-primary-foreground sm:px-10 sm:py-12">
         <div
-          className="pointer-events-none absolute -right-16 -bottom-20 size-72 rounded-full bg-accent/25 blur-3xl"
+          className="pointer-events-none absolute -right-16 -bottom-20 size-64 rounded-full bg-accent/20 blur-3xl"
           aria-hidden
         />
-        <div className="relative max-w-xl">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready when you are.
-          </h2>
-          <p className="mt-3 text-primary-foreground/80">
-            Join Bidy to post a request or offer your skills to neighbors nearby.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-lg">
+            <h2
+              id="cta-heading"
+              className="font-display text-2xl font-bold tracking-tight sm:text-3xl"
+            >
+              Ready when you are
+            </h2>
+            <p className="mt-2 text-sm text-primary-foreground/80 sm:text-base">
+              Join Bidy to post a request or offer your skills to neighbors
+              nearby.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
             <Button asChild variant="accent" size="lg">
               <Link href="/register">Join Bidy</Link>
             </Button>
