@@ -51,15 +51,19 @@ export function PopularProviders() {
             ))}
           </div>
         ) : isError ? (
-          <ErrorState
-            description="Couldn’t load active neighbors."
-            onRetry={() => void refetch()}
-          />
+          <div className="rounded-xl bg-white text-foreground">
+            <ErrorState
+              description="Couldn’t load active neighbors."
+              onRetry={() => void refetch()}
+            />
+          </div>
         ) : providers.length === 0 ? (
-          <EmptyState
-            title="No profiles to show"
-            description="Active requesters will appear here."
-          />
+          <div className="rounded-xl bg-white text-foreground">
+            <EmptyState
+              title="No profiles to show"
+              description="Active requesters will appear here."
+            />
+          </div>
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {providers.map((user) => (
