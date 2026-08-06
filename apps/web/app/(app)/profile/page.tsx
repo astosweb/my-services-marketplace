@@ -80,7 +80,7 @@ function ProfileForm({ user }: { user: MeUser }) {
     <div className="mx-auto max-w-xl px-4 py-10 sm:px-6">
       <h1 className="font-display text-4xl font-bold tracking-tight">Profile</h1>
       <p className="mt-2 text-muted-foreground">
-        How you appear to neighbors on Bidy.
+        How you appear to neighbors on Gobid.
       </p>
 
       <div className="mt-8 flex items-center gap-4">

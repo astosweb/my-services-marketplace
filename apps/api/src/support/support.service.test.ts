@@ -114,7 +114,7 @@ describe("SupportService", () => {
       platform: "ios",
       deviceName: "iPhone",
       systemVersion: "18.0",
-      userAgent: "Bidy/1.0",
+      userAgent: "Gobid/1.0",
       createdAt,
       updatedAt: createdAt,
       createdById: "user-1",

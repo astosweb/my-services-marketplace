@@ -23,7 +23,7 @@ export class EmailService {
       body: JSON.stringify({
         from: env.EMAIL_FROM,
         to: [recipient],
-        subject: "Reset your Bidy password",
+        subject: "Reset your Gobid password",
         text: `Use this link to reset your password: ${resetUrl.toString()}`,
       }),
       signal: AbortSignal.timeout(10_000),

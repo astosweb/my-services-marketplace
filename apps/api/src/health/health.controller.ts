@@ -18,7 +18,7 @@ export class HealthController {
   @ApiOperation({ summary: "Liveness check" })
   @ApiOkResponse({ description: "API process is healthy" })
   live() {
-    return { ok: true, service: "bidy-api" };
+    return { ok: true, service: "gobid-api" };
   }
 
   @Get("ready")

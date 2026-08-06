@@ -33,7 +33,7 @@ const prisma = new PrismaClient({
 const seedUsers = [
   {
     id: "seed_user_moonika",
-    email: "moonika@hero.test",
+    email: "moonika@gobid.test",
     displayName: "Moonika Tamm",
     bio: "Renting in Kristiine. Handy with most things but plumbing is a mystery to me.",
     rating: 4.2,
@@ -41,7 +41,7 @@ const seedUsers = [
   },
   {
     id: "seed_user_raivo",
-    email: "raivo@hero.test",
+    email: "raivo@gobid.test",
     displayName: "Raivo Kaljurand",
     bio: "Just moved into a new place in Kalamaja. Looking for reliable tradespeople.",
     rating: 4.8,
@@ -49,7 +49,7 @@ const seedUsers = [
   },
   {
     id: "seed_user_siiri",
-    email: "siiri@hero.test",
+    email: "siiri@gobid.test",
     displayName: "Siiri Leppänen",
     bio: "Student living in Annelinn. Recently renovated my flat and need it spotless.",
     rating: 4.5,
@@ -133,14 +133,14 @@ async function main() {
     where: { id: "seed_user_admin" },
     create: {
       id: "seed_user_admin",
-      email: "admin@hero.test",
-      displayName: "Bidy Admin",
+      email: "admin@gobid.test",
+      displayName: "Gobid Admin",
       bio: "Marketplace operations admin",
       role: UserRole.ADMIN,
       passwordHash,
     },
     update: {
-      displayName: "Bidy Admin",
+      displayName: "Gobid Admin",
       bio: "Marketplace operations admin",
       role: UserRole.ADMIN,
       passwordHash,

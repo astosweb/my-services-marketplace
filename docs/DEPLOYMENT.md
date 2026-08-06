@@ -12,13 +12,24 @@
 
 Local full stack: copy `.env.docker.example` → `.env`, fill secrets, `pnpm docker:up`.
 
+### Production domains (Gobid)
+
+| Surface | URL |
+|---------|-----|
+| Web marketplace | `https://gobid.ee` |
+| Admin | `https://admin.gobid.ee` |
+| API | `https://api.gobid.ee` |
+| Email from | `Gobid <no-reply@gobid.ee>` |
+
+Set `NEXT_PUBLIC_SITE_URL=https://gobid.ee`, `NEXT_PUBLIC_WEB_URL=https://gobid.ee`, `API_PUBLIC_URL=https://api.gobid.ee`, `PASSWORD_RESET_URL=https://gobid.ee/reset-password`, and `CORS_ORIGIN=https://gobid.ee,https://admin.gobid.ee`.
+
 ## Schema changes
 
 Prefer:
 
 ```bash
-pnpm --filter @hero/api db:generate
-pnpm --filter @hero/api db:push
+pnpm --filter @gobid/api db:generate
+pnpm --filter @gobid/api db:push
 ```
 
 SQL under `apps/api/prisma/migrations` may lag the schema. For shared production databases, take a backup before `db push`, or generate a reviewed migration offline before applying.

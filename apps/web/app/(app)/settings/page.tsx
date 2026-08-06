@@ -188,7 +188,7 @@ export default function SettingsPage() {
           Delete account
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Permanently remove your Bidy account and personal data. This cannot be
+          Permanently remove your Gobid account and personal data. This cannot be
           undone.
         </p>
         <form onSubmit={onDelete} className="mt-4 space-y-3">

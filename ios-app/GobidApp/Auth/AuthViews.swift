@@ -174,13 +174,13 @@ private struct LoginView: View {
 
                 HStack(spacing: 12) {
                     Button("Moonika") {
-                        Task { await loginAsSeed(email: "moonika@hero.test") }
+                        Task { await loginAsSeed(email: "moonika@gobid.test") }
                     }
                     .buttonStyle(.bordered)
                     .disabled(auth.isWorking)
 
                     Button("Raivo") {
-                        Task { await loginAsSeed(email: "raivo@hero.test") }
+                        Task { await loginAsSeed(email: "raivo@gobid.test") }
                     }
                     .buttonStyle(.bordered)
                     .disabled(auth.isWorking)
@@ -223,7 +223,7 @@ private struct RegisterView: View {
     @State private var feedbackTrigger = false
 
     var body: some View {
-        AuthShell(title: "Join Bidy EE", subtitle: "Create an account in a few seconds.") {
+        AuthShell(title: "Join Gobid", subtitle: "Create an account in a few seconds.") {
             VStack(spacing: 16) {
                 AuthTextField(title: "Display name", text: $name, contentType: .name)
                 AuthTextField(

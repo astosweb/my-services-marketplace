@@ -1,6 +1,6 @@
-# Bidy API
+# Gobid API
 
-Production NestJS API for the Bidy service marketplace.
+Production NestJS API for the Gobid service marketplace.
 
 ## Stack
 

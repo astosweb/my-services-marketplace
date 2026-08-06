@@ -1,5 +1,5 @@
 {
-  "name": "@hero/api",
+  "name": "@gobid/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
     "pretest": "pnpm db:generate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:generate": "DATABASE_URL=\"${DATABASE_URL:-postgresql://hero:hero@localhost:5433/hero}\" prisma generate",
+    "db:generate": "DATABASE_URL=\"${DATABASE_URL:-postgresql://gobid:gobid@localhost:5433/gobid}\" prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:seed2": "tsx prisma/seed2.ts",

@@ -1,15 +1,15 @@
 # syntax=docker/dockerfile:1
 #
-# Monorepo image for Hero API + Admin Panel + Web.
+# Monorepo image for Gobid API + Admin Panel + Web.
 # Build targets: api | admin | web
 #
 # Full stack:
 #   docker compose up --build
 #
 # Individual images:
-#   docker build --target api -t hero-api .
-#   docker build --target admin -t hero-admin .
-#   docker build --target web -t hero-web .
+#   docker build --target api -t gobid-api .
+#   docker build --target admin -t gobid-admin .
+#   docker build --target web -t gobid-web .
 
 ARG NODE_VERSION=24
 
@@ -38,8 +38,8 @@ COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 # Prisma generate needs a URL even when not connecting during build
 ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build"
-RUN pnpm --filter @hero/api build \
-  && pnpm --filter @hero/api deploy --prod --legacy /prod/api \
+RUN pnpm --filter @gobid/api build \
+  && pnpm --filter @gobid/api deploy --prod --legacy /prod/api \
   && cp -R apps/api/dist /prod/api/dist \
   && mkdir -p /prod/api/src \
   && cp -R apps/api/src/generated /prod/api/src/generated \

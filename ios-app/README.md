@@ -1,11 +1,11 @@
-# Bidy EE
+# Gobid
 
-Native SwiftUI client for the Bidy marketplace API.
+Native SwiftUI client for the Gobid marketplace API.
 
 ## API configuration
 
-`HERO_API_BASE_URL` is set via the Xcode build setting of the same name and merged into
-`heroApp/Info.plist`. It defaults to `http://127.0.0.1:3000` (Simulator → local API).
+`GOBID_API_BASE_URL` is set via the Xcode build setting of the same name and merged into
+`GobidApp/Info.plist`. It defaults to `http://127.0.0.1:3000` (Simulator → local API).
 Override per configuration or in CI with the deployed HTTPS API URL. For a physical device
 on the same network, switch it to your Mac's LAN IP (e.g. `http://192.168.x.x:3000`).
 
@@ -15,7 +15,7 @@ always use HTTPS.
 
 ## Explore
 
-`ExploreView` (`heroApp/Features/ExploreView.swift`) is the marketplace browser and has two
+`ExploreView` (`GobidApp/Features/ExploreView.swift`) is the marketplace browser and has two
 layouts, toggled from the navigation bar:
 
 - **List** – a responsive category grid (2 columns on compact widths, 3 on wider iPhones),
@@ -30,14 +30,14 @@ Categories come from
 `GET /categories` so the full catalog is available even when a city has no open requests.
 Category cards support Dynamic Type and wrap category names up to two lines.
 
-`RequestDetailView` (`heroApp/Features/RequestDetailView.swift`) is shared by Explore and My
+`RequestDetailView` (`GobidApp/Features/RequestDetailView.swift`) is shared by Explore and My
 Requests: photo gallery, status/pricing badges, stats, requester card, and a non-interactive
 map with Directions / Open in Maps links.
 
 ### Location permission
 
 Distance labels, the "Nearest" sort and the map's user location need
-`NSLocationWhenInUseUsageDescription` (already in `heroApp/Info.plist`). The prompt is only
+`NSLocationWhenInUseUsageDescription` (already in `GobidApp/Info.plist`). The prompt is only
 shown when the user opens the map layout or picks the "Nearest" sort — never on launch.
 
 ## Authentication

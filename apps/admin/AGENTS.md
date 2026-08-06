@@ -6,7 +6,7 @@ Monorepo-wide standards live in the root [`AGENTS.md`](../../AGENTS.md).
 
 ## Project overview
 
-Next.js 16 admin panel that proxies `@hero/api`. Do **not** add Prisma queries in the admin UI.
+Next.js 16 admin panel that proxies `@gobid/api`. Do **not** add Prisma queries in the admin UI.
 
 | Layer | Stack |
 |-------|-------|
@@ -21,7 +21,7 @@ Next.js 16 admin panel that proxies `@hero/api`. Do **not** add Prisma queries i
 ```bash
 pnpm install
 cp .env.example .env   # API_URL=http://localhost:3000
-# Seed via API: pnpm --filter @hero/api db:seed
+# Seed via API: pnpm --filter @gobid/api db:seed
 pnpm dev               # http://localhost:3001
 ```
 

@@ -46,7 +46,7 @@ jobs:
         working-directory: apps/api
         run: pnpm db:generate
         env:
-          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+          DATABASE_URL: postgresql://gobid:gobid@localhost:5433/gobid
 
       - name: Lint
         working-directory: apps/api
@@ -56,14 +56,14 @@ jobs:
         working-directory: apps/api
         run: pnpm typecheck
         env:
-          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+          DATABASE_URL: postgresql://gobid:gobid@localhost:5433/gobid
           JWT_SECRET: ci-test-secret-at-least-32-characters-long
 
       - name: Test
         working-directory: apps/api
         run: pnpm test
         env:
-          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+          DATABASE_URL: postgresql://gobid:gobid@localhost:5433/gobid
           JWT_SECRET: ci-test-secret-at-least-32-characters-long
           NODE_ENV: test
 
@@ -71,5 +71,5 @@ jobs:
         working-directory: apps/api
         run: pnpm build
         env:
-          DATABASE_URL: postgresql://hero:hero@localhost:5433/hero
+          DATABASE_URL: postgresql://gobid:gobid@localhost:5433/gobid
           JWT_SECRET: ci-test-secret-at-least-32-characters-long

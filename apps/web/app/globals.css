@@ -78,7 +78,7 @@
   }
 }
 
-@keyframes bidy-rise {
+@keyframes gobid-rise {
   from {
     opacity: 0;
     transform: translateY(16px);
@@ -89,7 +89,7 @@
   }
 }
 
-@keyframes bidy-fade {
+@keyframes gobid-fade {
   from {
     opacity: 0;
   }
@@ -98,7 +98,7 @@
   }
 }
 
-@keyframes bidy-scale-in {
+@keyframes gobid-scale-in {
   from {
     opacity: 0;
     transform: scale(0.96);
@@ -110,15 +110,15 @@
 }
 
 .animate-rise {
-  animation: bidy-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: gobid-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .animate-fade {
-  animation: bidy-fade 0.8s ease both;
+  animation: gobid-fade 0.8s ease both;
 }
 
 .animate-scale-in {
-  animation: bidy-scale-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: gobid-scale-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .delay-1 {

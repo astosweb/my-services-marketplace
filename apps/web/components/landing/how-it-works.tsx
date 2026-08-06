@@ -30,7 +30,7 @@ export function HowItWorks() {
     >
       <SectionHeader
         id="how-heading"
-        title="How Bidy works"
+        title="How Gobid works"
         description="A simple path from “I need help” to “done.”"
       />
       <ol className="grid gap-6 sm:grid-cols-3 sm:gap-8">

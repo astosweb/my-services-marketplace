@@ -6,10 +6,10 @@ import { inter } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: {
-    default: "Bidy Admin",
-    template: "%s | Bidy Admin",
+    default: "Gobid Admin",
+    template: "%s | Gobid Admin",
   },
-  description: "Marketplace operations admin for Bidy",
+  description: "Marketplace operations admin for Gobid",
   robots: {
     index: false,
     follow: false,

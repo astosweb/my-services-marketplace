@@ -1,12 +1,12 @@
 {
-  "name": "my-services-marketplace",
+  "name": "gobid",
   "private": true,
   "packageManager": "pnpm@11.20.0",
   "scripts": {
-    "dev:api": "pnpm --filter @hero/api dev",
+    "dev:api": "pnpm --filter @gobid/api dev",
     "dev:admin": "pnpm --filter admin-panel dev",
     "dev:web": "pnpm --filter web dev",
-    "build:api": "pnpm --filter @hero/api build",
+    "build:api": "pnpm --filter @gobid/api build",
     "build:admin": "pnpm --filter admin-panel build",
     "build:web": "pnpm --filter web build",
     "typecheck": "pnpm -r typecheck",

@@ -16,7 +16,7 @@ export function LatestRequests() {
     >
       <SectionHeader
         id="latest-heading"
-        title="Latest on Bidy"
+        title="Latest on Gobid"
         description="Fresh posts from neighbors who need a hand."
         actionHref="/explore"
         actionLabel="Explore marketplace"

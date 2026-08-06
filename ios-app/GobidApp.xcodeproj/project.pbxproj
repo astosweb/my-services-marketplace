@@ -7,26 +7,26 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		7359A50C301902C900B97C1D /* Bidy EE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Bidy EE.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7359A50C301902C900B97C1D /* Gobid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Gobid.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7359A51A301902CA00B97C1D /* Exceptions for "heroApp" folder in "heroApp" target */ = {
+		7359A51A301902CA00B97C1D /* Exceptions for "GobidApp" folder in "GobidApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 7359A50B301902C900B97C1D /* heroApp */;
+			target = 7359A50B301902C900B97C1D /* GobidApp */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		7359A50E301902C900B97C1D /* heroApp */ = {
+		7359A50E301902C900B97C1D /* GobidApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7359A51A301902CA00B97C1D /* Exceptions for "heroApp" folder in "heroApp" target */,
+				7359A51A301902CA00B97C1D /* Exceptions for "GobidApp" folder in "GobidApp" target */,
 			);
-			path = heroApp;
+			path = GobidApp;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -45,7 +45,7 @@
 		7359A503301902C900B97C1D = {
 			isa = PBXGroup;
 			children = (
-				7359A50E301902C900B97C1D /* heroApp */,
+				7359A50E301902C900B97C1D /* GobidApp */,
 				7359A50D301902C900B97C1D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -53,7 +53,7 @@
 		7359A50D301902C900B97C1D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7359A50C301902C900B97C1D /* Bidy EE.app */,
+				7359A50C301902C900B97C1D /* Gobid.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -61,9 +61,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7359A50B301902C900B97C1D /* heroApp */ = {
+		7359A50B301902C900B97C1D /* GobidApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7359A517301902CA00B97C1D /* Build configuration list for PBXNativeTarget "heroApp" */;
+			buildConfigurationList = 7359A517301902CA00B97C1D /* Build configuration list for PBXNativeTarget "GobidApp" */;
 			buildPhases = (
 				7359A508301902C900B97C1D /* Sources */,
 				7359A509301902C900B97C1D /* Frameworks */,
@@ -74,13 +74,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				7359A50E301902C900B97C1D /* heroApp */,
+				7359A50E301902C900B97C1D /* GobidApp */,
 			);
-			name = heroApp;
+			name = GobidApp;
 			packageProductDependencies = (
 			);
-			productName = heroApp;
-			productReference = 7359A50C301902C900B97C1D /* Bidy EE.app */;
+			productName = GobidApp;
+			productReference = 7359A50C301902C900B97C1D /* Gobid.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -98,7 +98,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7359A507301902C900B97C1D /* Build configuration list for PBXProject "heroApp" */;
+			buildConfigurationList = 7359A507301902C900B97C1D /* Build configuration list for PBXProject "GobidApp" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -112,7 +112,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7359A50B301902C900B97C1D /* heroApp */,
+				7359A50B301902C900B97C1D /* GobidApp */,
 			);
 		};
 /* End PBXProject section */
@@ -264,15 +264,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = heroApp/heroApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = GobidApp/GobidApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5HLELC5KYS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				HERO_API_BASE_URL = "http://127.0.0.1:3000";
-				INFOPLIST_FILE = heroApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Bidy EE";
+				GOBID_API_BASE_URL = "http://127.0.0.1:3000";
+				INFOPLIST_FILE = GobidApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Gobid";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -283,8 +283,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.serhatsabuncu.heroApp;
-				PRODUCT_NAME = "Bidy EE";
+				PRODUCT_BUNDLE_IDENTIFIER = ee.gobid.app;
+				PRODUCT_NAME = "Gobid";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -300,15 +300,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = heroApp/heroApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = GobidApp/GobidApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5HLELC5KYS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				HERO_API_BASE_URL = "http://127.0.0.1:3000";
-				INFOPLIST_FILE = heroApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Bidy EE";
+				GOBID_API_BASE_URL = "http://127.0.0.1:3000";
+				INFOPLIST_FILE = GobidApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Gobid";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -319,8 +319,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.serhatsabuncu.heroApp;
-				PRODUCT_NAME = "Bidy EE";
+				PRODUCT_BUNDLE_IDENTIFIER = ee.gobid.app;
+				PRODUCT_NAME = "Gobid";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -334,7 +334,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7359A507301902C900B97C1D /* Build configuration list for PBXProject "heroApp" */ = {
+		7359A507301902C900B97C1D /* Build configuration list for PBXProject "GobidApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7359A515301902CA00B97C1D /* Debug */,
@@ -343,7 +343,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7359A517301902CA00B97C1D /* Build configuration list for PBXNativeTarget "heroApp" */ = {
+		7359A517301902CA00B97C1D /* Build configuration list for PBXNativeTarget "GobidApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7359A518301902CA00B97C1D /* Debug */,

@@ -1,7 +1,7 @@
 const FAQS = [
   {
-    q: "Is Bidy only for Tallinn?",
-    a: "No — Bidy covers Tallinn, Tartu, Pärnu, and Narva. Pick your city when you post or search.",
+    q: "Is Gobid only for Tallinn?",
+    a: "No — Gobid covers Tallinn, Tartu, Pärnu, and Narva. Pick your city when you post or search.",
   },
   {
     q: "Do I have to accept an offer?",
@@ -9,7 +9,7 @@ const FAQS = [
   },
   {
     q: "How do providers get paid?",
-    a: "Payment is arranged directly between you and the provider. Bidy helps you find and coordinate — not process payments yet.",
+    a: "Payment is arranged directly between you and the provider. Gobid helps you find and coordinate — not process payments yet.",
   },
   {
     q: "Are profiles verified?",

@@ -75,8 +75,8 @@ const envSchema = z.object({
   APNS_KEY_ID: z.string().optional(),
   /** Apple Developer Team ID. */
   APNS_TEAM_ID: z.string().optional(),
-  /** App bundle id used as APNs topic (e.g. com.serhatsabuncu.heroApp). */
-  APNS_BUNDLE_ID: z.string().default("com.serhatsabuncu.heroApp"),
+  /** App bundle id used as APNs topic (e.g. ee.gobid.app). */
+  APNS_BUNDLE_ID: z.string().default("ee.gobid.app"),
   /**
    * Contents of the .p8 private key (PKCS#8 PEM), including BEGIN/END lines.
    * Prefer this over a file path in container deployments.

@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
-const STORAGE_KEY = "bidy_favorites";
+const STORAGE_KEY = "gobid_favorites";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();

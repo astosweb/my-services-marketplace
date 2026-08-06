@@ -91,7 +91,7 @@ Do these **only if** they remain in-scope for the product score:
 | Single validation source: generate Nest DTOs from shared Zod **or** Zod on Nest boundary | Ends dual-validator drift risk | High |
 | Contract tests: shared schemas vs OpenAPI/Swagger snapshot | Prevents silent API breaks for iOS | Medium |
 | Soft-delete or anonymize users without wiping related audit (already SetNull — extend to support activities if needed) | Compliance polish | Low–Medium |
-| Naming cleanup plan (`hero` → `bidy`) — can stay Nice-to-have for 90 | Clarity | High |
+| Naming cleanup (Gobid rebrand) — can stay Nice-to-have for 90 | Clarity | High |
 
 **Exit criteria:** One authoritative contract path + CI contract check.
 
@@ -122,7 +122,7 @@ Do **not** block 90+ on these if README/FAQ keep them deferred:
 - Full multi-role server RBAC (Manager/Editor) — binary ADMIN is honest today
 - Feature-flag product
 - Full offline iOS mode
-- Brand rename (`@hero/api` → `@bidy/api`)
+- ~~Brand rename~~ (done — Gobid / gobid.ee)
 
 Mark each “Out of scope — v2” in README so completeness scoring does not penalize them.
 

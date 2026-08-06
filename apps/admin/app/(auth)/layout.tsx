@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Authentication - Bidy Admin",
+  title: "Authentication - Gobid Admin",
   description: "Sign in to your account or create a new one",
 };
 

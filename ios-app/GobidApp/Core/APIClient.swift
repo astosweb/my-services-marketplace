@@ -3,13 +3,13 @@ import Security
 
 nonisolated enum APIConfiguration {
     static let baseURL: URL = {
-        let configured = (Bundle.main.object(forInfoDictionaryKey: "HERO_API_BASE_URL") as? String)?
+        let configured = (Bundle.main.object(forInfoDictionaryKey: "GOBID_API_BASE_URL") as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let candidate = (configured?.isEmpty == false ? configured : nil) ?? "http://127.0.0.1:3000"
         return URL(string: candidate)!
     }()
 
-    /// Rewrite Spaces/CDN or localhost media links to `HERO_API_BASE_URL/uploads/…`
+    /// Rewrite Spaces/CDN or localhost media links to `GOBID_API_BASE_URL/uploads/…`
     /// so AsyncImage hits the API proxy (works when Spaces ACLs are disabled).
     static func resolveMediaURL(_ url: URL) -> URL {
         let path = url.path
@@ -55,7 +55,7 @@ enum APIError: LocalizedError {
 }
 
 nonisolated struct KeychainTokenStore: Sendable {
-    private let service = Bundle.main.bundleIdentifier ?? "com.serhatsabuncu.heroApp"
+    private let service = Bundle.main.bundleIdentifier ?? "ee.gobid.app"
     private let account = "refresh-token"
 
     func read() -> String? {
