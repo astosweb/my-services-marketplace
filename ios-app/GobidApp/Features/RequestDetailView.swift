@@ -515,7 +515,7 @@ struct RequestDetailView: View {
             )
             factCell(
                 "Location",
-                value: request.location.isEmpty ? request.city : request.location,
+                value: request.location.isEmpty ? EstonianCity.fromAPICity(request.city).displayName : request.location,
                 symbol: "mappin.and.ellipse"
             )
             if let scheduledAt = request.scheduledAt {
@@ -1085,7 +1085,7 @@ struct RequestDetailView: View {
                 Label("Where", systemImage: "mappin.and.ellipse")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                Text(request.city)
+                Text(EstonianCity.fromAPICity(request.city).displayName)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -1119,7 +1119,7 @@ struct RequestDetailView: View {
                     .strokeBorder(Color.black.opacity(0.06))
             )
             .accessibilityLabel(
-                "Map showing \(request.location.isEmpty ? request.city : request.location)"
+                "Map showing \(request.location.isEmpty ? EstonianCity.fromAPICity(request.city).displayName : request.location)"
             )
 
             HStack(spacing: 10) {

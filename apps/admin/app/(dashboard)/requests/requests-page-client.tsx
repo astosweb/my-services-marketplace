@@ -29,7 +29,12 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { ServiceRequestStatus } from "@monorepo/shared";
+import {
+  CITY_LABELS,
+  ESTONIAN_CITIES,
+  type EstonianCity,
+  type ServiceRequestStatus,
+} from "@monorepo/shared";
 
 import { DataPagination } from "@/components/data-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -104,12 +109,25 @@ import {
 import { useUsers } from "@/lib/api/users";
 import { resolveMediaUrl } from "@/lib/media-url";
 
-const CITIES = [
-  { value: "TALLINN", label: "Tallinn" },
-  { value: "TARTU", label: "Tartu" },
-  { value: "PARNU", label: "Pärnu" },
-  { value: "NARVA", label: "Narva" },
-];
+const CITIES = ESTONIAN_CITIES.map((value) => ({
+  value,
+  label: CITY_LABELS[value],
+}));
+
+function resolveCityEnum(city: string | null | undefined): EstonianCity {
+  if (!city) return "TALLINN";
+  if ((ESTONIAN_CITIES as readonly string[]).includes(city)) {
+    return city as EstonianCity;
+  }
+  const byLabel = (Object.entries(CITY_LABELS) as [EstonianCity, string][]).find(
+    ([, label]) => label.toLowerCase() === city.toLowerCase(),
+  );
+  return byLabel?.[0] ?? "TALLINN";
+}
+
+function cityLabel(city: string) {
+  return CITY_LABELS[city as EstonianCity] ?? city;
+}
 
 const STATUSES: { value: ServiceRequestStatus; label: string }[] = [
   { value: "PENDING_REVIEW", label: "Pending Review" },
@@ -252,7 +270,7 @@ export function RequestsPageClient() {
         title: editingRequest.title,
         description: editingRequest.description ?? "",
         categoryId: editingRequest.categoryId ?? "",
-        city: (editingRequest.city as any) ?? "TALLINN",
+        city: resolveCityEnum(editingRequest.city),
         location: editingRequest.location ?? "",
         budgetEuros: editingRequest.budgetCents ? (editingRequest.budgetCents / 100).toString() : "",
         pricingMode: editingRequest.pricingMode ?? "PROVIDER_OFFERS",
@@ -535,7 +553,7 @@ export function RequestsPageClient() {
                     <TableCell className="whitespace-nowrap text-sm">
                       <div className="flex items-center gap-1 text-xs">
                         <MapPin className="text-muted-foreground size-3" />
-                        <span>{request.city}</span>
+                        <span>{cityLabel(request.city)}</span>
                       </div>
                     </TableCell>
 
@@ -660,7 +678,7 @@ export function RequestsPageClient() {
                     <FormLabel>Request Creator / Owner</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select user owner" />
                         </SelectTrigger>
                       </FormControl>
@@ -686,7 +704,7 @@ export function RequestsPageClient() {
                       <FormLabel>Category</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                         </FormControl>
@@ -711,7 +729,7 @@ export function RequestsPageClient() {
                       <FormLabel>City</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select city" />
                           </SelectTrigger>
                         </FormControl>
@@ -798,7 +816,7 @@ export function RequestsPageClient() {
                       <FormLabel>Pricing Mode</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Pricing mode" />
                           </SelectTrigger>
                         </FormControl>
@@ -822,7 +840,7 @@ export function RequestsPageClient() {
                       <FormLabel>Status</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Status" />
                           </SelectTrigger>
                         </FormControl>
@@ -934,7 +952,7 @@ export function RequestsPageClient() {
                       <FormLabel>Category</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Category" />
                           </SelectTrigger>
                         </FormControl>
@@ -959,7 +977,7 @@ export function RequestsPageClient() {
                       <FormLabel>City</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="City" />
                           </SelectTrigger>
                         </FormControl>
@@ -1014,7 +1032,7 @@ export function RequestsPageClient() {
                       <FormLabel>Status</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                         </FormControl>
@@ -1026,6 +1044,44 @@ export function RequestsPageClient() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={editForm.control}
+                  name="pricingMode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pricing Mode</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Pricing mode" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="PROVIDER_OFFERS">Provider Offers (Bidding)</SelectItem>
+                          <SelectItem value="OWNER_FIXED_PRICE">Fixed Price</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="scheduledAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Scheduled Date & Time</FormLabel>
+                      <FormControl>
+                        <Input type="datetime-local" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1206,7 +1262,7 @@ export function RequestsPageClient() {
                     <Tag className="size-3.5" /> {requestDetail.categorySymbol} {requestDetail.categoryName}
                   </span>
                   <span className="flex items-center gap-1">
-                    <MapPin className="size-3.5" /> {requestDetail.city} — {requestDetail.location}
+                    <MapPin className="size-3.5" /> {cityLabel(requestDetail.city)} — {requestDetail.location}
                   </span>
                 </SheetDescription>
               </SheetHeader>

@@ -806,7 +806,7 @@ private struct MapRequestDetailCard: View {
                             .foregroundStyle(request.accentTint)
                             .lineLimit(1)
 
-                        Text(distance.map { "\(request.city) · \($0)" } ?? request.city)
+                        Text(distance.map { "\(EstonianCity.fromAPICity(request.city).displayName) · \($0)" } ?? EstonianCity.fromAPICity(request.city).displayName)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
