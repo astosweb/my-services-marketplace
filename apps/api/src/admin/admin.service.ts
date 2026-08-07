@@ -305,8 +305,10 @@ export class AdminService {
       auditLogs,
       notifications,
       conversationParticipants,
+      favorites,
       notificationCount,
       conversationCount,
+      favoriteCount,
     ] = await Promise.all([
       this.prisma.serviceRequest.findMany({
         where: { ownerId: id },
@@ -380,8 +382,17 @@ export class AdminService {
         },
         take: 20,
       }),
+      this.prisma.favorite.findMany({
+        where: { userId: id },
+        include: {
+          request: { include: requestListInclude },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
       this.prisma.notification.count({ where: { userId: id } }),
       this.prisma.conversationParticipant.count({ where: { userId: id } }),
+      this.prisma.favorite.count({ where: { userId: id } }),
     ]);
 
     const sessions = refreshTokens.map((token) => ({
@@ -426,6 +437,7 @@ export class AdminService {
       deviceCount: deviceTokens.length,
       notificationCount,
       conversationCount,
+      favoriteCount,
       pendingPasswordReset: pendingReset
         ? {
             createdAt: pendingReset.createdAt.toISOString(),
@@ -475,6 +487,32 @@ export class AdminService {
           categoryId: serialized.categoryId,
           categoryName: serialized.categoryName,
           categorySymbol: serialized.categorySymbol,
+        };
+      }),
+      favorites: favorites.map((favorite) => {
+        const serialized = serializeRequest(favorite.request);
+        return {
+          id: serialized.id,
+          title: serialized.title,
+          description: serialized.description,
+          status: serialized.status,
+          city: serialized.city,
+          location: serialized.location,
+          budget: serialized.budget,
+          budgetCents: serialized.budgetCents,
+          pricingMode: serialized.pricingMode,
+          isPremium: serialized.isPremium,
+          scheduledAt: serialized.scheduledAt,
+          offerCount: serialized.offerCount,
+          createdAt: serialized.createdAt,
+          categoryId: serialized.categoryId,
+          categoryName: serialized.categoryName,
+          categorySymbol: serialized.categorySymbol,
+          favoritedAt: favorite.createdAt.toISOString(),
+          owner: {
+            id: favorite.request.owner.id,
+            profileName: profileName(favorite.request.owner),
+          },
         };
       }),
       offers: offers.map((offer) => ({

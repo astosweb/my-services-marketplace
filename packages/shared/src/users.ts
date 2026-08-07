@@ -107,6 +107,11 @@ export type UserDetailConversationDto = {
   }>;
 };
 
+export type UserDetailFavoriteDto = UserDetailRequestDto & {
+  favoritedAt: string;
+  owner: { id: string; profileName: string };
+};
+
 export type UserDetailDto = UserDto & {
   preferBusinessName: boolean;
   memberSince: string;
@@ -118,6 +123,7 @@ export type UserDetailDto = UserDto & {
   deviceCount: number;
   notificationCount: number;
   conversationCount: number;
+  favoriteCount: number;
   pendingPasswordReset: { createdAt: string; expiresAt: string } | null;
   sessions: UserDetailSessionDto[];
   devices: UserDetailDeviceDto[];
@@ -125,6 +131,7 @@ export type UserDetailDto = UserDto & {
   notifications: UserDetailNotificationDto[];
   conversations: UserDetailConversationDto[];
   requests: UserDetailRequestDto[];
+  favorites: UserDetailFavoriteDto[];
   offers: UserDetailOfferDto[];
   reviewsReceived: UserDetailReviewDto[];
   reviewsGiven: UserDetailReviewDto[];
