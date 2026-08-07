@@ -22,6 +22,7 @@ import {
   ShieldOff,
   Smartphone,
   Star,
+  Heart,
   Trash2,
   User,
   XCircle,
@@ -570,6 +571,9 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
             <TabsTrigger value="requests">
               Requests ({user.requests.length})
             </TabsTrigger>
+            <TabsTrigger value="favorites">
+              Favorites ({user.favoriteCount ?? user.favorites.length})
+            </TabsTrigger>
             <TabsTrigger value="offers">
               Offers ({user.offers.length})
             </TabsTrigger>
@@ -710,6 +714,72 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                             </RowActionsMenu>
                           </TableCell>
                         ) : null}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="favorites" className="pt-3">
+            {user.favorites.length === 0 ? (
+              <EmptyState
+                icon={Heart}
+                title="No favorites"
+                description="This user has not saved any service requests to favorites."
+              />
+            ) : (
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>City</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Budget</TableHead>
+                      <TableHead>Favorited</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {user.favorites.map((favorite) => (
+                      <TableRow key={favorite.id}>
+                        <TableCell className="font-medium max-w-[220px]">
+                          <Link
+                            href={`/requests?search=${encodeURIComponent(favorite.title)}`}
+                            className="hover:underline truncate block"
+                          >
+                            {favorite.title}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[140px] truncate">
+                          <Link
+                            href={`/users/${favorite.owner.id}`}
+                            className="hover:underline"
+                          >
+                            {favorite.owner.profileName}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          <span className="mr-1">{favorite.categorySymbol}</span>
+                          {favorite.categoryName}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {cityLabel(favorite.city)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={favorite.status} />
+                        </TableCell>
+                        <TableCell className="text-sm tabular-nums">
+                          {favorite.budget ?? "Flexible"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                          {formatDistanceToNow(new Date(favorite.favoritedAt), {
+                            addSuffix: true,
+                          })}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -10,19 +10,30 @@ import { queryKeys } from "@/lib/api/keys";
 import type { MarketplaceRequest } from "@monorepo/shared";
 
 export default function FavoritesPage() {
-  const { ids } = useFavorites();
+  const { ids, items, isLoading: favoritesLoading } = useFavorites();
+  const cachedRequests = items.map((item) => item.request);
+  const missingIds = ids.filter(
+    (id) => !cachedRequests.some((request) => request.id === id),
+  );
   const queries = useQueries({
-    queries: ids.map((id) => ({
+    queries: missingIds.map((id) => ({
       queryKey: queryKeys.request(id),
       queryFn: () => api.get<MarketplaceRequest>(`/requests/${id}`),
     })),
   });
 
-  const isLoading = queries.some((query) => query.isLoading);
-  const isError = queries.some((query) => query.isError);
-  const requests = queries
+  const fetchedRequests = queries
     .map((query) => query.data)
     .filter((item): item is MarketplaceRequest => Boolean(item));
+  const requests = [...cachedRequests, ...fetchedRequests];
+  const isLoading =
+    favoritesLoading ||
+    (ids.length > 0 && requests.length === 0 && queries.some((q) => q.isLoading));
+  const isError =
+    !favoritesLoading &&
+    ids.length > 0 &&
+    requests.length === 0 &&
+    queries.some((query) => query.isError);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -31,24 +42,26 @@ export default function FavoritesPage() {
           Favorites
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Requests you saved on this device.
+          Requests you saved for later.
         </p>
       </div>
 
-      {ids.length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: Math.min(Math.max(ids.length, 1), 6) }).map(
+            (_, index) => (
+              <Skeleton key={index} className="h-40 rounded-2xl" />
+            ),
+          )}
+        </div>
+      ) : ids.length === 0 ? (
         <EmptyState
           title="No favorites yet"
           description="Tap the heart on a request to save it here."
           actionLabel="Browse requests"
           actionHref="/requests"
         />
-      ) : isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: Math.min(ids.length, 6) }).map((_, index) => (
-            <Skeleton key={index} className="h-40 rounded-2xl" />
-          ))}
-        </div>
-      ) : isError && requests.length === 0 ? (
+      ) : isError ? (
         <ErrorState description="Couldn’t load saved requests." />
       ) : requests.length === 0 ? (
         <EmptyState

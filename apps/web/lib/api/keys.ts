@@ -17,6 +17,7 @@ export const queryKeys = {
   conversations: (archived?: boolean) =>
     ["conversations", { archived }] as const,
   messages: (id: string) => ["conversations", id, "messages"] as const,
+  favorites: ["favorites"] as const,
 };
 
 export function requestsPath(params: {
