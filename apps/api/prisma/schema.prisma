@@ -135,6 +135,8 @@ model User {
   reviewCount  Int      @default(0)
   role         UserRole @default(USER)
   status       UserStatus @default(ACTIVE)
+  /** Last time the user was observed online via realtime sockets. */
+  lastSeenAt   DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

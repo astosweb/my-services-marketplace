@@ -54,7 +54,8 @@ Detailed technical documentation lives under [`/docs`](docs/):
 | [`docs/ADMIN_APP_GUIDE.md`](docs/ADMIN_APP_GUIDE.md) | Next.js 16 admin dashboard, shadcn/ui components, binary `ADMIN` role vs UI permissions |
 | [`docs/MOBILE_APP_GUIDE.md`](docs/MOBILE_APP_GUIDE.md) | iOS SwiftUI architecture, MapKit, Keychain auth, token refresher queue |
 | [`docs/SHARED_CONTRACTS.md`](docs/SHARED_CONTRACTS.md) | `@monorepo/shared` package structure, exporting Zod schemas, contract synchronization |
-| [`docs/JOBS_AND_REDIS.md`](docs/JOBS_AND_REDIS.md) | BullMQ cron token cleanup, Redis rate limiting, pub/sub typing indicators |
+| [`docs/JOBS_AND_REDIS.md`](docs/JOBS_AND_REDIS.md) | BullMQ cron token cleanup, Redis rate limiting, Socket.IO Redis adapter |
+| [`docs/REALTIME.md`](docs/REALTIME.md) | Socket.IO architecture, rooms, auth, publisher, client integration |
 | [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) | Environment setup, pnpm workspace scripts, Docker Postgres/Redis, troubleshooting |
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Vitest and Jest testing strategies, integration testing, CI quality gates |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Docker build targets, production domain configuration, database backups, health probes |

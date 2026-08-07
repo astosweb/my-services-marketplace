@@ -18,10 +18,14 @@ struct GobidApp: App {
                 .environment(auth)
                 .task {
                     PushDeviceRegistration.shared.configure(auth: auth)
+                    RealtimeService.shared.configure(auth: auth)
                 }
                 .onChange(of: auth.state) { _, state in
                     if state == .signedIn {
                         PushDeviceRegistration.shared.startIfSignedIn()
+                        RealtimeService.shared.startIfSignedIn()
+                    } else if state == .signedOut {
+                        RealtimeService.shared.stop()
                     }
                 }
         }

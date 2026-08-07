@@ -27,6 +27,7 @@ final class AuthSession {
         client.onSessionExpired = { [weak self] in
             Task { @MainActor in
                 await PushDeviceRegistration.shared.unregisterCurrent()
+                RealtimeService.shared.stop()
             }
             self?.isWorking = false
             self?.user = nil
@@ -47,6 +48,7 @@ final class AuthSession {
             state = .signedIn
             await refreshInboxBadges()
             PushDeviceRegistration.shared.startIfSignedIn()
+            RealtimeService.shared.startIfSignedIn()
         } catch {
             user = nil
             state = .signedOut
@@ -176,6 +178,7 @@ final class AuthSession {
                 authenticated: false
             )
         }
+        RealtimeService.shared.stop()
         api.clearCredentials()
         user = nil
         messageUnreadCount = 0
@@ -195,6 +198,7 @@ final class AuthSession {
                 path: "auth/me",
                 body: DeleteAccountRequest(password: password)
             )
+            RealtimeService.shared.stop()
             api.clearCredentials()
             user = nil
             messageUnreadCount = 0
@@ -219,6 +223,7 @@ final class AuthSession {
             state = .signedIn
             await refreshInboxBadges()
             PushDeviceRegistration.shared.startIfSignedIn()
+            RealtimeService.shared.startIfSignedIn()
             return true
         } catch {
             errorMessage = error.localizedDescription

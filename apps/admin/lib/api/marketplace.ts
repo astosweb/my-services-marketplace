@@ -234,6 +234,6 @@ export function useSystemStatus() {
   return useQuery({
     queryKey: queryKeys.systemStatus,
     queryFn: () => api.get<SystemStatusDto>("/admin/system/status"),
-    refetchInterval: 30_000,
+    staleTime: 60_000,
   });
 }

@@ -24,6 +24,7 @@ import { useOptionalUser } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/keys";
 import { useRequest } from "@/lib/api/hooks";
+import { useRealtime } from "@/lib/realtime/provider";
 import { formatBudget, formatRelativeTime, initials, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -52,6 +53,13 @@ export default function RequestDetailPage({
     if (!id) return;
     void api.post(`/requests/${id}/views`).catch(() => undefined);
   }, [id]);
+
+  const realtime = useRealtime();
+  useEffect(() => {
+    if (!id) return;
+    realtime.joinRequest(id);
+    return () => realtime.leaveRequest(id);
+  }, [id, realtime]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.request(id) });

@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { RealtimeServerEvent } from "@monorepo/shared";
 import {
   JobProgressStatus,
   NotificationKind,
@@ -19,6 +18,7 @@ import {
 } from "../lib/serializers.js";
 import { refreshUserRating } from "../lib/user-rating.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { RealtimeServerEvent } from "../realtime/realtime.constants.js";
 import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import type {
   CreateOfferDto,

@@ -138,6 +138,7 @@ final class APIClient {
     }
 
     var currentRefreshToken: String? { refreshToken }
+    var currentAccessToken: String? { accessToken }
 
     func restorePersistedRefreshToken() -> String? {
         let token = tokenStore.read()

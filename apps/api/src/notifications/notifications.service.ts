@@ -1,10 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { RealtimeServerEvent } from "@monorepo/shared";
 import { badRequest, notFound } from "../lib/errors.js";
 import { categoryCatalog } from "../lib/category-catalog.js";
 import { serializeCategory, serializeNotification } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RealtimePublisher } from "../realtime/realtime.publisher.js";
+import { RealtimeServerEvent } from "../realtime/realtime.constants.js";
 import type {
   NotificationListQueryDto,
   UpdateNotificationPreferencesDto,

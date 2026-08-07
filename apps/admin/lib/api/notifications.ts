@@ -19,7 +19,6 @@ export function useNotifications(params?: { limit?: number; offset?: number }) {
           offset: params?.offset ?? 0,
         })}`,
       ),
-    refetchInterval: 60_000,
   });
 }
 
