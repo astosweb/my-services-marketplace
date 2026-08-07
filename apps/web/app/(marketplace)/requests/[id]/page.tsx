@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MapPin, Star } from "lucide-react";
 import {
@@ -40,6 +41,7 @@ export default function RequestDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const { user, isLoading: sessionLoading } = useOptionalUser();
   const query = useRequest(id);
   const queryClient = useQueryClient();
@@ -164,12 +166,13 @@ export default function RequestDetailPage({
   });
 
   const conversationMutation = useMutation({
-    mutationFn: async () => {
-      const result = await api.post<{ id: string }>(`/requests/${id}/conversation`);
-      return result;
+    mutationFn: async (peerUserId?: string) => {
+      return api.post<{ id: string }>(`/requests/${id}/conversation`, {
+        peerUserId,
+      });
     },
     onSuccess: (conversation) => {
-      window.location.href = `/messages/${conversation.id}`;
+      router.push(`/messages/${conversation.id}`);
     },
     onError: (error) => toast.error(errorText(error, "Could not open chat")),
   });
@@ -232,7 +235,7 @@ export default function RequestDetailPage({
       progressPending={progressMutation.isPending}
       onReview={() => reviewMutation.mutate()}
       reviewPending={reviewMutation.isPending}
-      onOpenChat={() => conversationMutation.mutate()}
+      onOpenChat={(peerUserId) => conversationMutation.mutate(peerUserId)}
       chatPending={conversationMutation.isPending}
     />
   );
@@ -293,7 +296,7 @@ function RequestDetailBody({
   progressPending: boolean;
   onReview: () => void;
   reviewPending: boolean;
-  onOpenChat: () => void;
+  onOpenChat: (peerUserId?: string) => void;
   chatPending: boolean;
 }) {
   const isOwner = userId === request.requester.id;
@@ -319,10 +322,19 @@ function RequestDetailBody({
     Boolean(userId) &&
     request.status === "COMPLETED" &&
     (isOwner || isAcceptedProvider);
-  const canChat =
+  const canOpenConversation =
     Boolean(userId) &&
     (isOwner || isAcceptedProvider) &&
-    (request.status === "IN_PROGRESS" || request.status === "COMPLETED");
+    request.status !== "OPEN";
+  const canMessageOwner =
+    Boolean(userId) &&
+    !isOwner &&
+    (request.viewerOffer?.status === "PENDING" ||
+      request.viewerOffer?.status === "ACCEPTED") &&
+    !canOpenConversation;
+  const defaultChatPeerId = isOwner
+    ? request.acceptedOffer?.provider.id
+    : request.requester.id;
 
   const nextProgress: Array<"ON_THE_WAY" | "STARTED" | "PROVIDER_DONE"> = [];
   if (canProgress) {
@@ -448,6 +460,32 @@ function RequestDetailBody({
         </div>
       ) : null}
 
+      {canMessageOwner ? (
+        <div className="mt-8 rounded-2xl border border-border bg-white p-5">
+          <button
+            type="button"
+            disabled={chatPending}
+            onClick={() => onOpenChat(request.requester.id)}
+            className="flex w-full items-center gap-3 text-left transition hover:opacity-90"
+          >
+            <span className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              {initials(request.requester.profileName)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-display font-semibold">
+                Message {request.requester.profileName}
+              </span>
+              <span className="block text-sm text-muted-foreground">
+                Ask a question about this request
+              </span>
+            </span>
+            <span className="text-sm text-primary">
+              {chatPending ? "Opening…" : "Chat"}
+            </span>
+          </button>
+        </div>
+      ) : null}
+
       {canOwnerManageOffers ? (
         <div className="mt-8 space-y-3 rounded-2xl border border-border bg-white p-5">
           <h2 className="font-display text-lg font-semibold">Offers</h2>
@@ -473,25 +511,37 @@ function RequestDetailBody({
                     <p className="mt-1 text-sm">{offer.message}</p>
                   ) : null}
                 </div>
-                {offer.status === "PENDING" ? (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      disabled={offerStatusPending}
-                      onClick={() => onOfferStatus(offer.id, "ACCEPTED")}
-                    >
-                      Accept
-                    </Button>
+                <div className="flex flex-wrap gap-2">
+                  {offer.status === "PENDING" || offer.status === "ACCEPTED" ? (
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={offerStatusPending}
-                      onClick={() => onOfferStatus(offer.id, "DECLINED")}
+                      disabled={chatPending}
+                      onClick={() => onOpenChat(offer.offerer.id)}
                     >
-                      Decline
+                      Message
                     </Button>
-                  </div>
-                ) : null}
+                  ) : null}
+                  {offer.status === "PENDING" ? (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={offerStatusPending}
+                        onClick={() => onOfferStatus(offer.id, "ACCEPTED")}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={offerStatusPending}
+                        onClick={() => onOfferStatus(offer.id, "DECLINED")}
+                      >
+                        Decline
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
               </div>
             ))
           )}
@@ -584,10 +634,13 @@ function RequestDetailBody({
         </div>
       ) : null}
 
-      {(canCancel || canComplete || canChat) && (
+      {(canCancel || canComplete || canOpenConversation) && (
         <div className="mt-8 flex flex-wrap gap-2">
-          {canChat ? (
-            <Button disabled={chatPending} onClick={onOpenChat}>
+          {canOpenConversation ? (
+            <Button
+              disabled={chatPending}
+              onClick={() => onOpenChat(defaultChatPeerId)}
+            >
               {chatPending ? "Opening…" : "Open chat"}
             </Button>
           ) : null}

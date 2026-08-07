@@ -88,11 +88,6 @@ export class RealtimeClient {
         }
       });
 
-      for (const [, set] of this.handlers) {
-        for (const [, wrapped] of set) {
-          // Re-bind after socket recreation — events registered below per-event.
-        }
-      }
       for (const [event, set] of this.handlers) {
         for (const [, wrapped] of set) {
           socket.on(event, wrapped);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CategoryDto, NotificationPreferencesDto } from "@monorepo/shared";
@@ -179,7 +180,7 @@ export default function SettingsPage() {
           Need help with your account or a job? Open a support ticket.
         </p>
         <Button asChild className="mt-4" variant="outline">
-          <a href="/support">Go to support</a>
+          <Link href="/support">Go to support</Link>
         </Button>
       </section>
 
