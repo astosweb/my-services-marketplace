@@ -9,6 +9,7 @@ import { useOptionalUser } from "@/hooks/use-session";
 import { SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api/client";
+import { useConversations } from "@/lib/api/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/keys";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,8 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const conversations = useConversations(false, Boolean(user));
+  const unreadMessages = conversations.data?.meta.unreadCount ?? 0;
 
   async function logout() {
     await api.post("/auth/logout");
@@ -77,10 +80,20 @@ export function SiteHeader() {
                 variant="ghost"
                 size="icon"
                 asChild
-                aria-label="Messages"
+                aria-label={
+                  unreadMessages > 0
+                    ? `Messages, ${unreadMessages} unread`
+                    : "Messages"
+                }
+                className="relative"
               >
                 <Link href="/messages">
                   <MessageCircle />
+                  {unreadMessages > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground">
+                      {unreadMessages > 99 ? "99+" : unreadMessages}
+                    </span>
+                  ) : null}
                 </Link>
               </Button>
               <Button
@@ -161,6 +174,7 @@ export function SiteHeader() {
                   className="rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-secondary"
                 >
                   Messages
+                  {unreadMessages > 0 ? ` (${unreadMessages})` : ""}
                 </Link>
                 <Link
                   href="/favorites"

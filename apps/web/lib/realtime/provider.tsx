@@ -23,8 +23,9 @@ import { useSession } from "@/hooks/use-session";
 import { queryKeys } from "@/lib/api/keys";
 import { LIVE_QUERY_EVENTS, RealtimeClient, type SocketTokenResponse } from "./client";
 
+type EnvelopeHandler = (envelope: RealtimeEnvelope) => void;
+
 type RealtimeContextValue = {
-  client: RealtimeClient | null;
   connected: boolean;
   joinConversation: (id: string) => void;
   leaveConversation: (id: string) => void;
@@ -34,10 +35,11 @@ type RealtimeContextValue = {
   leaveSupport: (id: string) => void;
   setTyping: (room: string, isTyping: boolean) => void;
   markRead: (conversationId: string) => void;
+  markDelivered: (conversationId: string, messageId: string) => void;
+  subscribe: (event: string, handler: EnvelopeHandler) => () => void;
 };
 
 const RealtimeContext = createContext<RealtimeContextValue>({
-  client: null,
   connected: false,
   joinConversation: () => undefined,
   leaveConversation: () => undefined,
@@ -47,6 +49,8 @@ const RealtimeContext = createContext<RealtimeContextValue>({
   leaveSupport: () => undefined,
   setTyping: () => undefined,
   markRead: () => undefined,
+  markDelivered: () => undefined,
+  subscribe: () => () => undefined,
 });
 
 async function fetchSocketToken(): Promise<SocketTokenResponse> {
@@ -129,7 +133,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const userId = session?.user?.id ?? null;
   const queryClient = useQueryClient();
   const clientRef = useRef<RealtimeClient | null>(null);
-  const [connected, setConnected] = useState(false);
+  const [socketReady, setSocketReady] = useState(false);
+  const connected = Boolean(userId) && socketReady;
 
   const onEnvelope = useEffectEvent((envelope: RealtimeEnvelope) => {
     invalidateForEvent(queryClient, envelope);
@@ -139,7 +144,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     if (!userId) {
       clientRef.current?.disconnect();
       clientRef.current = null;
-      setConnected(false);
       return;
     }
 
@@ -151,7 +155,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     );
     unsubscribers.push(
       client.on(RealtimeServerEvent.READY, () => {
-        setConnected(true);
+        setSocketReady(true);
         client.pingPresence();
       }),
     );
@@ -166,7 +170,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (presenceTimer) clearInterval(presenceTimer);
       client.disconnect();
       if (clientRef.current === client) clientRef.current = null;
-      setConnected(false);
+      setSocketReady(false);
     };
   }, [userId]);
 
@@ -194,10 +198,20 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const markRead = useCallback((conversationId: string) => {
     clientRef.current?.markRead(conversationId);
   }, []);
+  const markDelivered = useCallback(
+    (conversationId: string, messageId: string) => {
+      clientRef.current?.markDelivered(conversationId, messageId);
+    },
+    [],
+  );
+  const subscribe = useCallback((event: string, handler: EnvelopeHandler) => {
+    const client = clientRef.current;
+    if (!client) return () => undefined;
+    return client.on(event, handler);
+  }, []);
 
   const value = useMemo(
     () => ({
-      client: clientRef.current,
       connected,
       joinConversation,
       leaveConversation,
@@ -207,6 +221,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       leaveSupport,
       setTyping,
       markRead,
+      markDelivered,
+      subscribe,
     }),
     [
       connected,
@@ -218,6 +234,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       leaveSupport,
       setTyping,
       markRead,
+      markDelivered,
+      subscribe,
     ],
   );
 

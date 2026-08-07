@@ -85,7 +85,7 @@ export function useNotifications(params?: { limit?: number; offset?: number }) {
   });
 }
 
-export function useConversations(archived?: boolean) {
+export function useConversations(archived?: boolean, enabled = true) {
   return useQuery({
     queryKey: queryKeys.conversations(archived),
     queryFn: () =>
@@ -94,6 +94,7 @@ export function useConversations(archived?: boolean) {
           archived: archived ? "true" : undefined,
         })}`,
       ),
+    enabled,
   });
 }
 
