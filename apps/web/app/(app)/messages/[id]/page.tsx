@@ -69,8 +69,13 @@ export default function MessageThreadPage({
 
   useEffect(() => {
     realtime.joinConversation(id);
-    realtime.markRead(id);
-    void api.post(`/conversations/${id}/read`).catch(() => undefined);
+    // Prefer socket read receipt; HTTP mark-read is a fallback when offline.
+    // GET /messages also marks read when unread exists (idempotent thereafter).
+    if (realtime.connected) {
+      realtime.markRead(id);
+    } else {
+      void api.post(`/conversations/${id}/read`).catch(() => undefined);
+    }
     return () => {
       realtime.setTyping(conversationRoom(id), false);
       realtime.leaveConversation(id);

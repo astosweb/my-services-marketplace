@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		7359A50C301902C900B97C1D /* Gobid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Gobid.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7359A50C301902C900B97C1D /* Gobid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gobid.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4301902CA00B97C1D /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -52,20 +52,20 @@
 			);
 			sourceTree = "<group>";
 		};
-		A1B2C3D5301902CA00B97C1D /* Config */ = {
-			isa = PBXGroup;
-			children = (
-				A1B2C3D4301902CA00B97C1D /* Shared.xcconfig */,
-			);
-			path = Config;
-			sourceTree = "<group>";
-		};
 		7359A50D301902C900B97C1D /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				7359A50C301902C900B97C1D /* Gobid.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A1B2C3D5301902CA00B97C1D /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4301902CA00B97C1D /* Shared.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -282,7 +282,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GobidApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Gobid";
+				INFOPLIST_KEY_CFBundleDisplayName = Gobid;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -294,7 +294,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ee.gobid.app;
-				PRODUCT_NAME = "Gobid";
+				PRODUCT_NAME = Gobid;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -318,7 +318,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GobidApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Gobid";
+				INFOPLIST_KEY_CFBundleDisplayName = Gobid;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -330,7 +330,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ee.gobid.app;
-				PRODUCT_NAME = "Gobid";
+				PRODUCT_NAME = Gobid;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;

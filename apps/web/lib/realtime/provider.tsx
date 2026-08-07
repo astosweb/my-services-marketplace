@@ -6,6 +6,7 @@ import {
   RealtimeServerEvent,
   requestRoom,
   supportRoom,
+  type ConversationMessage,
   type RealtimeEnvelope,
 } from "@monorepo/shared";
 import {
@@ -81,14 +82,63 @@ function invalidateForEvent(
 
   switch (envelope.event) {
     case RealtimeServerEvent.MESSAGE_CREATED:
-    case RealtimeServerEvent.MESSAGE_READ:
-    case RealtimeServerEvent.MESSAGE_DELIVERED:
     case RealtimeServerEvent.CONVERSATION_UPDATED:
       void queryClient.invalidateQueries({ queryKey: ["conversations"] });
       if (conversationId) {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.messages(conversationId),
         });
+      }
+      break;
+    case RealtimeServerEvent.MESSAGE_READ:
+    case RealtimeServerEvent.MESSAGE_DELIVERED:
+      // Receipts only — do not refetch the thread (GET messages marks read and
+      // used to re-emit message.read → infinite invalidate → 429).
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      if (conversationId && envelope.event === RealtimeServerEvent.MESSAGE_READ) {
+        const readerId =
+          typeof data.readerId === "string" ? data.readerId : undefined;
+        const readAtMs =
+          typeof data.readAt === "string" ? Date.parse(data.readAt) : Number.NaN;
+        queryClient.setQueryData<ConversationMessage[]>(
+          queryKeys.messages(conversationId),
+          (current) => {
+            if (!current?.length || !readerId) return current;
+            return current.map((message) => {
+              if (message.sender.id === readerId || message.status === "READ") {
+                return message;
+              }
+              if (
+                Number.isFinite(readAtMs) &&
+                Date.parse(message.createdAt) > readAtMs
+              ) {
+                return message;
+              }
+              return { ...message, status: "READ" };
+            });
+          },
+        );
+      }
+      if (
+        conversationId &&
+        envelope.event === RealtimeServerEvent.MESSAGE_DELIVERED
+      ) {
+        const messageId =
+          typeof data.messageId === "string" ? data.messageId : undefined;
+        if (messageId) {
+          queryClient.setQueryData<ConversationMessage[]>(
+            queryKeys.messages(conversationId),
+            (current) => {
+              if (!current?.length) return current;
+              return current.map((message) =>
+                message.id === messageId &&
+                (message.status === "SENT" || message.status === "SENDING")
+                  ? { ...message, status: "DELIVERED" }
+                  : message,
+              );
+            },
+          );
+        }
       }
       break;
     case RealtimeServerEvent.UNREAD_UPDATED:

@@ -471,7 +471,7 @@ struct Message: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let conversationId: String
     let body: String
-    let status: MessageStatus
+    var status: MessageStatus
     let createdAt: Date
     let sender: OfferUser
     let attachment: Attachment?

@@ -11,6 +11,7 @@ final class RealtimeService {
     private var client: RealtimeSocketClient?
     private weak var auth: AuthSession?
     private var queuedJoins = Set<String>()
+    private var badgeRefreshTask: Task<Void, Never>?
 
     private init() {}
 
@@ -41,6 +42,8 @@ final class RealtimeService {
     }
 
     func stop() {
+        badgeRefreshTask?.cancel()
+        badgeRefreshTask = nil
         client?.disconnect()
         client = nil
         connected = false
@@ -89,12 +92,21 @@ final class RealtimeService {
         client?.leave(room: room)
     }
 
+    private func scheduleBadgeRefresh() {
+        badgeRefreshTask?.cancel()
+        badgeRefreshTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            await self?.auth?.refreshInboxBadges()
+        }
+    }
+
     private func handle(event: String) {
         switch event {
         case "message.created", "message.read", "conversation.updated", "unread.updated",
              "notification.created", "notification.updated",
              "support.message.created", "support.ticket.updated":
-            Task { await auth?.refreshInboxBadges() }
+            scheduleBadgeRefresh()
         case "realtime.ready":
             connected = true
         default:

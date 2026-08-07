@@ -147,8 +147,43 @@ export class ConversationsService {
     return { id: conversationId, isPinned: updated.isPinned };
   }
 
+  /** True when peer messages are newer than the viewer's lastReadAt. */
+  private async hasUnreadMessages(
+    conversationId: string,
+    userId: string,
+    lastReadAt: Date | null,
+  ) {
+    const unread = await this.prisma.message.findFirst({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+      },
+      select: { id: true },
+    });
+    return Boolean(unread);
+  }
+
+  private publishReadReceipt(input: {
+    conversationId: string;
+    readerId: string;
+    participantIds: string[];
+    readAt: Date;
+  }) {
+    this.realtime.messageRead({
+      conversationId: input.conversationId,
+      readerId: input.readerId,
+      participantIds: input.participantIds,
+      readAt: input.readAt.toISOString(),
+    });
+    this.realtime.unreadUpdated(input.readerId, {
+      conversationId: input.conversationId,
+      conversationUnread: 0,
+    });
+  }
+
   async messages(conversationId: string, userId: string, limit = 100) {
-    await this.requireMembership(conversationId, userId);
+    const membership = await this.requireMembership(conversationId, userId);
     const take = Math.min(Math.max(limit, 1), 200);
     const [messages, readStates] = await Promise.all([
       this.prisma.message.findMany({
@@ -162,22 +197,35 @@ export class ConversationsService {
         select: { userId: true, lastReadAt: true },
       }),
     ]);
-    const readAt = new Date();
-    await this.prisma.conversationParticipant.update({
-      where: { conversationId_userId: { conversationId, userId } },
-      data: { lastReadAt: readAt },
-    });
-    this.realtime.messageRead({
+
+    // Only advance lastReadAt / emit when something was actually unread.
+    // Re-emitting on every GET caused clients to refetch → infinite 429 loops.
+    const hadUnread = await this.hasUnreadMessages(
       conversationId,
-      readerId: userId,
-      participantIds: readStates.map((state) => state.userId),
-      readAt: readAt.toISOString(),
-    });
-    this.realtime.unreadUpdated(userId, {
-      conversationId,
-      conversationUnread: 0,
-    });
-    return [...messages].reverse().map((message) => serializeMessage(message, userId, readStates));
+      userId,
+      membership.lastReadAt,
+    );
+    let effectiveReadStates = readStates;
+    if (hadUnread) {
+      const readAt = new Date();
+      await this.prisma.conversationParticipant.update({
+        where: { conversationId_userId: { conversationId, userId } },
+        data: { lastReadAt: readAt },
+      });
+      effectiveReadStates = readStates.map((state) =>
+        state.userId === userId ? { ...state, lastReadAt: readAt } : state,
+      );
+      this.publishReadReceipt({
+        conversationId,
+        readerId: userId,
+        participantIds: readStates.map((state) => state.userId),
+        readAt,
+      });
+    }
+
+    return [...messages]
+      .reverse()
+      .map((message) => serializeMessage(message, userId, effectiveReadStates));
   }
 
   async send(conversationId: string, userId: string, data: SendConversationMessageDto) {
@@ -262,7 +310,14 @@ export class ConversationsService {
   }
 
   async read(conversationId: string, userId: string) {
-    await this.requireMembership(conversationId, userId);
+    const membership = await this.requireMembership(conversationId, userId);
+    const hadUnread = await this.hasUnreadMessages(
+      conversationId,
+      userId,
+      membership.lastReadAt,
+    );
+    if (!hadUnread) return { ok: true };
+
     const readAt = new Date();
     await this.prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId, userId } },
@@ -272,15 +327,11 @@ export class ConversationsService {
       where: { conversationId },
       select: { userId: true },
     });
-    this.realtime.messageRead({
+    this.publishReadReceipt({
       conversationId,
       readerId: userId,
       participantIds: participants.map((participant) => participant.userId),
-      readAt: readAt.toISOString(),
-    });
-    this.realtime.unreadUpdated(userId, {
-      conversationId,
-      conversationUnread: 0,
+      readAt,
     });
     return { ok: true };
   }

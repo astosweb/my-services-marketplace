@@ -313,6 +313,19 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       return;
     }
 
+    // Idempotent: skip emit when already caught up (avoids client refetch storms).
+    const unread = await this.prisma.message.findFirst({
+      where: {
+        conversationId: parsed.data.conversationId,
+        senderId: { not: user.id },
+        ...(membership.lastReadAt
+          ? { createdAt: { gt: membership.lastReadAt } }
+          : {}),
+      },
+      select: { id: true },
+    });
+    if (!unread) return;
+
     const readAt = new Date();
     await this.prisma.conversationParticipant.update({
       where: {

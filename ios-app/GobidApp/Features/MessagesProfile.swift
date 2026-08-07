@@ -260,8 +260,12 @@ struct ConversationDetailView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .gobidRealtimeEvent)) { notification in
             guard let event = notification.userInfo?["event"] as? String else { return }
-            if event == "message.created" || event == "message.read" || event == "conversation.updated" {
-                Task { await load() }
+            // Only refetch on new content — message.read used to re-trigger load()
+            // which re-emitted message.read and hammered the API (429 Too many requests).
+            if event == "message.created" {
+                Task { await loadQuietly() }
+            } else if event == "message.read" {
+                markOwnMessagesRead()
             }
         }
         .sensoryFeedback(.success, trigger: feedbackTrigger)
@@ -490,21 +494,35 @@ struct ConversationDetailView: View {
 
     private func load() async {
         isLoading = true
+        defer { isLoading = false }
+        await fetchMessages()
+    }
+
+    /// Soft refresh used by realtime — keeps existing bubbles visible on failure.
+    private func loadQuietly() async {
+        await fetchMessages()
+    }
+
+    private func fetchMessages() async {
         do {
             let response: APIEnvelope<[Message]> = try await auth.api.send(
                 path: "conversations/\(conversation.id)/messages"
             )
             messages = response.data
             errorMessage = nil
-            let _: APIEnvelope<OKResponse>? = try? await auth.api.send(
-                "POST",
-                path: "conversations/\(conversation.id)/read"
-            )
             await auth.refreshInboxBadges()
         } catch {
             errorMessage = error.localizedDescription
         }
-        isLoading = false
+    }
+
+    private func markOwnMessagesRead() {
+        guard let myId = auth.user?.id else { return }
+        for index in messages.indices where messages[index].sender.id == myId {
+            if messages[index].status != .read {
+                messages[index].status = .read
+            }
+        }
     }
 
     private func send() async {
