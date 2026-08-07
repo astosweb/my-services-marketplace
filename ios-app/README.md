@@ -4,10 +4,11 @@ Native SwiftUI client for the Gobid marketplace API.
 
 ## API configuration
 
-`GOBID_API_BASE_URL` is set via the Xcode build setting of the same name and merged into
-`GobidApp/Info.plist`. It defaults to `http://127.0.0.1:3000` (Simulator → local API).
-Override per configuration or in CI with the deployed HTTPS API URL. For a physical device
-on the same network, switch it to your Mac's LAN IP (e.g. `http://192.168.x.x:3000`).
+`GOBID_API_BASE_URL` comes from `ios-app/Config/Shared.xcconfig` (default
+`http://127.0.0.1:3000` for Simulator). When the repo-root `.env` sets
+`LAN_LOCAL_IP_ADDRESS`, run `pnpm apply:lan` (also done by `pnpm dev:api` /
+`pnpm dev:web`) to generate `Config/Local.xcconfig` pointing at
+`http://<ip>:3000`. Rebuild in Xcode after changing the LAN IP.
 
 Local-network HTTP is allowed for development via
 `NSAppTransportSecurity` → `NSAllowsLocalNetworking` in `Info.plist`. Production API URLs should

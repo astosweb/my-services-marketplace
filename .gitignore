@@ -32,6 +32,7 @@ coverage/
 # Generated
 apps/api/src/generated/
 apps/admin/app/generated/
+ios-app/Config/Local.xcconfig
 
 # Package manager
 .pnpm-store/

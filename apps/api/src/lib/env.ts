@@ -1,10 +1,20 @@
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
+import { resolve } from "node:path";
 import { z } from "zod";
+
+// App env first; root `.env` only fills missing keys (e.g. LAN_LOCAL_IP_ADDRESS).
+loadDotenv();
+loadDotenv({ path: resolve(process.cwd(), "../../.env") });
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+  /**
+   * When set (dev), rewrite local API_PUBLIC_URL to this host so phones / LAN clients
+   * can load media. Empty = keep localhost defaults.
+   */
+  LAN_LOCAL_IP_ADDRESS: z.string().optional(),
   DATABASE_URL: z.string().min(1),
   /** Set to "false" for managed Postgres (e.g. DigitalOcean) if SSL cert validation fails. */
   DATABASE_SSL_REJECT_UNAUTHORIZED: z.enum(["true", "false"]).optional(),
@@ -93,17 +103,35 @@ const envSchema = z.object({
 
 export type Environment = z.infer<typeof envSchema>;
 
+function applyLanPublicUrl(parsed: Environment): Environment {
+  const lan = parsed.LAN_LOCAL_IP_ADDRESS?.trim();
+  if (!lan || parsed.NODE_ENV === "production") return parsed;
+
+  const current = parsed.API_PUBLIC_URL;
+  if (current && !isLocalHostname(new URL(current).hostname)) return parsed;
+
+  return { ...parsed, API_PUBLIC_URL: `http://${lan}:${parsed.PORT}` };
+}
+
 export function validateEnvironment(config: Record<string, unknown>): Environment {
-  return envSchema.parse(config);
+  return applyLanPublicUrl(envSchema.parse(config));
 }
 
 export const env = validateEnvironment(process.env);
 
 export function corsOrigins(): string | string[] {
   if (env.CORS_ORIGIN.trim() === "*") return "*";
-  return env.CORS_ORIGIN.split(",")
+  const origins = env.CORS_ORIGIN.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const lan = env.LAN_LOCAL_IP_ADDRESS?.trim();
+  if (lan && env.NODE_ENV !== "production") {
+    for (const port of [3001, 3002]) {
+      const origin = `http://${lan}:${port}`;
+      if (!origins.includes(origin)) origins.push(origin);
+    }
+  }
+  return origins;
 }
 
 /** Production must not use CORS_ORIGIN=* (fail closed at boot). */

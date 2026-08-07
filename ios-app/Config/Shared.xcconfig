@@ -1,0 +1,6 @@
+// Default API base for Simulator. Overridden by Local.xcconfig when
+// root `.env` has LAN_LOCAL_IP_ADDRESS set (`pnpm apply:lan` / `pnpm dev:api` / `pnpm dev:web`).
+//
+// xcconfig treats `//` as a comment — use http:/$()/host form for URLs.
+GOBID_API_BASE_URL = http:/$()/127.0.0.1:3000
+#include? "Local.xcconfig"

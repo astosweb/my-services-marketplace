@@ -26,5 +26,5 @@ Monorepo architecture standards live in the root [`AGENTS.md`](../AGENTS.md).
 
 ## 🛠️ Xcode Configuration
 
-- **`GOBID_API_BASE_URL`**: Set in Xcode Build Settings (defaults to `http://127.0.0.1:3000` for Simulator).
+- **`GOBID_API_BASE_URL`**: From `Config/Shared.xcconfig` (default `http://127.0.0.1:3000`). Set root `.env` `LAN_LOCAL_IP_ADDRESS` and run `pnpm apply:lan` for a physical device on the LAN.
 - **Location Permission**: `NSLocationWhenInUseUsageDescription` defined in `GobidApp/Info.plist`. The prompt is shown only when switching to Map layout or "Nearest" sort.

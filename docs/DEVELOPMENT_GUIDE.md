@@ -46,6 +46,16 @@ Start servers in separate terminal tabs or run parallel dev scripts:
 | `pnpm dev:admin` | `http://localhost:3001` | Admin Ops Dashboard |
 | `pnpm dev:web` | `http://localhost:3002` | Public Web Marketplace |
 
+### LAN access (phone / other devices)
+
+Set `LAN_LOCAL_IP_ADDRESS` in the **repo-root** `.env` (see `.env.docker.example`) to your Mac’s LAN IP (`ipconfig getifaddr en0`). Leave empty for localhost-only.
+
+When set, `pnpm dev:api` / `pnpm dev:web` (or `pnpm apply:lan`) will:
+
+- Bind web on `0.0.0.0` → open `http://<ip>:3002` on the device
+- Point iOS `GOBID_API_BASE_URL` at `http://<ip>:3000` (rebuild the app in Xcode)
+- Rewrite local `API_PUBLIC_URL` so media URLs work on the LAN
+
 ---
 
 ## Demo Credentials (Post-Seed)
