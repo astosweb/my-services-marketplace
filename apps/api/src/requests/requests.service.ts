@@ -11,13 +11,13 @@ import { assertOwnedObjectKeys } from "../lib/owned-keys.js";
 import {
   profileName,
   serializeMessage,
-  serializeNotification,
   serializeOffer,
   serializeRequest,
   serializeReview,
 } from "../lib/serializers.js";
 import { refreshUserRating } from "../lib/user-rating.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { PushService } from "../push/push.service.js";
 import { RealtimeServerEvent } from "../realtime/realtime.constants.js";
 import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import type {
@@ -56,6 +56,7 @@ export class RequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimePublisher,
+    private readonly pushService: PushService,
   ) {}
 
   private async ensureConversation(requestId: string, userA: string, userB: string) {
@@ -157,11 +158,21 @@ export class RequestsService {
     if (query.status && query.status !== ServiceRequestStatus.OPEN) {
       throw badRequest("Only open requests are publicly listed");
     }
+    const needle = query.q?.trim();
     const where = {
       city: query.city,
       categoryId: query.categoryId,
       status: ServiceRequestStatus.OPEN,
       owner: { status: "ACTIVE" as const },
+      ...(needle
+        ? {
+            OR: [
+              { title: { contains: needle, mode: "insensitive" as const } },
+              { description: { contains: needle, mode: "insensitive" as const } },
+              { location: { contains: needle, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     };
     const [requests, total] = await Promise.all([
       this.prisma.serviceRequest.findMany({
@@ -512,28 +523,26 @@ export class RequestsService {
     if (data.status === OfferStatus.ACCEPTED) {
       await this.ensureConversation(requestId, userId, offer.offererId);
     }
-    await this.prisma.notification.create({
-      data: {
-        userId: offer.offererId,
-        kind:
-          data.status === OfferStatus.ACCEPTED
-            ? NotificationKind.OFFER_ACCEPTED
-            : NotificationKind.OFFER_DECLINED,
-        title:
-          data.status === OfferStatus.ACCEPTED
-            ? offer.priceCents == null
-              ? "Your interest was accepted"
-              : "Your offer was accepted"
-            : offer.priceCents == null
-              ? "Interest declined"
-              : "Offer declined",
-        body:
-          data.status === OfferStatus.ACCEPTED
-            ? `The owner accepted your ${responseLabel}.`
-            : `Your ${responseLabel} was declined.`,
-        contextTag: offer.request.title,
-        payload: { requestId, offerId: offer.id },
-      },
+    await this.pushService.notifyUsers({
+      userIds: [offer.offererId],
+      kind:
+        data.status === OfferStatus.ACCEPTED
+          ? NotificationKind.OFFER_ACCEPTED
+          : NotificationKind.OFFER_DECLINED,
+      title:
+        data.status === OfferStatus.ACCEPTED
+          ? offer.priceCents == null
+            ? "Your interest was accepted"
+            : "Your offer was accepted"
+          : offer.priceCents == null
+            ? "Interest declined"
+            : "Offer declined",
+      body:
+        data.status === OfferStatus.ACCEPTED
+          ? `The owner accepted your ${responseLabel}.`
+          : `Your ${responseLabel} was declined.`,
+      contextTag: offer.request.title,
+      payload: { requestId, offerId: offer.id },
     });
     const serializedOffer = serializeOffer(updated);
     this.realtime.offerUpdated({
@@ -669,21 +678,19 @@ export class RequestsService {
     });
     const acceptedOffer = request.offers[0];
     if (acceptedOffer) {
-      await this.prisma.notification.create({
-        data: {
-          userId: acceptedOffer.offererId,
-          kind:
-            data.status === ServiceRequestStatus.COMPLETED
-              ? NotificationKind.JOB_COMPLETED
-              : NotificationKind.REMINDER,
-          title: data.status === ServiceRequestStatus.COMPLETED ? "Job completed" : "Job cancelled",
-          body:
-            data.status === ServiceRequestStatus.COMPLETED
-              ? "The owner confirmed the job is done."
-              : "The owner cancelled this job.",
-          contextTag: existing.title,
-          payload: { requestId },
-        },
+      await this.pushService.notifyUsers({
+        userIds: [acceptedOffer.offererId],
+        kind:
+          data.status === ServiceRequestStatus.COMPLETED
+            ? NotificationKind.JOB_COMPLETED
+            : NotificationKind.REMINDER,
+        title: data.status === ServiceRequestStatus.COMPLETED ? "Job completed" : "Job cancelled",
+        body:
+          data.status === ServiceRequestStatus.COMPLETED
+            ? "The owner confirmed the job is done."
+            : "The owner cancelled this job.",
+        contextTag: existing.title,
+        payload: { requestId },
       });
     }
     const serializedRequest = serializeRequest(request, ownerId);
@@ -778,18 +785,16 @@ export class RequestsService {
         : data.status === JobProgressStatus.STARTED
           ? `${providerName} started the job.`
           : `${providerName} marked the job ready for confirmation.`;
-    await this.prisma.notification.create({
-      data: {
-        userId: acceptedOffer.request.ownerId,
-        kind:
-          data.status === JobProgressStatus.PROVIDER_DONE
-            ? NotificationKind.JOB_COMPLETED
-            : NotificationKind.REMINDER,
-        title: "Job progress updated",
-        body: progressBody,
-        contextTag: acceptedOffer.request.title,
-        payload: { requestId, progressStatus: data.status },
-      },
+    await this.pushService.notifyUsers({
+      userIds: [acceptedOffer.request.ownerId],
+      kind:
+        data.status === JobProgressStatus.PROVIDER_DONE
+          ? NotificationKind.JOB_COMPLETED
+          : NotificationKind.REMINDER,
+      title: "Job progress updated",
+      body: progressBody,
+      contextTag: acceptedOffer.request.title,
+      payload: { requestId, progressStatus: data.status },
     });
     const serializedRequest = serializeRequest(request, providerId);
     this.realtime.requestUpdated({
@@ -863,15 +868,13 @@ export class RequestsService {
       }
       throw error;
     }
-    await this.prisma.notification.create({
-      data: {
-        userId: subjectId,
-        kind: NotificationKind.REVIEW,
-        title: "New review",
-        body: `${profileName(review.author)} left you a ${data.rating}-star review.`,
-        contextTag: request.title,
-        payload: { requestId, reviewId: review.id },
-      },
+    await this.pushService.notifyUsers({
+      userIds: [subjectId],
+      kind: NotificationKind.REVIEW,
+      title: "New review",
+      body: `${profileName(review.author)} left you a ${data.rating}-star review.`,
+      contextTag: request.title,
+      payload: { requestId, reviewId: review.id },
     });
     const refreshedRequest = await this.prisma.serviceRequest.findUniqueOrThrow({
       where: { id: requestId },
@@ -1005,17 +1008,15 @@ export class RequestsService {
       throw error;
     }
 
-    await this.prisma.notification.create({
-      data: {
-        userId: request.ownerId,
-        kind: NotificationKind.NEW_OFFER,
-        title: isFixedPrice ? "New interest on your request" : "New offer on your request",
-        body: isFixedPrice
-          ? `${profileName(offer.offerer)} is interested.`
-          : `${profileName(offer.offerer)} offered €${(data.priceCents! / 100).toFixed(0)}.`,
-        contextTag: request.title,
-        payload: { requestId, offerId: offer.id },
-      },
+    await this.pushService.notifyUsers({
+      userIds: [request.ownerId],
+      kind: NotificationKind.NEW_OFFER,
+      title: isFixedPrice ? "New interest on your request" : "New offer on your request",
+      body: isFixedPrice
+        ? `${profileName(offer.offerer)} is interested.`
+        : `${profileName(offer.offerer)} offered €${(data.priceCents! / 100).toFixed(0)}.`,
+      contextTag: request.title,
+      payload: { requestId, offerId: offer.id },
     });
     const serializedOffer = serializeOffer(offer);
     this.realtime.offerCreated({
@@ -1041,18 +1042,16 @@ export class RequestsService {
       });
       return created;
     });
-    const notification = await this.prisma.notification.create({
-      data: {
-        userId: peerUserId,
-        kind: NotificationKind.NEW_MESSAGE,
-        title: `${profileName(message.sender)} sent you a message`,
-        body: data.body.length > 120 ? `${data.body.slice(0, 117)}...` : data.body,
-        contextTag: request.title,
-        payload: {
-          requestId: request.id,
-          conversationId: conversation.id,
-          messageId: message.id,
-        },
+    await this.pushService.notifyUsers({
+      userIds: [peerUserId],
+      kind: NotificationKind.NEW_MESSAGE,
+      title: `${profileName(message.sender)} sent you a message`,
+      body: data.body.length > 120 ? `${data.body.slice(0, 117)}...` : data.body,
+      contextTag: request.title,
+      payload: {
+        requestId: request.id,
+        conversationId: conversation.id,
+        messageId: message.id,
       },
     });
     const participantIds = [senderId, peerUserId];
@@ -1062,11 +1061,6 @@ export class RequestsService {
       participantIds,
       message: serializedMessage as Record<string, unknown>,
     });
-    this.realtime.notificationCreated(
-      peerUserId,
-      serializeNotification(notification) as Record<string, unknown>,
-    );
-    this.realtime.unreadUpdated(peerUserId, { conversationId: conversation.id });
     return serializedMessage;
   }
 }

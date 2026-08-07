@@ -661,7 +661,13 @@ struct SupportTicketDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(currentTicket.caseNumber)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
+        .task {
+            RealtimeService.shared.joinSupport(ticket.id)
+            await load()
+        }
+        .onDisappear {
+            RealtimeService.shared.leaveSupport(ticket.id)
+        }
         .onChange(of: selectedPhotos) {
             Task { await prepareSelectedPhotos() }
         }

@@ -152,7 +152,6 @@ export const createRequestSchema = z
     pricingMode: z
       .enum(["PROVIDER_OFFERS", "OWNER_FIXED_PRICE"])
       .default("PROVIDER_OFFERS"),
-    isPremium: z.boolean().optional(),
     photoKeys: z.array(z.string().max(500)).max(9).optional(),
   })
   .refine(

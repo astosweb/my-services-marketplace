@@ -50,22 +50,21 @@ stateDiagram-v2
     [*] --> PENDING_REVIEW: Created (requires review)
     [*] --> OPEN: Created (direct approval)
     PENDING_REVIEW --> OPEN: Admin Approves
-    PENDING_REVIEW --> REJECTED: Admin Rejects
+    PENDING_REVIEW --> CANCELLED: Admin Rejects
     OPEN --> IN_PROGRESS: Owner Accepts Offer
     OPEN --> CANCELLED: Owner Cancels
-    OPEN --> EXPIRED: 30 days without accepted offer
     IN_PROGRESS --> COMPLETED: Owner Confirms Completion
     IN_PROGRESS --> CANCELLED: Owner/Admin Cancels
     COMPLETED --> [*]
     CANCELLED --> [*]
-    REJECTED --> [*]
-    EXPIRED --> [*]
 ```
 
 **State Transition Rules**:
 - Only listings in `OPEN` state are publicly browseable by default.
-- Non-open requests (`PENDING_REVIEW`, `DRAFT`) are visible only to the owner or admins.
+- Non-open requests (`PENDING_REVIEW`) are visible only to the owner or admins.
+- Admin rejection of a `PENDING_REVIEW` request sets status to `CANCELLED` with a `rejectionReason`.
 - Accepting an offer transitions the request to `IN_PROGRESS` and sets all other pending offers for that request to `DECLINED`.
+- There is no separate `EXPIRED` / `REJECTED` / `DRAFT` status in the schema; expiry is not automated.
 
 ---
 

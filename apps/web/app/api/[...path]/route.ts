@@ -24,6 +24,7 @@ const ALLOWED_PREFIXES = [
   "uploads",
   "devices",
   "support",
+  "favorites",
   "auth",
 ];
 

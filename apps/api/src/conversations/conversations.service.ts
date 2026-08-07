@@ -7,9 +7,9 @@ import {
   profileName,
   serializeConversationInbox,
   serializeMessage,
-  serializeNotification,
 } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { PushService } from "../push/push.service.js";
 import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import type { ConversationListQueryDto, SendConversationMessageDto } from "./conversations.dto.js";
 
@@ -18,6 +18,7 @@ export class ConversationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimePublisher,
+    private readonly pushService: PushService,
   ) {}
 
   private getMembership(conversationId: string, userId: string) {
@@ -284,26 +285,17 @@ export class ConversationsService {
         previewRaw.length > 120
           ? `${previewRaw.slice(0, 117)}...`
           : previewRaw || "Sent an attachment";
-      const notification = await this.prisma.notification.create({
-        data: {
-          userId: recipientId,
-          kind: NotificationKind.NEW_MESSAGE,
-          title: `${profileName(message.sender)} sent you a message`,
-          body: preview,
-          contextTag: conversation.request.title,
-          payload: {
-            requestId: conversation.requestId,
-            conversationId,
-            messageId: message.id,
-          },
+      await this.pushService.notifyUsers({
+        userIds: [recipientId],
+        kind: NotificationKind.NEW_MESSAGE,
+        title: `${profileName(message.sender)} sent you a message`,
+        body: preview,
+        contextTag: conversation.request.title,
+        payload: {
+          requestId: conversation.requestId,
+          conversationId,
+          messageId: message.id,
         },
-      });
-      this.realtime.notificationCreated(
-        recipientId,
-        serializeNotification(notification) as unknown as Record<string, unknown>,
-      );
-      this.realtime.unreadUpdated(recipientId, {
-        conversationId,
       });
     }
     return serialized;

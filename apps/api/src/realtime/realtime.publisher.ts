@@ -182,7 +182,7 @@ export class RealtimePublisher {
     providerId: string;
     offer: Record<string, unknown>;
   }) {
-    this.emitToRequest(input.requestId, RealtimeServerEvent.OFFER_CREATED, input);
+    // User rooms only — request rooms may include competing offerers.
     this.emitToUser(input.ownerId, RealtimeServerEvent.OFFER_CREATED, input);
     this.emitToUser(input.providerId, RealtimeServerEvent.OFFER_CREATED, input);
   }
@@ -193,7 +193,6 @@ export class RealtimePublisher {
     providerId: string;
     offer: Record<string, unknown>;
   }) {
-    this.emitToRequest(input.requestId, RealtimeServerEvent.OFFER_UPDATED, input);
     this.emitToUsers([input.ownerId, input.providerId], RealtimeServerEvent.OFFER_UPDATED, input);
   }
 

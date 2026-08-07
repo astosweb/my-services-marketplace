@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { nestFetch, NestRequestError } from "@/lib/api/nest";
+import { assertSameOriginMutation } from "@/lib/auth/csrf";
 
 export async function POST(request: Request) {
+  const csrf = assertSameOriginMutation(request);
+  if (csrf) return csrf;
+
   let body: { token?: string; password?: string };
   try {
     body = await request.json();

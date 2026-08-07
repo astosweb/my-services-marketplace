@@ -75,7 +75,6 @@ function invalidateForEvent(
       break;
     case RealtimeServerEvent.SUPPORT_TICKET_UPDATED:
     case RealtimeServerEvent.SUPPORT_MESSAGE_CREATED:
-    case RealtimeServerEvent.SUPPORT_TYPING:
       void queryClient.invalidateQueries({ queryKey: queryKeys.supportTickets() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.supportStats });
       if (ticketId) {
@@ -83,6 +82,9 @@ function invalidateForEvent(
           queryKey: queryKeys.supportTicket(ticketId),
         });
       }
+      break;
+    case RealtimeServerEvent.SUPPORT_TYPING:
+      // UI-only; do not refetch tickets on typing heartbeats.
       break;
     case RealtimeServerEvent.ADMIN_STATS:
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });

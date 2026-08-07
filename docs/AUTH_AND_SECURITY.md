@@ -41,18 +41,16 @@ Gobid implements a multi-tier authentication and security architecture tailored 
 
 | Token Type | Lifespan | Storage Mechanism | Revocation Strategy |
 |------------|----------|-------------------|---------------------|
-| **Access Token** | 15 minutes | HttpOnly Cookie (Web/Admin) / Memory (iOS) | Expire naturally or rotate |
-| **Refresh Token** | 7 days | HttpOnly Cookie (Web/Admin) / Keychain (iOS) | Hashed in Postgres DB (`RefreshToken` table); invalidated on logout or ban |
+| **Access Token** | Configurable (`JWT_ACCESS_EXPIRES`, typically ~15 minutes) | HttpOnly Cookie (Web/Admin) / Memory (iOS) | Expire naturally or rotate |
+| **Refresh Token** | Configurable (`JWT_REFRESH_EXPIRES`, default 30 days) | HttpOnly Cookie (Web/Admin) / Keychain (iOS) | Hashed in Postgres DB (`RefreshToken` table); invalidated on logout, password change, or ban |
 
 ### Payload Structure
 
-Access tokens are signed using `JWT_SECRET` (minimum 32 entropy characters required):
+Access tokens are signed using `JWT_SECRET` (minimum 32 entropy characters required). The JWT subject (`sub`) is the user id; role and email are loaded from the database on each authenticated request (not embedded in the token):
 
 ```json
 {
   "sub": "usr_123456789",
-  "email": "user@gobid.test",
-  "role": "USER",
   "iat": 1754560000,
   "exp": 1754560900
 }

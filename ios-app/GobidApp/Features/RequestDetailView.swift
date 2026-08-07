@@ -228,11 +228,15 @@ struct RequestDetailView: View {
             )
         }
         .task(id: request.id) {
+            RealtimeService.shared.joinRequest(request.id)
             await refreshDetail()
             await recordViewIfNeeded()
             if isOwner {
                 await loadOwnerOffers()
             }
+        }
+        .onDisappear {
+            RealtimeService.shared.leaveRequest(request.id)
         }
         .onChange(of: auth.user?.id) {
             Task {

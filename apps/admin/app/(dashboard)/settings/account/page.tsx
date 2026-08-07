@@ -105,8 +105,7 @@ export default function AccountSettings() {
         <CardHeader>
           <CardTitle>Password</CardTitle>
           <CardDescription>
-            Change-password requires a dedicated API endpoint (not available yet).
-            Use forgot-password for now.
+            Update your password. All sessions will be signed out afterward.
           </CardDescription>
         </CardHeader>
         <CardContent>
