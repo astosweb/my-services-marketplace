@@ -7,3 +7,4 @@ export * from "./marketplace";
 export * from "./public";
 export * from "./support";
 export * from "./realtime";
+export * from "./favorites";

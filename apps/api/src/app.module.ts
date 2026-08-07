@@ -11,6 +11,7 @@ import { JwtAuthGuard } from "./common/guards/jwt-auth.guard.js";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware.js";
 import { ConversationsModule } from "./conversations/conversations.module.js";
 import { DevicesModule } from "./devices/devices.module.js";
+import { FavoritesModule } from "./favorites/favorites.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { JobsModule } from "./jobs/jobs.module.js";
 import { env, validateEnvironment } from "./lib/env.js";
@@ -61,6 +62,7 @@ import { UsersModule } from "./users/users.module.js";
     HealthModule,
     CategoriesModule,
     RequestsModule,
+    FavoritesModule,
     ConversationsModule,
     NotificationsModule,
     PushModule,
