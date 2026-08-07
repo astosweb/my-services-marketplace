@@ -120,6 +120,26 @@ export class AuthController {
     return { data: await this.authService.getMe(userId) };
   }
 
+  @Get("socket-token")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Issue the current access token for Socket.IO handshake",
+    description:
+      "BFF clients store JWTs in HttpOnly cookies and cannot read them from JS. This endpoint returns the bearer token already validated on the request so the browser can authenticate the /realtime namespace.",
+  })
+  async socketToken(@Req() request: Request) {
+    const header = request.headers.authorization;
+    const token =
+      typeof header === "string" && header.toLowerCase().startsWith("bearer ")
+        ? header.slice(7).trim()
+        : null;
+    if (!token) {
+      return { data: { token: null as string | null } };
+    }
+    return { data: { token, namespace: "/realtime", protocolVersion: 1 } };
+  }
+
   @Patch("me")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

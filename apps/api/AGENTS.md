@@ -22,7 +22,7 @@ Monorepo architecture standards live in the root [`AGENTS.md`](../../AGENTS.md).
 3. **Validation Pipes**: DTOs use `class-validator` and `class-transformer`. Keep constraints aligned with `@monorepo/shared` Zod schemas.
 4. **Error Handling**: Use standard Nest exceptions (`NotFoundException`, `ForbiddenException`, `BadRequestException`) or throw `AppError` subclasses. Never return raw 500 error objects or unhandled Prisma errors to clients.
 5. **Prisma Operations**: Perform complex data modifications inside `prisma.$transaction([])` or `prisma.$transaction(async tx => ...)` to ensure atomicity.
-6. **Compare-And-Swap (CAS)**: Update status and progress state machines using conditional `updateMany` queries matching expected current state to prevent race conditions.
+7. **Realtime**: Do not put business logic in the Socket.IO gateway. Emit via `RealtimePublisher` from services after durable writes. See [`docs/REALTIME.md`](../../docs/REALTIME.md).
 
 ---
 

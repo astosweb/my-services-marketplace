@@ -17,6 +17,7 @@ import { env, validateEnvironment } from "./lib/env.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { PushModule } from "./push/push.module.js";
+import { RealtimeModule } from "./realtime/realtime.module.js";
 import { RequestsModule } from "./requests/requests.module.js";
 import { SupportModule } from "./support/support.module.js";
 import { UploadsModule } from "./uploads/uploads.module.js";
@@ -54,6 +55,7 @@ import { UsersModule } from "./users/users.module.js";
     }]),
     PrismaModule,
     CommonModule,
+    RealtimeModule,
     AuthModule,
     AdminModule,
     HealthModule,

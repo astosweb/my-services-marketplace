@@ -61,7 +61,8 @@
   - Rate limiting enforced via `RateLimitGuard` using Redis Lua script.
   - Multipart upload routes enforce magic-byte MIME sniffing and signed HMAC URLs for private files.
 - **Modules**:
-  - `AuthModule`: Register, login, refresh, logout, password reset, user profile stats.
+  - `AuthModule`: Register, login, refresh, logout, password reset, user profile stats, socket token for realtime.
+  - `RealtimeModule`: Socket.IO `/realtime` gateway, Redis adapter, presence, central `RealtimePublisher`.
   - `RequestsModule`: Requests lifecycle, bidding, job progress, request-level chat, reviews.
   - `CategoriesModule`: Public category directory.
   - `ConversationsModule`: Inbox, direct messaging, read tracking, archiving, pinning.
@@ -75,7 +76,8 @@
 ### 3. Data & Infrastructure Layer
 
 - **Database**: PostgreSQL 18 managed via Prisma 7 ORM (`apps/api/prisma/schema.prisma`).
-- **Cache & Task Queue**: Redis 8 backing sliding-window rate limiting, BullMQ 5 daily token cleanup jobs (`TokenCleanupProcessor`), and support typing indicator Pub/Sub sync.
+- **Cache & Task Queue**: Redis 8 backing sliding-window rate limiting, BullMQ 5 daily token cleanup jobs (`TokenCleanupProcessor`), Socket.IO Redis adapter for horizontally scaled realtime, and support typing / presence TTLs.
+- **Realtime**: Dedicated `RealtimeModule` (`apps/api/src/realtime/`) exposes Socket.IO `/realtime` with JWT auth, room ACLs, and a `RealtimePublisher` called from REST services after durable writes. See [`docs/REALTIME.md`](REALTIME.md).
 - **Media Storage**: Configurable local filesystem storage (development) or DigitalOcean Spaces S3 bucket (production).
 
 ---

@@ -1,14 +1,15 @@
 "use client";
 
-import { use, useState, type FormEvent } from "react";
+import { use, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SupportTicketDetailDto } from "@monorepo/shared";
+import { supportRoom, type SupportTicketDetailDto } from "@monorepo/shared";
 import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError } from "@/lib/api/client";
+import { useRealtime } from "@/lib/realtime/provider";
 import { formatRelativeTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -19,7 +20,17 @@ export default function SupportTicketPage({
 }) {
   const { id } = use(params);
   const queryClient = useQueryClient();
+  const realtime = useRealtime();
   const [body, setBody] = useState("");
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    realtime.joinSupport(id);
+    return () => {
+      realtime.setTyping(supportRoom(id), false);
+      realtime.leaveSupport(id);
+    };
+  }, [id, realtime]);
 
   const ticket = useQuery({
     queryKey: ["support", "tickets", id],
@@ -32,6 +43,7 @@ export default function SupportTicketPage({
       api.post(`/support/tickets/${id}/messages`, { body: body.trim() }),
     onSuccess: async () => {
       setBody("");
+      realtime.setTyping(supportRoom(id), false);
       toast.success("Reply sent");
       await queryClient.invalidateQueries({
         queryKey: ["support", "tickets", id],
@@ -114,7 +126,16 @@ export default function SupportTicketPage({
         >
           <Textarea
             value={body}
-            onChange={(event) => setBody(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setBody(value);
+              realtime.setTyping(supportRoom(id), true);
+              if (typingTimer.current) clearTimeout(typingTimer.current);
+              typingTimer.current = setTimeout(
+                () => realtime.setTyping(supportRoom(id), false),
+                1_500,
+              );
+            }}
             placeholder="Write a reply…"
             required
           />

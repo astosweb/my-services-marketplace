@@ -7,13 +7,18 @@ import {
   profileName,
   serializeConversationInbox,
   serializeMessage,
+  serializeNotification,
 } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import type { ConversationListQueryDto, SendConversationMessageDto } from "./conversations.dto.js";
 
 @Injectable()
 export class ConversationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimePublisher,
+  ) {}
 
   private getMembership(conversationId: string, userId: string) {
     return this.prisma.conversationParticipant.findUnique({
@@ -120,6 +125,11 @@ export class ConversationsService {
       where: { conversationId_userId: { conversationId, userId } },
       data: { isArchived },
     });
+    this.realtime.emitToUser(userId, "conversation.updated", {
+      conversationId,
+      reason: isArchived ? "archived" : "unarchived",
+      isArchived: updated.isArchived,
+    });
     return { id: conversationId, isArchived: updated.isArchived };
   }
 
@@ -128,6 +138,11 @@ export class ConversationsService {
     const updated = await this.prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId, userId } },
       data: { isPinned },
+    });
+    this.realtime.emitToUser(userId, "conversation.updated", {
+      conversationId,
+      reason: isPinned ? "pinned" : "unpinned",
+      isPinned: updated.isPinned,
     });
     return { id: conversationId, isPinned: updated.isPinned };
   }
@@ -147,9 +162,20 @@ export class ConversationsService {
         select: { userId: true, lastReadAt: true },
       }),
     ]);
+    const readAt = new Date();
     await this.prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId, userId } },
-      data: { lastReadAt: new Date() },
+      data: { lastReadAt: readAt },
+    });
+    this.realtime.messageRead({
+      conversationId,
+      readerId: userId,
+      participantIds: readStates.map((state) => state.userId),
+      readAt: readAt.toISOString(),
+    });
+    this.realtime.unreadUpdated(userId, {
+      conversationId,
+      conversationUnread: 0,
     });
     return [...messages].reverse().map((message) => serializeMessage(message, userId, readStates));
   }
@@ -193,6 +219,14 @@ export class ConversationsService {
       return created;
     });
 
+    const participantIds = conversation.participants.map((participant) => participant.userId);
+    const serialized = serializeMessage(message, userId, conversation.participants);
+    this.realtime.messageCreated({
+      conversationId,
+      participantIds,
+      message: serialized as unknown as Record<string, unknown>,
+    });
+
     const recipientId = conversation.participants.find(
       (participant) => participant.userId !== userId,
     )?.userId;
@@ -202,7 +236,7 @@ export class ConversationsService {
         previewRaw.length > 120
           ? `${previewRaw.slice(0, 117)}...`
           : previewRaw || "Sent an attachment";
-      await this.prisma.notification.create({
+      const notification = await this.prisma.notification.create({
         data: {
           userId: recipientId,
           kind: NotificationKind.NEW_MESSAGE,
@@ -216,15 +250,37 @@ export class ConversationsService {
           },
         },
       });
+      this.realtime.notificationCreated(
+        recipientId,
+        serializeNotification(notification) as unknown as Record<string, unknown>,
+      );
+      this.realtime.unreadUpdated(recipientId, {
+        conversationId,
+      });
     }
-    return serializeMessage(message, userId, conversation.participants);
+    return serialized;
   }
 
   async read(conversationId: string, userId: string) {
     await this.requireMembership(conversationId, userId);
+    const readAt = new Date();
     await this.prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId, userId } },
-      data: { lastReadAt: new Date() },
+      data: { lastReadAt: readAt },
+    });
+    const participants = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
+    });
+    this.realtime.messageRead({
+      conversationId,
+      readerId: userId,
+      participantIds: participants.map((participant) => participant.userId),
+      readAt: readAt.toISOString(),
+    });
+    this.realtime.unreadUpdated(userId, {
+      conversationId,
+      conversationUnread: 0,
     });
     return { ok: true };
   }

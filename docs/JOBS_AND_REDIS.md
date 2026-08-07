@@ -29,9 +29,11 @@ Rate limiting is enforced by `RateLimitGuard` (`apps/api/src/common/guards/rate-
 
 ---
 
-## 3. Realtime Typing Indicators & Pub/Sub
+## 3. Realtime (Socket.IO + Redis adapter)
 
-Support ticket typing indicators use Redis Pub/Sub channels to sync state across multiple NestJS API instances:
+Production realtime lives in `apps/api/src/realtime/` (see [`docs/REALTIME.md`](REALTIME.md)):
 
-- **Channel Pattern**: `support:typing:<ticketId>`
-- **Fallback**: If Redis is unconfigured, typing indicators fall back seamlessly to local in-memory event emitters.
+- **Transport**: Socket.IO namespace `/realtime`
+- **Scaling**: `@socket.io/redis-adapter` when `REDIS_URL` is set (key prefix `gobid:socket.io`)
+- **Presence**: Redis keys `presence:online:{userId}` with TTL + `User.lastSeenAt`
+- **Typing**: Socket events (`typing.update` / `support.typing`); legacy HTTP typing endpoints remain for compatibility and still sync via Redis keys `support:typing:<ticketId>:<userId>`

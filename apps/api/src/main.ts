@@ -15,6 +15,7 @@ import {
   env,
 } from "./lib/env.js";
 import { badRequest } from "./lib/errors.js";
+import { RedisIoAdapter } from "./realtime/redis-io.adapter.js";
 
 async function bootstrap() {
   assertProductionCors();
@@ -26,6 +27,11 @@ async function bootstrap() {
   app.useLogger(app.get(PinoLogger));
   app.enableShutdownHooks();
   app.set("trust proxy", 1);
+
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
+
   app.use(helmet());
   app.useBodyParser("json", { limit: "2mb" });
   app.useBodyParser("urlencoded", { limit: "2mb", extended: true });

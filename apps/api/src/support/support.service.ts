@@ -14,6 +14,7 @@ import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import { assertOwnedObjectKeys } from "../lib/owned-keys.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { PushService } from "../push/push.service.js";
+import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import {
   CreateCannedResponseDto,
   CreateSupportNoteDto,
@@ -98,6 +99,7 @@ export class SupportService {
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
     private readonly emailService: EmailService,
+    private readonly realtime: RealtimePublisher,
   ) {}
 
   private slaDeadlines(priority: SupportTicketPriority, from = new Date()) {
@@ -367,6 +369,16 @@ export class SupportService {
       })),
     });
 
+    this.realtime.supportTicketUpdated({
+      ticketId: ticket.id,
+      userId: ticket.createdById,
+      assigneeId: ticket.assignedAdminId,
+      ticket: serializeSupportTicketListItem(ticket, { isAdmin: false, userId }) as Record<
+        string,
+        unknown
+      >,
+    });
+
     return serializeSupportTicketListItem(ticket, { isAdmin: false, userId });
   }
 
@@ -451,6 +463,8 @@ export class SupportService {
         }),
       ]);
     }
+
+    this.realtime.unreadUpdated(viewer.userId, { supportUnread: 0 });
 
     return { read: true as const };
   }
@@ -627,6 +641,13 @@ export class SupportService {
       }
     }
 
+    this.realtime.supportMessageCreated({
+      ticketId: ticket.id,
+      userId: ticket.createdById,
+      assigneeId: ticket.assignedAdminId,
+      message: serializeSupportMessage(message) as Record<string, unknown>,
+    });
+
     return serializeSupportMessage(message);
   }
 
@@ -792,6 +813,16 @@ export class SupportService {
         caseNumber: ticket.caseNumber,
       });
     }
+
+    this.realtime.supportTicketUpdated({
+      ticketId: updated.id,
+      userId: updated.createdById,
+      assigneeId: updated.assignedAdminId,
+      ticket: serializeSupportTicketDetail(updated, { isAdmin: true, userId: actorId }) as Record<
+        string,
+        unknown
+      >,
+    });
 
     return serializeSupportTicketDetail(updated, { isAdmin: true, userId: actorId });
   }
@@ -962,6 +993,13 @@ export class SupportService {
       caseNumber: ticket.caseNumber,
     });
 
+    this.realtime.supportTicketUpdated({
+      ticketId: updated.id,
+      userId: updated.createdById,
+      assigneeId: updated.assignedAdminId,
+      ticket: serializeSupportTicketDetail(updated, viewer) as Record<string, unknown>,
+    });
+
     return serializeSupportTicketDetail(updated, viewer);
   }
 
@@ -1025,6 +1063,20 @@ export class SupportService {
           tags: [...new Set([...target.tags, ...source.tags, `merged:${source.caseNumber}`])],
         },
       });
+    });
+
+    const mergedTarget = await this.prisma.supportTicket.findUniqueOrThrow({
+      where: { id: targetId },
+      include: detailInclude,
+    });
+    this.realtime.supportTicketUpdated({
+      ticketId: mergedTarget.id,
+      userId: mergedTarget.createdById,
+      assigneeId: mergedTarget.assignedAdminId,
+      ticket: serializeSupportTicketDetail(mergedTarget, {
+        isAdmin: true,
+        userId: actorId,
+      }) as Record<string, unknown>,
     });
 
     return this.getTicket(targetId, { userId: actorId, isAdmin: true });
@@ -1323,6 +1375,12 @@ export class SupportService {
     }
     this.typingByTicket.set(ticketId, bucket);
     void this.syncTypingToRedis(ticketId, actor, isTyping);
+    this.realtime.supportTyping({
+      ticketId,
+      userId: actor.userId,
+      displayName: actor.displayName,
+      isTyping,
+    });
     return this.readTyping(ticketId, actor.userId);
   }
 

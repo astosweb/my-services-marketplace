@@ -3,6 +3,7 @@
 import { use, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { conversationRoom } from "@monorepo/shared";
 import { sendMessageSchema } from "@/lib/validations";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { useOptionalUser } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/keys";
 import { useMessages } from "@/lib/api/hooks";
+import { useRealtime } from "@/lib/realtime/provider";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -24,12 +26,24 @@ export default function MessageThreadPage({
   const { user } = useOptionalUser();
   const query = useMessages(id);
   const queryClient = useQueryClient();
+  const realtime = useRealtime();
   const [body, setBody] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [query.data]);
+
+  useEffect(() => {
+    realtime.joinConversation(id);
+    realtime.markRead(id);
+    return () => realtime.leaveConversation(id);
+  }, [id, realtime]);
+
+  const notifyTyping = (isTyping: boolean) => {
+    realtime.setTyping(conversationRoom(id), isTyping);
+  };
 
   const send = useMutation({
     mutationFn: async () => {
@@ -43,6 +57,7 @@ export default function MessageThreadPage({
     },
     onSuccess: async () => {
       setBody("");
+      notifyTyping(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.messages(id) });
       await queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
@@ -145,7 +160,13 @@ export default function MessageThreadPage({
       >
         <Input
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setBody(value);
+            notifyTyping(true);
+            if (typingTimer.current) clearTimeout(typingTimer.current);
+            typingTimer.current = setTimeout(() => notifyTyping(false), 1_500);
+          }}
           placeholder="Write a message…"
           className="border-0 shadow-none focus-visible:ring-0"
         />

@@ -40,7 +40,8 @@
 
 | Application / Package | Stack | Port / Target | Role & Responsibility |
 |-----------------------|-------|---------------|-----------------------|
-| **API** (`apps/api`) | NestJS 11, Node 22, Prisma 7, Passport JWT | `http://localhost:3000` | REST API for Auth, Marketplace, Messaging, Support, Uploads, Admin |
+| **API** (`apps/api`) | NestJS 11, Node 22, Prisma 7, Passport JWT, Socket.IO | `http://localhost:3000` | REST + realtime API for Auth, Marketplace, Messaging, Support, Uploads, Admin |
+
 | **Admin** (`apps/admin`) | Next.js 16 (App Router), React 19, Tailwind CSS v4 | `http://localhost:3001` | Ops Dashboard for moderation, support desk, users, categories |
 | **Web** (`apps/web`) | Next.js 16 (App Router), React 19, Tailwind CSS v4 | `http://localhost:3002` | Public marketplace portal for browsable requests, offers, profile |
 | **Shared** (`packages/shared`) | TypeScript, Zod | `@monorepo/shared` | Shared API contracts, validation schemas, and common types |
@@ -61,7 +62,8 @@ For exhaustive guides on architecture, business logic, APIs, and security, refer
 - 🛠️ **[Admin Panel Guide](docs/ADMIN_APP_GUIDE.md)** — Next.js admin dashboard, support ticket queue, moderation rules, binary RBAC.
 - 📱 **[Mobile App Guide](docs/MOBILE_APP_GUIDE.md)** — iOS SwiftUI architecture, MapKit integration, token refresher queue.
 - 📦 **[Shared Contracts Guide](docs/SHARED_CONTRACTS.md)** — `@monorepo/shared` Zod schemas, Nest DTO mapping, contract boundary validation.
-- ⚙️ **[Background Jobs & Redis](docs/JOBS_AND_REDIS.md)** — BullMQ cron tasks, Redis rate-limiter, pub/sub typing indicators.
+- ⚙️ **[Background Jobs & Redis](docs/JOBS_AND_REDIS.md)** — BullMQ cron tasks, Redis rate-limiter, Socket.IO Redis adapter.
+- 🔴 **[Realtime WebSockets](docs/REALTIME.md)** — Socket.IO architecture, rooms, JWT auth, publisher, client integration.
 - 💻 **[Development Guide](docs/DEVELOPMENT_GUIDE.md)** — Local setup, environment configuration, pnpm commands, Docker workflow.
 - 🧪 **[Testing Strategy](docs/TESTING_STRATEGY.md)** — Vitest, Jest, integration testing patterns, and CI quality gates.
 - 🚀 **[Operations & Deployment](docs/DEPLOYMENT.md)** — Docker targets, production domains, database backups, health checks.

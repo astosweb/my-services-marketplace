@@ -250,7 +250,20 @@ struct ConversationDetailView: View {
         .fullScreenCover(item: $fullscreenImage) { item in
             ChatFullscreenImageViewer(url: item.url)
         }
-        .task { await load() }
+        .task {
+            RealtimeService.shared.joinConversation(conversation.id)
+            RealtimeService.shared.markRead(conversationId: conversation.id)
+            await load()
+        }
+        .onDisappear {
+            RealtimeService.shared.leaveConversation(conversation.id)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gobidRealtimeEvent)) { notification in
+            guard let event = notification.userInfo?["event"] as? String else { return }
+            if event == "message.created" || event == "message.read" || event == "conversation.updated" {
+                Task { await load() }
+            }
+        }
         .sensoryFeedback(.success, trigger: feedbackTrigger)
     }
 

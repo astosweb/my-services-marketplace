@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
+import { RealtimeProvider } from "@/lib/realtime/provider";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -20,8 +21,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
-      {children}
-      <Toaster richColors position="top-right" closeButton />
+      <RealtimeProvider>
+        {children}
+        <Toaster richColors position="top-right" closeButton />
+      </RealtimeProvider>
     </QueryClientProvider>
   );
 }

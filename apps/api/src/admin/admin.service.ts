@@ -24,6 +24,7 @@ import {
 import { refreshUserRating } from "../lib/user-rating.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { PushService } from "../push/push.service.js";
+import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import type {
   AdminApproveRequestDto,
   AdminAuditLogsQueryDto,
@@ -58,6 +59,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
+    private readonly realtime: RealtimePublisher,
   ) {}
 
   private adminUser(
@@ -523,6 +525,9 @@ export class AdminService {
         businessName: existing.businessName,
       },
     });
+    if (data.status === UserStatus.BANNED && existing.status !== UserStatus.BANNED) {
+      this.realtime.presenceUpdate({ userId: id, status: "offline" });
+    }
     return this.adminUser(updated);
   }
 
@@ -963,7 +968,20 @@ export class AdminService {
       );
     }
 
-    return this.getRequest(id);
+    const approvedRequest = await this.getRequest(id);
+    this.realtime.requestModeration({
+      requestId: id,
+      ownerId: existing.ownerId,
+      status: ServiceRequestStatus.OPEN,
+    });
+    this.realtime.requestUpdated({
+      requestId: id,
+      ownerId: existing.ownerId,
+      request: approvedRequest as Record<string, unknown>,
+      reason: "approved",
+    });
+
+    return approvedRequest;
   }
 
   async rejectRequest(id: string, adminId: string, data: AdminRejectRequestDto) {
@@ -1006,7 +1024,21 @@ export class AdminService {
       },
     });
 
-    return this.getRequest(id);
+    const rejectedRequest = await this.getRequest(id);
+    this.realtime.requestModeration({
+      requestId: id,
+      ownerId: existing.ownerId,
+      status: ServiceRequestStatus.CANCELLED,
+      reason,
+    });
+    this.realtime.requestUpdated({
+      requestId: id,
+      ownerId: existing.ownerId,
+      request: rejectedRequest as Record<string, unknown>,
+      reason: "rejected",
+    });
+
+    return rejectedRequest;
   }
 
   async deleteRequest(id: string, adminId: string) {
@@ -1046,7 +1078,10 @@ export class AdminService {
   }
 
   async updateOffer(id: string, adminId: string, data: AdminUpdateOfferDto) {
-    const existing = await this.prisma.offer.findUnique({ where: { id }, select: { id: true } });
+    const existing = await this.prisma.offer.findUnique({
+      where: { id },
+      include: { offerer: true, request: { select: { ownerId: true } } },
+    });
     if (!existing) throw notFound("Offer not found");
     const updated = await this.prisma.offer.update({
       where: { id },
@@ -1054,7 +1089,14 @@ export class AdminService {
       include: { offerer: true },
     });
     await this.logAudit(adminId, "OFFER_UPDATED", "offer", id, { status: data.status });
-    return serializeOffer(updated);
+    const serializedOffer = serializeOffer(updated);
+    this.realtime.offerUpdated({
+      requestId: existing.requestId,
+      ownerId: existing.request.ownerId,
+      providerId: existing.offererId,
+      offer: serializedOffer as Record<string, unknown>,
+    });
+    return serializedOffer;
   }
 
   async deleteOffer(id: string, adminId: string) {
