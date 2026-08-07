@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { RealtimeServerEvent } from "@monorepo/shared";
 import {
   JobProgressStatus,
   NotificationKind,
@@ -11,12 +12,14 @@ import { assertOwnedObjectKeys } from "../lib/owned-keys.js";
 import {
   profileName,
   serializeMessage,
+  serializeNotification,
   serializeOffer,
   serializeRequest,
   serializeReview,
 } from "../lib/serializers.js";
 import { refreshUserRating } from "../lib/user-rating.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import type {
   CreateOfferDto,
   CreateRequestDto,
@@ -50,7 +53,10 @@ const requestDetailInclude = {
 
 @Injectable()
 export class RequestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimePublisher,
+  ) {}
 
   private async ensureConversation(requestId: string, userA: string, userB: string) {
     if (userA === userB) throw badRequest("Cannot message yourself");
@@ -309,7 +315,22 @@ export class RequestsService {
         _count: { select: { offers: true } },
       },
     });
-    return serializeRequest(request);
+    const serialized = serializeRequest(request);
+    this.realtime.emitToAdmins(RealtimeServerEvent.ADMIN_MODERATION, {
+      type: "request_pending",
+      requestId: request.id,
+      ownerId,
+    });
+    this.realtime.emitToAdminModeration(RealtimeServerEvent.REQUEST_MODERATION, {
+      requestId: request.id,
+      ownerId,
+      status: ServiceRequestStatus.PENDING_REVIEW,
+    });
+    this.realtime.emitToUser(ownerId, RealtimeServerEvent.REQUEST_UPDATED, {
+      requestId: request.id,
+      reason: "created",
+    });
+    return serialized;
   }
 
   async update(id: string, userId: string, data: CreateRequestDto) {
@@ -419,12 +440,18 @@ export class RequestsService {
         data: { status: OfferStatus.WITHDRAWN },
       });
       if (!withdrawn.count) throw badRequest("Only pending offers can be updated");
-      return serializeOffer(
-        await this.prisma.offer.findUniqueOrThrow({
-          where: { id: offer.id },
-          include: { offerer: true },
-        }),
-      );
+      const withdrawnOffer = await this.prisma.offer.findUniqueOrThrow({
+        where: { id: offer.id },
+        include: { offerer: true },
+      });
+      const serializedWithdrawn = serializeOffer(withdrawnOffer);
+      this.realtime.offerUpdated({
+        requestId,
+        ownerId: offer.request.ownerId,
+        providerId: offer.offererId,
+        offer: serializedWithdrawn as Record<string, unknown>,
+      });
+      return serializedWithdrawn;
     }
     if (offer.request.ownerId !== userId) {
       throw forbidden("Only the post owner can respond to offers");
@@ -508,7 +535,42 @@ export class RequestsService {
         payload: { requestId, offerId: offer.id },
       },
     });
-    return serializeOffer(updated);
+    const serializedOffer = serializeOffer(updated);
+    this.realtime.offerUpdated({
+      requestId,
+      ownerId: offer.request.ownerId,
+      providerId: offer.offererId,
+      offer: serializedOffer as Record<string, unknown>,
+    });
+    if (data.status === OfferStatus.ACCEPTED) {
+      const request = await this.prisma.serviceRequest.findUniqueOrThrow({
+        where: { id: requestId },
+        include: {
+          ...requestDetailInclude,
+          offers: {
+            where: { status: OfferStatus.ACCEPTED },
+            include: { offerer: true },
+          },
+        },
+      });
+      this.realtime.requestUpdated({
+        requestId,
+        ownerId: offer.request.ownerId,
+        interestedUserIds: [offer.offererId],
+        request: serializeRequest(request, userId) as Record<string, unknown>,
+        reason: "offer.accepted",
+      });
+      this.realtime.jobProgress({
+        requestId,
+        ownerId: offer.request.ownerId,
+        providerId: offer.offererId,
+        progress: {
+          status: JobProgressStatus.ACCEPTED,
+          requestId,
+        },
+      });
+    }
+    return serializedOffer;
   }
 
   async updateStatus(requestId: string, ownerId: string, data: UpdateRequestStatusDto) {
@@ -624,7 +686,27 @@ export class RequestsService {
         },
       });
     }
-    return serializeRequest(request, ownerId);
+    const serializedRequest = serializeRequest(request, ownerId);
+    this.realtime.requestUpdated({
+      requestId,
+      ownerId,
+      interestedUserIds: acceptedOffer ? [acceptedOffer.offererId] : undefined,
+      request: serializedRequest as Record<string, unknown>,
+      reason:
+        data.status === ServiceRequestStatus.COMPLETED ? "completed" : "cancelled",
+    });
+    if (data.status === ServiceRequestStatus.COMPLETED && acceptedOffer) {
+      this.realtime.jobProgress({
+        requestId,
+        ownerId,
+        providerId: acceptedOffer.offererId,
+        progress: {
+          status: JobProgressStatus.OWNER_CONFIRMED,
+          requestId,
+        },
+      });
+    }
+    return serializedRequest;
   }
 
   async updateProgress(requestId: string, providerId: string, data: UpdateProgressDto) {
@@ -709,7 +791,24 @@ export class RequestsService {
         payload: { requestId, progressStatus: data.status },
       },
     });
-    return serializeRequest(request, providerId);
+    const serializedRequest = serializeRequest(request, providerId);
+    this.realtime.requestUpdated({
+      requestId,
+      ownerId: acceptedOffer.request.ownerId,
+      interestedUserIds: [providerId],
+      request: serializedRequest as Record<string, unknown>,
+      reason: "progress.updated",
+    });
+    this.realtime.jobProgress({
+      requestId,
+      ownerId: acceptedOffer.request.ownerId,
+      providerId,
+      progress: {
+        status: data.status,
+        requestId,
+      },
+    });
+    return serializedRequest;
   }
 
   async review(requestId: string, authorId: string, data: CreateReviewDto) {
@@ -773,6 +872,27 @@ export class RequestsService {
         contextTag: request.title,
         payload: { requestId, reviewId: review.id },
       },
+    });
+    const refreshedRequest = await this.prisma.serviceRequest.findUniqueOrThrow({
+      where: { id: requestId },
+      include: {
+        category: true,
+        owner: true,
+        photos: true,
+        progressEvents: { orderBy: { createdAt: "asc" } },
+        offers: {
+          where: { status: OfferStatus.ACCEPTED },
+          include: { offerer: true },
+        },
+        _count: { select: { offers: true } },
+      },
+    });
+    this.realtime.requestUpdated({
+      requestId,
+      ownerId: request.ownerId,
+      interestedUserIds: [acceptedOffer.offererId],
+      request: serializeRequest(refreshedRequest, authorId) as Record<string, unknown>,
+      reason: "review.created",
     });
     return serializeReview(review);
   }
@@ -897,7 +1017,14 @@ export class RequestsService {
         payload: { requestId, offerId: offer.id },
       },
     });
-    return serializeOffer(offer);
+    const serializedOffer = serializeOffer(offer);
+    this.realtime.offerCreated({
+      requestId,
+      ownerId: request.ownerId,
+      providerId: offererId,
+      offer: serializedOffer as Record<string, unknown>,
+    });
+    return serializedOffer;
   }
 
   async sendMessage(requestId: string, senderId: string, data: SendRequestMessageDto) {
@@ -914,7 +1041,7 @@ export class RequestsService {
       });
       return created;
     });
-    await this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         userId: peerUserId,
         kind: NotificationKind.NEW_MESSAGE,
@@ -928,6 +1055,18 @@ export class RequestsService {
         },
       },
     });
-    return serializeMessage(message);
+    const participantIds = [senderId, peerUserId];
+    const serializedMessage = serializeMessage(message);
+    this.realtime.messageCreated({
+      conversationId: conversation.id,
+      participantIds,
+      message: serializedMessage as Record<string, unknown>,
+    });
+    this.realtime.notificationCreated(
+      peerUserId,
+      serializeNotification(notification) as Record<string, unknown>,
+    );
+    this.realtime.unreadUpdated(peerUserId, { conversationId: conversation.id });
+    return serializedMessage;
   }
 }

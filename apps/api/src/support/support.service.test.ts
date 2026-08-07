@@ -77,6 +77,12 @@ describe("SupportService", () => {
   const emailService = {
     sendSupportNotification: vi.fn().mockResolvedValue(undefined),
   };
+  const realtime = {
+    supportTicketUpdated: vi.fn(),
+    supportMessageCreated: vi.fn(),
+    unreadUpdated: vi.fn(),
+    supportTyping: vi.fn(),
+  };
   let service: SupportService;
 
   beforeEach(() => {
@@ -85,6 +91,7 @@ describe("SupportService", () => {
       prisma as never,
       pushService as never,
       emailService as never,
+      realtime as never,
     );
   });
 

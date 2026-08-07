@@ -1,8 +1,10 @@
 import { Injectable } from "@nestjs/common";
+import { RealtimeServerEvent } from "@monorepo/shared";
 import { badRequest, notFound } from "../lib/errors.js";
 import { categoryCatalog } from "../lib/category-catalog.js";
 import { serializeCategory, serializeNotification } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import type {
   NotificationListQueryDto,
   UpdateNotificationPreferencesDto,
@@ -13,7 +15,10 @@ const knownCategoryIds = new Set<string>(categoryCatalog.map((category) => categ
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimePublisher,
+  ) {}
 
   async list(userId: string, query: NotificationListQueryDto) {
     const [notifications, total, unreadCount] = await Promise.all([
@@ -35,12 +40,16 @@ export class NotificationsService {
   async markRead(userId: string, id: string) {
     const notification = await this.prisma.notification.findFirst({ where: { id, userId } });
     if (!notification) throw notFound("Notification not found");
-    return serializeNotification(
-      await this.prisma.notification.update({
-        where: { id: notification.id },
-        data: { isRead: true },
-      }),
-    );
+    const updated = await this.prisma.notification.update({
+      where: { id: notification.id },
+      data: { isRead: true },
+    });
+    const serialized = serializeNotification(updated);
+    this.realtime.emitToUser(userId, RealtimeServerEvent.NOTIFICATION_UPDATED, {
+      notification: serialized,
+    });
+    this.realtime.unreadUpdated(userId, {});
+    return serialized;
   }
 
   async readAll(userId: string) {
@@ -48,6 +57,8 @@ export class NotificationsService {
       where: { userId, isRead: false },
       data: { isRead: true },
     });
+    this.realtime.emitToUser(userId, RealtimeServerEvent.NOTIFICATION_UPDATED, { allRead: true });
+    this.realtime.unreadUpdated(userId, { notificationsUnread: 0 });
     return { ok: true };
   }
 

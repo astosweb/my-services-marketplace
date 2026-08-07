@@ -15,7 +15,12 @@ describe("NotificationsService.updatePreferences", () => {
     $transaction: vi.fn(),
   };
 
-  const service = new NotificationsService(prisma as never);
+  const realtime = {
+    emitToUser: vi.fn(),
+    unreadUpdated: vi.fn(),
+  };
+
+  const service = new NotificationsService(prisma as never, realtime as never);
 
   beforeEach(() => {
     vi.clearAllMocks();

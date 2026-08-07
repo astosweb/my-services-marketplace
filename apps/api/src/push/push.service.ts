@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { NotificationKind, Prisma, UserStatus } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { RealtimePublisher } from "../realtime/realtime.publisher.js";
 import { ApnsClient } from "./apns.client.js";
 
 export type CategoryRequestPushInput = {
@@ -16,10 +17,32 @@ export class PushService implements OnModuleDestroy {
   private readonly logger = new Logger(PushService.name);
   private readonly apns = new ApnsClient();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimePublisher,
+  ) {}
 
   onModuleDestroy() {
     this.apns.close();
+  }
+
+  private publishNotificationFanout(
+    userIds: string[],
+    notification: {
+      kind: NotificationKind;
+      title: string;
+      body: string;
+      contextTag?: string;
+      payload?: Record<string, unknown>;
+    },
+  ) {
+    for (const userId of userIds) {
+      this.realtime.notificationCreated(userId, {
+        ...notification,
+        userId,
+      });
+      this.realtime.unreadUpdated(userId, {});
+    }
   }
 
   /**
@@ -44,6 +67,11 @@ export class PushService implements OnModuleDestroy {
 
     const notificationTitle = `New ${input.categoryName} request`;
     const notificationBody = input.title;
+    const payload = {
+      requestId: input.requestId,
+      categoryId: input.categoryId,
+      action: "APPROVED_PUBLIC",
+    };
 
     await this.prisma.notification.createMany({
       data: userIds.map((userId) => ({
@@ -52,12 +80,16 @@ export class PushService implements OnModuleDestroy {
         title: notificationTitle,
         body: notificationBody,
         contextTag: "request",
-        payload: {
-          requestId: input.requestId,
-          categoryId: input.categoryId,
-          action: "APPROVED_PUBLIC",
-        },
+        payload,
       })),
+    });
+
+    this.publishNotificationFanout(userIds, {
+      kind: NotificationKind.NEW_REQUEST,
+      title: notificationTitle,
+      body: notificationBody,
+      contextTag: "request",
+      payload,
     });
 
     const devices = await this.prisma.deviceToken.findMany({
@@ -149,6 +181,14 @@ export class PushService implements OnModuleDestroy {
           ? (JSON.parse(JSON.stringify(input.payload)) as Prisma.InputJsonValue)
           : undefined,
       })),
+    });
+
+    this.publishNotificationFanout(userIds, {
+      kind: input.kind,
+      title: input.title,
+      body: input.body,
+      contextTag: input.contextTag,
+      payload: input.payload,
     });
 
     const devices = await this.prisma.deviceToken.findMany({

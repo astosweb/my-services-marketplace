@@ -16,7 +16,12 @@ describe("PushService.notifyCategorySubscribersOfApprovedRequest", () => {
     },
   };
 
-  const service = new PushService(prisma as never);
+  const realtime = {
+    notificationCreated: vi.fn(),
+    unreadUpdated: vi.fn(),
+  };
+
+  const service = new PushService(prisma as never, realtime as never);
 
   beforeEach(() => {
     vi.clearAllMocks();
