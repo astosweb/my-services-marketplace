@@ -29,13 +29,6 @@ type RequestWithRelations = ServiceRequest & {
   _count?: { offers: number };
 };
 
-const cityLabels: Record<string, string> = {
-  TALLINN: "Tallinn",
-  TARTU: "Tartu",
-  PARNU: "Pärnu",
-  NARVA: "Narva",
-};
-
 export function profileName(user: Pick<User, "displayName" | "businessName" | "preferBusinessName">) {
   const business = user.businessName?.trim();
   if (user.preferBusinessName && business) return business;
@@ -135,7 +128,7 @@ export function serializeRequest(
     categorySymbol: request.category.symbol,
     title: request.title,
     description: request.description,
-    city: cityLabels[request.city] ?? request.city,
+    city: request.city,
     latitude: request.latitude,
     longitude: request.longitude,
     location: request.location,

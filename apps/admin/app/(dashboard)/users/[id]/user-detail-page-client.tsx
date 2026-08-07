@@ -34,6 +34,7 @@ import type {
   ServiceRequestStatus,
   UserDetailRequestDto,
 } from "@monorepo/shared";
+import { CITY_LABELS, ESTONIAN_CITIES, type EstonianCity } from "@monorepo/shared";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -111,12 +112,25 @@ import {
 } from "@/lib/api/users";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 
-const CITIES = [
-  { value: "TALLINN", label: "Tallinn" },
-  { value: "TARTU", label: "Tartu" },
-  { value: "PARNU", label: "Pärnu" },
-  { value: "NARVA", label: "Narva" },
-] as const;
+const CITIES = ESTONIAN_CITIES.map((value) => ({
+  value,
+  label: CITY_LABELS[value],
+}));
+
+function resolveCityEnum(city: string | null | undefined): EstonianCity {
+  if (!city) return "TALLINN";
+  if ((ESTONIAN_CITIES as readonly string[]).includes(city)) {
+    return city as EstonianCity;
+  }
+  const byLabel = (Object.entries(CITY_LABELS) as [EstonianCity, string][]).find(
+    ([, label]) => label.toLowerCase() === city.toLowerCase(),
+  );
+  return byLabel?.[0] ?? "TALLINN";
+}
+
+function cityLabel(city: string) {
+  return CITY_LABELS[city as EstonianCity] ?? city;
+}
 
 const REQUEST_STATUSES: { value: ServiceRequestStatus; label: string }[] = [
   { value: "PENDING_REVIEW", label: "Pending Review" },
@@ -248,9 +262,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
       title: editingRequest.title,
       description: editingRequest.description,
       categoryId: editingRequest.categoryId,
-      city: (["TALLINN", "TARTU", "PARNU", "NARVA"].includes(editingRequest.city)
-        ? editingRequest.city
-        : "TALLINN") as EditRequestFormValues["city"],
+      city: resolveCityEnum(editingRequest.city),
       location: editingRequest.location,
       budgetEuros:
         editingRequest.budgetCents != null
@@ -622,7 +634,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                           <span className="mr-1">{request.categorySymbol}</span>
                           {request.categoryName}
                         </TableCell>
-                        <TableCell className="text-sm">{request.city}</TableCell>
+                        <TableCell className="text-sm">{cityLabel(request.city)}</TableCell>
                         <TableCell>
                           <StatusBadge status={request.status} />
                         </TableCell>
@@ -1354,7 +1366,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         value={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Category" />
                           </SelectTrigger>
                         </FormControl>
@@ -1381,7 +1393,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         value={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="City" />
                           </SelectTrigger>
                         </FormControl>
@@ -1441,7 +1453,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                         value={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                         </FormControl>
@@ -1466,7 +1478,7 @@ export function UserDetailPageClient({ userId }: { userId: string }) {
                     <FormLabel>Pricing Mode</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
