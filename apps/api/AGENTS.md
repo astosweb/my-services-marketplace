@@ -9,8 +9,8 @@ Monorepo architecture standards live in the root [`AGENTS.md`](../../AGENTS.md).
 ## Technical Stack & Architecture
 
 - **Framework**: NestJS 11, Node 22 LTS, TypeScript 6.
-- **Database**: PostgreSQL 18 via Prisma 7 ORM (`prisma/schema.prisma`).
-- **Cache & Jobs**: Redis 8, BullMQ 5.
+- **Database**: Managed PostgreSQL (Neon) via Prisma 7 ORM (`prisma/schema.prisma`).
+- **Cache & Jobs**: Redis 8 (Docker), BullMQ 5.
 - **Auth**: Passport JWT strategy (`JwtAuthGuard` applied globally), bcrypt hashing.
 
 ---

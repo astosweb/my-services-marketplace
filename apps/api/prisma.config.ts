@@ -8,6 +8,7 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Prefer unpooled Neon URL for schema push / migrate (PgBouncer breaks some DDL).
+    url: process.env.DATABASE_URL_UNPOOLED || env("DATABASE_URL"),
   },
 });

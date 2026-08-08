@@ -35,7 +35,7 @@
      ┌──────────┼──────────┐
      ▼          ▼          ▼
  PostgreSQL   Redis    Spaces/Local
- (Port 5433) (Port 6380) Uploads
+   (Neon)   (Port 6380) Uploads
 ```
 
 | Application / Package | Stack | Port / Target | Role & Responsibility |
@@ -81,7 +81,8 @@ If you are an AI coding assistant (Cursor, Claude Code, Codex, Antigravity, etc.
 ### Prerequisites
 
 - Node.js ≥ 22, pnpm ≥ 10
-- Docker Desktop (for PostgreSQL & Redis)
+- Docker Desktop (for Redis)
+- Neon (or other managed Postgres) — set `DATABASE_URL` in `apps/api/.env`
 
 ### Step-by-Step Setup
 
@@ -89,11 +90,12 @@ If you are an AI coding assistant (Cursor, Claude Code, Codex, Antigravity, etc.
 # 1. Environment configuration
 cp .env.docker.example .env
 cp apps/api/.env.example apps/api/.env
+# Edit apps/api/.env with Neon DATABASE_URL (+ optional DATABASE_URL_UNPOOLED)
 
 # 2. Install dependencies
 pnpm install
 
-# 3. Start database (Postgres on 5433) & Redis (on 6380)
+# 3. Start Redis (port 6380)
 pnpm --filter @gobid/api docker:up
 
 # 4. Generate Prisma client & seed initial data

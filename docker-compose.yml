@@ -1,22 +1,4 @@
 services:
-  postgres:
-    image: postgres:18
-    container_name: gobid-postgres
-    restart: unless-stopped
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_USER: gobid
-      POSTGRES_PASSWORD: gobid
-      POSTGRES_DB: gobid
-    volumes:
-      - postgres_data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gobid -d gobid"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   redis:
     image: redis:8
     container_name: gobid-redis
@@ -45,7 +27,8 @@ services:
       NODE_ENV: development
       PORT: "3000"
       LOG_LEVEL: info
-      DATABASE_URL: postgresql://gobid:gobid@postgres:5432/gobid
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL (Neon pooled URL)}
+      DATABASE_URL_UNPOOLED: ${DATABASE_URL_UNPOOLED:-}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Set a strong JWT_SECRET in the deployment environment}
       UPLOAD_SIGNING_SECRET: ${UPLOAD_SIGNING_SECRET:-}
@@ -72,8 +55,6 @@ services:
     volumes:
       - upload_data:/app/.data
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -131,6 +112,5 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres_data:
   redis_data:
   upload_data:

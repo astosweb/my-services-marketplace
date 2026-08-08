@@ -56,7 +56,7 @@ Detailed technical documentation lives under [`/docs`](docs/):
 | [`docs/SHARED_CONTRACTS.md`](docs/SHARED_CONTRACTS.md) | `@monorepo/shared` package structure, exporting Zod schemas, contract synchronization |
 | [`docs/JOBS_AND_REDIS.md`](docs/JOBS_AND_REDIS.md) | BullMQ cron token cleanup, Redis rate limiting, Socket.IO Redis adapter |
 | [`docs/REALTIME.md`](docs/REALTIME.md) | Socket.IO architecture, rooms, auth, publisher, client integration |
-| [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) | Environment setup, pnpm workspace scripts, Docker Postgres/Redis, troubleshooting |
+| [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) | Environment setup, pnpm workspace scripts, Docker Redis, Neon Postgres, troubleshooting |
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Vitest and Jest testing strategies, integration testing, CI quality gates |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Docker build targets, production domain configuration, database backups, health probes |
 
@@ -75,7 +75,7 @@ Detailed technical documentation lives under [`/docs`](docs/):
 ## ⚙️ Essential Commands
 
 ```bash
-# Start infrastructure (Postgres :5433, Redis :6380)
+# Start Redis (:6380) — Postgres is Neon (DATABASE_URL in apps/api/.env)
 pnpm --filter @gobid/api docker:up
 
 # Schema & Seed

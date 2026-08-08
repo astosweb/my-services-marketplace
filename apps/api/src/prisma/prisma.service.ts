@@ -13,7 +13,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     const databaseHost = new URL(env.DATABASE_URL).hostname;
-    const usesLocalDatabase = ["localhost", "127.0.0.1", "::1", "postgres"].includes(databaseHost);
+    const usesLocalDatabase = ["localhost", "127.0.0.1", "::1"].includes(databaseHost);
     const pool = new Pool({
       connectionString: env.DATABASE_URL,
       max: 20,

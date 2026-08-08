@@ -14,8 +14,9 @@ Production NestJS API for the Gobid service marketplace.
 
 ```bash
 cp .env.example .env
+# Set Neon DATABASE_URL (+ optional DATABASE_URL_UNPOOLED)
 pnpm install
-pnpm docker:up
+pnpm docker:up   # Redis only
 pnpm db:generate
 pnpm db:push
 pnpm db:seed

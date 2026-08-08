@@ -7,10 +7,11 @@
 | API | 3000 | `Dockerfile` target `api` |
 | Admin | 3001 | `admin` |
 | Web | 3002 | `web` |
-| Postgres | 5433→5432 | `postgres:18` |
 | Redis | 6380→6379 | `redis:8` |
 
-Local full stack: copy `.env.docker.example` → `.env`, fill secrets, `pnpm docker:up`.
+Postgres is external (Neon / managed). Set `DATABASE_URL` in the environment (see `.env.docker.example`).
+
+Local full stack: copy `.env.docker.example` → `.env`, fill secrets + Neon URL, `pnpm docker:up`.
 
 ### Production domains (Gobid)
 

@@ -39,7 +39,7 @@ jobs:
         working-directory: apps/api
         run: pnpm db:generate
         env:
-          DATABASE_URL: postgresql://gobid:gobid@localhost:5433/gobid
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       - name: Lint
         working-directory: apps/admin
         run: pnpm lint

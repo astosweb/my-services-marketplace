@@ -4,7 +4,8 @@
 
 - **Node.js**: ≥ 22.0.0
 - **pnpm**: ≥ 10.0.0 (`npm i -g pnpm`)
-- **Docker & Docker Compose**: For local PostgreSQL 18 & Redis 8
+- **Docker & Docker Compose**: For local Redis 8
+- **Neon (or managed Postgres)**: Set `DATABASE_URL` in `apps/api/.env`
 - **Xcode**: 15+ (optional, for running `ios-app` in iOS Simulator)
 
 ---
@@ -21,11 +22,12 @@ cp .env.docker.example .env
 cp apps/api/.env.example apps/api/.env
 cp apps/admin/.env.example apps/admin/.env
 cp apps/web/.env.example apps/web/.env
+# Edit apps/api/.env with Neon DATABASE_URL (+ optional DATABASE_URL_UNPOOLED)
 
 # 3. Install pnpm dependencies across monorepo
 pnpm install
 
-# 4. Start local Postgres (port 5433) and Redis (port 6380)
+# 4. Start local Redis (port 6380)
 pnpm --filter @gobid/api docker:up
 
 # 5. Apply Prisma schema and populate seed data

@@ -31,7 +31,7 @@
              ▼                          ▼                          ▼
 ┌────────────────────────┐  ┌───────────────────────┐  ┌───────────────────────┐
 │     DATABASE LAYER     │  │     CACHE / QUEUE     │  │     STORAGE LAYER     │
-│  PostgreSQL 18 (:5433) │  │  Redis 8 (:6380)      │  │ DigitalOcean Spaces   │
+│  PostgreSQL (Neon)     │  │  Redis 8 (:6380)      │  │ DigitalOcean Spaces   │
 │  Prisma 7 ORM          │  │  BullMQ Queue Manager │  │ or Local Disk Uploads │
 └────────────────────────┘  └───────────────────────┘  └───────────────────────┘
 ```
@@ -75,7 +75,7 @@
 
 ### 3. Data & Infrastructure Layer
 
-- **Database**: PostgreSQL 18 managed via Prisma 7 ORM (`apps/api/prisma/schema.prisma`).
+- **Database**: Managed PostgreSQL (Neon) via Prisma 7 ORM (`apps/api/prisma/schema.prisma`).
 - **Cache & Task Queue**: Redis 8 backing sliding-window rate limiting, BullMQ 5 daily token cleanup jobs (`TokenCleanupProcessor`), Socket.IO Redis adapter for horizontally scaled realtime, and support typing / presence TTLs.
 - **Realtime**: Dedicated `RealtimeModule` (`apps/api/src/realtime/`) exposes Socket.IO `/realtime` with JWT auth, room ACLs, and a `RealtimePublisher` called from REST services after durable writes. See [`docs/REALTIME.md`](REALTIME.md).
 - **Media Storage**: Configurable local filesystem storage (development) or DigitalOcean Spaces S3 bucket (production).
@@ -91,7 +91,7 @@ sequenceDiagram
     participant BFF as Next.js BFF Proxy (/api/*)
     participant Nest as NestJS API (:3000)
     participant Shared as @monorepo/shared
-    participant DB as PostgreSQL (:5433)
+    participant DB as PostgreSQL (Neon)
 
     Browser->>BFF: POST /api/requests (JSON + HttpOnly Cookie)
     Note over BFF: Validate Same-Origin CSRF<br/>Extract access_token from Cookie
