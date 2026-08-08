@@ -2,11 +2,11 @@
 set -e
 
 mkdir -p /app/.data/uploads
-chown -R hero:hero /app/.data
+chown -R gobid:gobid /app/.data
 
 if [ "${SKIP_DB_PUSH}" != "true" ]; then
   echo "Applying database schema..."
-  runuser -u hero -- ./node_modules/.bin/prisma db push --accept-data-loss
+  runuser -u gobid -- ./node_modules/.bin/prisma db push --accept-data-loss
 fi
 
-exec runuser -u hero -- "$@"
+exec runuser -u gobid -- "$@"

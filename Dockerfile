@@ -73,19 +73,19 @@ RUN pnpm --filter web build
 FROM base AS api
 ENV NODE_ENV=production
 ENV PORT=3000
-RUN useradd --system --uid 1001 --create-home hero \
+RUN useradd --system --uid 1001 --create-home gobid \
   && corepack enable \
   && npm install -g tsx@4
-COPY --from=api-build --chown=hero:hero /prod/api /app
+COPY --from=api-build --chown=gobid:gobid /prod/api /app
 COPY docker/entrypoint-api.sh /usr/local/bin/entrypoint-api.sh
 RUN chmod +x /usr/local/bin/entrypoint-api.sh \
   && mkdir -p /app/.data/uploads \
-  && chown -R hero:hero /app
+  && chown -R gobid:gobid /app
 WORKDIR /app
 EXPOSE 3000
 ENTRYPOINT ["entrypoint-api.sh"]
 HEALTHCHECK --interval=15s --timeout=5s --start-period=25s --retries=3 \
-  CMD runuser -u hero -- node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD runuser -u gobid -- node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "dist/main.js"]
 
 # -----------------------------------------------------------------------------
@@ -94,12 +94,12 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
-RUN useradd --system --uid 1001 --create-home hero
+RUN useradd --system --uid 1001 --create-home gobid
 # Next standalone output preserves monorepo paths under .next/standalone
-COPY --from=admin-build --chown=hero:hero /app/apps/admin/.next/standalone ./
-COPY --from=admin-build --chown=hero:hero /app/apps/admin/.next/static ./apps/admin/.next/static
-COPY --from=admin-build --chown=hero:hero /app/apps/admin/public ./apps/admin/public
-USER hero
+COPY --from=admin-build --chown=gobid:gobid /app/apps/admin/.next/standalone ./
+COPY --from=admin-build --chown=gobid:gobid /app/apps/admin/.next/static ./apps/admin/.next/static
+COPY --from=admin-build --chown=gobid:gobid /app/apps/admin/public ./apps/admin/public
+USER gobid
 WORKDIR /app/apps/admin
 EXPOSE 3001
 HEALTHCHECK --interval=15s --timeout=5s --start-period=25s --retries=3 \
@@ -112,11 +112,11 @@ ENV NODE_ENV=production
 ENV PORT=3002
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
-RUN useradd --system --uid 1001 --create-home hero
-COPY --from=web-build --chown=hero:hero /app/apps/web/.next/standalone ./
-COPY --from=web-build --chown=hero:hero /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=web-build --chown=hero:hero /app/apps/web/public ./apps/web/public
-USER hero
+RUN useradd --system --uid 1001 --create-home gobid
+COPY --from=web-build --chown=gobid:gobid /app/apps/web/.next/standalone ./
+COPY --from=web-build --chown=gobid:gobid /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=web-build --chown=gobid:gobid /app/apps/web/public ./apps/web/public
+USER gobid
 WORKDIR /app/apps/web
 EXPOSE 3002
 HEALTHCHECK --interval=15s --timeout=5s --start-period=25s --retries=3 \
