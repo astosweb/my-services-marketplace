@@ -94,7 +94,6 @@ export default function NewRequestPage() {
         pricingMode,
         budgetCents,
         budgetLabel: String(form.get("budgetLabel") ?? "").trim() || undefined,
-        isPremium: form.get("isPremium") === "on",
         photoKeys,
       };
 
@@ -253,11 +252,6 @@ export default function NewRequestPage() {
               onChange={(event) => setPhotos(event.target.files)}
             />
           </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="isPremium" className="size-4 rounded" />
-            Mark as premium listing
-          </label>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

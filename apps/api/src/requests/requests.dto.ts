@@ -41,6 +41,15 @@ export class RequestListQueryDto {
   @IsEnum(ServiceRequestStatus)
   status?: ServiceRequestStatus;
 
+  @ApiPropertyOptional({
+    description: "Case-insensitive search across title, description, and location",
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
+
   @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)

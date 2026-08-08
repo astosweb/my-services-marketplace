@@ -277,6 +277,8 @@ private struct NotificationsView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var openedRequest: ServiceRequest?
+    @State private var openedConversation: Conversation?
+    @State private var openedTicket: SupportTicket?
 
     var body: some View {
         ZStack {
@@ -333,6 +335,12 @@ private struct NotificationsView: View {
         .navigationDestination(item: $openedRequest) { request in
             RequestDetailView(request: request)
         }
+        .navigationDestination(item: $openedConversation) { conversation in
+            ConversationDetailView(conversation: conversation)
+        }
+        .navigationDestination(item: $openedTicket) { ticket in
+            SupportTicketDetailView(ticket: ticket)
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Done") { dismiss() }
@@ -363,6 +371,43 @@ private struct NotificationsView: View {
 
     private func handleTap(_ notification: AppNotification) async {
         await markRead(notification)
+        if let conversationId = notification.payload?.stringValue(for: "conversationId") {
+            do {
+                let response: PaginatedEnvelope<[Conversation], ConversationMeta> = try await auth.api.send(
+                    path: "conversations",
+                    query: [URLQueryItem(name: "limit", value: "100")]
+                )
+                if let conversation = response.data.first(where: { $0.id == conversationId }) {
+                    openedConversation = conversation
+                    return
+                }
+                let archived: PaginatedEnvelope<[Conversation], ConversationMeta> = try await auth.api.send(
+                    path: "conversations",
+                    query: [
+                        URLQueryItem(name: "archived", value: "true"),
+                        URLQueryItem(name: "limit", value: "100"),
+                    ]
+                )
+                if let conversation = archived.data.first(where: { $0.id == conversationId }) {
+                    openedConversation = conversation
+                    return
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            return
+        }
+        if let ticketId = notification.payload?.stringValue(for: "ticketId") {
+            do {
+                let response: APIEnvelope<SupportTicketDetail> = try await auth.api.send(
+                    path: "support/tickets/\(ticketId)"
+                )
+                openedTicket = response.data.ticket
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            return
+        }
         guard let requestId = notification.payload?.stringValue(for: "requestId") else { return }
         do {
             let response: APIEnvelope<ServiceRequest> = try await auth.api.send(

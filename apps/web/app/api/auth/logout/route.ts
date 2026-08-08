@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { nestFetch, getRefreshToken } from "@/lib/api/nest";
 import { clearAuthCookies } from "@/lib/auth/token-cookies";
+import { assertSameOriginMutation } from "@/lib/auth/csrf";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const csrf = assertSameOriginMutation(request);
+  if (csrf) return csrf;
+
   const refreshToken = await getRefreshToken();
   if (refreshToken) {
     try {

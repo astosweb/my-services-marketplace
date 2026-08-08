@@ -15,6 +15,10 @@ describe("RequestsService", () => {
     notificationCreated: vi.fn(),
     unreadUpdated: vi.fn(),
   };
+  const pushService = {
+    notifyUsers: vi.fn(),
+    notifyCategorySubscribersOfApprovedRequest: vi.fn(),
+  };
 
   it.each([
     ServiceRequestStatus.PENDING_REVIEW,
@@ -22,7 +26,7 @@ describe("RequestsService", () => {
     ServiceRequestStatus.COMPLETED,
     ServiceRequestStatus.CANCELLED,
   ])("does not expose %s requests in the public listing", async (status) => {
-    const service = new RequestsService({} as never, realtime as never);
+    const service = new RequestsService({} as never, realtime as never, pushService as never);
 
     await expect(service.list({ limit: 50, offset: 0, status })).rejects.toMatchObject({
       message: "Only open requests are publicly listed",
@@ -35,7 +39,7 @@ describe("RequestsService", () => {
     const count = vi.fn().mockResolvedValue(0);
     const service = new RequestsService({
       serviceRequest: { findMany, count },
-    } as never, realtime as never);
+    } as never, realtime as never, pushService as never);
 
     await service.list({ limit: 50, offset: 0 });
 
@@ -47,6 +51,28 @@ describe("RequestsService", () => {
           status: ServiceRequestStatus.OPEN,
           owner: { status: "ACTIVE" },
         },
+      }),
+    );
+  });
+
+  it("applies case-insensitive text search when q is provided", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const service = new RequestsService({
+      serviceRequest: { findMany, count },
+    } as never, realtime as never, pushService as never);
+
+    await service.list({ limit: 50, offset: 0, q: "plumber" });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { title: { contains: "plumber", mode: "insensitive" } },
+            { description: { contains: "plumber", mode: "insensitive" } },
+            { location: { contains: "plumber", mode: "insensitive" } },
+          ],
+        }),
       }),
     );
   });
@@ -63,7 +89,7 @@ describe("RequestsService", () => {
         }),
       },
       user: { findUnique: vi.fn() },
-    } as never, realtime as never);
+    } as never, realtime as never, pushService as never);
 
     await expect(
       service["assertCanOpenRequestChat"]("req-1", "stranger-1", "owner-1"),

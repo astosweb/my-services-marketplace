@@ -175,6 +175,77 @@ export default function SettingsPage() {
       </section>
 
       <section className="mt-10">
+        <h2 className="font-display text-xl font-semibold">Change password</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Update your password. You will stay signed in on this device.
+        </p>
+        <form
+          className="mt-4 space-y-3"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const currentPassword = String(form.get("currentPassword") ?? "");
+            const password = String(form.get("password") ?? "");
+            const confirmPassword = String(form.get("confirmPassword") ?? "");
+            if (password !== confirmPassword) {
+              toast.error("Passwords do not match");
+              return;
+            }
+            try {
+              await api.patch("/auth/me/password", {
+                currentPassword,
+                password,
+              });
+              toast.success("Password updated");
+              event.currentTarget.reset();
+            } catch (error) {
+              toast.error(
+                error instanceof ApiError
+                  ? error.message
+                  : "Could not change password",
+              );
+            }
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Current password</Label>
+            <Input
+              id="currentPassword"
+              name="currentPassword"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">New password</Label>
+            <Input
+              id="newPassword"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm new password</Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
+              required
+            />
+          </div>
+          <Button type="submit">Update password</Button>
+        </form>
+      </section>
+
+      <section className="mt-10">
         <h2 className="font-display text-xl font-semibold">Help & support</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Need help with your account or a job? Open a support ticket.

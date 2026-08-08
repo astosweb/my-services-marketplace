@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
   NotificationKind,
+  OfferStatus,
   Prisma,
   ServiceRequestStatus,
   UserRole,
@@ -971,17 +972,15 @@ export class AdminService {
       categoryId: existing.categoryId,
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: existing.ownerId,
-        kind: NotificationKind.SYSTEM,
-        title: "Request Approved",
-        body: data.note
-          ? `Your request "${existing.title}" was approved: ${data.note}`
-          : `Your request "${existing.title}" has been approved and is now public.`,
-        contextTag: "request",
-        payload: { requestId: id, action: "APPROVED" },
-      },
+    await this.pushService.notifyUsers({
+      userIds: [existing.ownerId],
+      kind: NotificationKind.SYSTEM,
+      title: "Request Approved",
+      body: data.note
+        ? `Your request "${existing.title}" was approved: ${data.note}`
+        : `Your request "${existing.title}" has been approved and is now public.`,
+      contextTag: "request",
+      payload: { requestId: id, action: "APPROVED" },
     });
 
     try {
@@ -1028,38 +1027,39 @@ export class AdminService {
       select: { id: true, title: true, ownerId: true, status: true },
     });
     if (!existing) throw notFound("Request not found");
-    if (existing.status === ServiceRequestStatus.CANCELLED) {
-      throw badRequest("Request is already cancelled");
-    }
-    if (existing.status === ServiceRequestStatus.COMPLETED) {
-      throw badRequest("Completed requests cannot be rejected");
+    if (existing.status !== ServiceRequestStatus.PENDING_REVIEW) {
+      throw badRequest("Only requests pending review can be rejected");
     }
 
     const reason = data.reason.trim();
     const now = new Date();
-    await this.prisma.serviceRequest.update({
-      where: { id },
-      data: {
-        status: ServiceRequestStatus.CANCELLED,
-        cancelledAt: now,
-        rejectionReason: reason,
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.serviceRequest.update({
+        where: { id },
+        data: {
+          status: ServiceRequestStatus.CANCELLED,
+          cancelledAt: now,
+          rejectionReason: reason,
+        },
+      }),
+      this.prisma.offer.updateMany({
+        where: { requestId: id, status: OfferStatus.PENDING },
+        data: { status: OfferStatus.DECLINED },
+      }),
+    ]);
 
     await this.logAudit(adminId, "REQUEST_REJECTED", "request", id, {
       reason,
       previousStatus: existing.status,
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: existing.ownerId,
-        kind: NotificationKind.SYSTEM,
-        title: "Request Rejected",
-        body: `Your request "${existing.title}" was rejected. Reason: ${reason}`,
-        contextTag: "request",
-        payload: { requestId: id, action: "REJECTED", reason },
-      },
+    await this.pushService.notifyUsers({
+      userIds: [existing.ownerId],
+      kind: NotificationKind.SYSTEM,
+      title: "Request Rejected",
+      body: `Your request "${existing.title}" was rejected. Reason: ${reason}`,
+      contextTag: "request",
+      payload: { requestId: id, action: "REJECTED", reason },
     });
 
     const rejectedRequest = await this.getRequest(id);

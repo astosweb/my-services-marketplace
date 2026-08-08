@@ -19,11 +19,12 @@ import {
 } from "../lib/auth.js";
 import { EmailService } from "../email/email.service.js";
 import { env } from "../lib/env.js";
-import { conflict, forbidden, notFound, unauthorized } from "../lib/errors.js";
+import { badRequest, conflict, forbidden, notFound, unauthorized } from "../lib/errors.js";
 import type { RequestClientMeta } from "../lib/request-meta.js";
 import { serializeMe } from "../lib/serializers.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
+  ChangePasswordDto,
   DeleteAccountDto,
   ForgotPasswordDto,
   LoginDto,
@@ -34,7 +35,7 @@ import type {
 
 /** Dummy bcrypt hash used to equalize login timing when the user is missing. */
 const LOGIN_DUMMY_HASH =
-  "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.G2oQ.Y5K5Y5K5u";
+  "$2b$12$o3wDCrxS06e2a3xfhANfueB67lu/FVaGvFMoBFu8GDsP8bUk8ryiC";
 
 @Injectable()
 export class AuthService {
@@ -239,6 +240,31 @@ export class AuthService {
     if (!user) throw notFound("User not found");
     this.assertNotBanned(user);
     return { ...serializeMe(user), permissions: permissionsForRole(user.role) };
+  }
+
+  async changePassword(userId: string, data: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw notFound("User not found");
+    this.assertNotBanned(user);
+    if (
+      !user.passwordHash ||
+      !(await verifyPassword(data.currentPassword, user.passwordHash))
+    ) {
+      throw unauthorized("Current password is incorrect");
+    }
+    if (await verifyPassword(data.password, user.passwordHash)) {
+      throw badRequest("New password must be different from the current password");
+    }
+    const passwordHash = await hashPassword(data.password);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+    ]);
+    return { ok: true };
   }
 
   async deleteMe(userId: string, data: DeleteAccountDto) {

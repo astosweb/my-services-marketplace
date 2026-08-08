@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supportRoom, type SupportTicketDetailDto } from "@monorepo/shared";
+import { supportRoom, RealtimeServerEvent, type SupportTicketDetailDto } from "@monorepo/shared";
 import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,13 +22,32 @@ export default function SupportTicketPage({
   const queryClient = useQueryClient();
   const realtime = useRealtime();
   const [body, setBody] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [peerTyping, setPeerTyping] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peerTypingClear = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     realtime.joinSupport(id);
+    const unsubscribe = realtime.subscribe(
+      RealtimeServerEvent.SUPPORT_TYPING,
+      (envelope) => {
+      const data = envelope.data as {
+        ticketId?: string;
+        userId?: string;
+        isTyping?: boolean;
+      };
+      if (data.ticketId && data.ticketId !== id) return;
+      if (peerTypingClear.current) clearTimeout(peerTypingClear.current);
+      setPeerTyping(Boolean(data.isTyping));
+      if (data.isTyping) {
+        peerTypingClear.current = setTimeout(() => setPeerTyping(false), 8_000);
+      }
+    });
     return () => {
       realtime.setTyping(supportRoom(id), false);
       realtime.leaveSupport(id);
+      unsubscribe();
     };
   }, [id, realtime]);
 
@@ -38,11 +57,30 @@ export default function SupportTicketPage({
     enabled: Boolean(id),
   });
 
+  useEffect(() => {
+    if (!ticket.data) return;
+    void api.post(`/support/tickets/${id}/read`).catch(() => undefined);
+  }, [id, ticket.data?.updatedAt]);
+
   const replyMutation = useMutation({
-    mutationFn: () =>
-      api.post(`/support/tickets/${id}/messages`, { body: body.trim() }),
+    mutationFn: async () => {
+      let attachmentKeys: string[] | undefined;
+      if (attachment) {
+        const form = new FormData();
+        form.append("files", attachment);
+        const uploaded = await api.upload<{
+          files: Array<{ key: string }>;
+        }>("/uploads/support-attachments", form);
+        attachmentKeys = uploaded.files.map((file) => file.key);
+      }
+      return api.post(`/support/tickets/${id}/messages`, {
+        body: body.trim() || undefined,
+        attachmentKeys,
+      });
+    },
     onSuccess: async () => {
       setBody("");
+      setAttachment(null);
       realtime.setTyping(supportRoom(id), false);
       toast.success("Reply sent");
       await queryClient.invalidateQueries({
@@ -52,6 +90,20 @@ export default function SupportTicketPage({
     onError: (error) =>
       toast.error(
         error instanceof ApiError ? error.message : "Could not send reply",
+      ),
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: () => api.post(`/support/tickets/${id}/reopen`),
+    onSuccess: async () => {
+      toast.success("Ticket reopened");
+      await queryClient.invalidateQueries({
+        queryKey: ["support", "tickets", id],
+      });
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof ApiError ? error.message : "Could not reopen ticket",
       ),
   });
 
@@ -79,6 +131,8 @@ export default function SupportTicketPage({
   }
 
   const data = ticket.data;
+  const canReply = data.status !== "CLOSED";
+  const canReopen = data.status === "CLOSED";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
@@ -110,17 +164,51 @@ export default function SupportTicketPage({
               </span>
               <span>{formatRelativeTime(message.createdAt)}</span>
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm">{message.body}</p>
+            {message.body ? (
+              <p className="mt-2 whitespace-pre-wrap text-sm">{message.body}</p>
+            ) : null}
+            {message.attachments?.length ? (
+              <ul className="mt-3 space-y-1 text-sm">
+                {message.attachments.map((file) => (
+                  <li key={file.id}>
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      {file.fileName}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ))}
       </div>
 
-      {data.status !== "CLOSED" ? (
+      {peerTyping ? (
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          Support is typing…
+        </p>
+      ) : null}
+
+      {canReopen ? (
+        <Button
+          variant="outline"
+          disabled={reopenMutation.isPending}
+          onClick={() => reopenMutation.mutate()}
+        >
+          {reopenMutation.isPending ? "Reopening…" : "Reopen ticket"}
+        </Button>
+      ) : null}
+
+      {canReply ? (
         <form
           className="space-y-3 rounded-2xl border border-border bg-white p-5"
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
-            if (!body.trim()) return;
+            if (!body.trim() && !attachment) return;
             replyMutation.mutate();
           }}
         >
@@ -137,9 +225,15 @@ export default function SupportTicketPage({
               );
             }}
             placeholder="Write a reply…"
-            required
           />
-          <Button type="submit" disabled={replyMutation.isPending}>
+          <input
+            type="file"
+            onChange={(event) => setAttachment(event.target.files?.[0] ?? null)}
+          />
+          <Button
+            type="submit"
+            disabled={replyMutation.isPending || (!body.trim() && !attachment)}
+          >
             {replyMutation.isPending ? "Sending…" : "Send reply"}
           </Button>
         </form>

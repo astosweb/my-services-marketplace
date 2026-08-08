@@ -198,11 +198,20 @@ export async function changePasswordAction(
     return { success: false, errors: fieldErrors(parsed.error) };
   }
 
-  // Nest has no dedicated change-password endpoint yet — use reset flow is wrong.
-  // Documented as missing; surface clear error instead of fake success.
-  return {
-    success: false,
-    message:
-      "Change password is not available yet. Use forgot-password, or ask for PATCH /auth/me/password on the API.",
-  };
+  try {
+    await nestFetch("/auth/me/password", {
+      method: "PATCH",
+      body: JSON.stringify({
+        currentPassword: parsed.data.currentPassword,
+        password: parsed.data.password,
+      }),
+    });
+    await clearAuthCookies();
+    redirect("/sign-in?passwordChanged=1");
+  } catch (error) {
+    if (error instanceof NestRequestError) {
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: "Could not change password" };
+  }
 }

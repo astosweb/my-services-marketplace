@@ -377,6 +377,13 @@ function RequestDetailBody({
         {request.categoryName} ·{" "}
         {CITY_LABELS[request.city as EstonianCity] ?? request.city}
       </p>
+      {canCancel && request.offerCount === 0 ? (
+        <div className="mt-3">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/requests/${request.id}/edit`}>Edit request</Link>
+          </Button>
+        </div>
+      ) : null}
       <p className="mt-4 text-lg font-semibold text-primary">
         {formatBudget(request.budgetCents, request.budget)}
       </p>

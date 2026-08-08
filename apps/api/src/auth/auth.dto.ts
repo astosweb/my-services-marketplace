@@ -112,3 +112,21 @@ export class DeleteAccountDto {
   @MaxLength(72)
   password!: string;
 }
+
+export class ChangePasswordDto {
+  @ApiProperty({ writeOnly: true })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(72)
+  currentPassword!: string;
+
+  @ApiProperty({
+    minLength: 8,
+    maxLength: 72,
+    writeOnly: true,
+    description: "Max 72 characters (bcrypt limit)",
+  })
+  @IsString()
+  @Length(8, 72)
+  password!: string;
+}

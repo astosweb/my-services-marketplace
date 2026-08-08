@@ -28,6 +28,7 @@ import { requestClientMeta } from "../lib/request-meta.js";
 import { CredentialRateLimit, RefreshRateLimit } from "../middleware/rate-limit.js";
 import {
   DeleteAccountDto,
+  ChangePasswordDto,
   ForgotPasswordDto,
   LoginDto,
   RefreshTokenDto,
@@ -146,6 +147,16 @@ export class AuthController {
   @ApiOperation({ summary: "Update the authenticated account" })
   async updateMe(@CurrentUserId() userId: string, @Body() data: UpdateProfileDto) {
     return { data: await this.usersService.update(userId, userId, data) };
+  }
+
+  @Patch("me/password")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @CredentialRateLimit()
+  @ApiOperation({ summary: "Change the authenticated account password" })
+  async changePassword(@CurrentUserId() userId: string, @Body() data: ChangePasswordDto) {
+    return { data: await this.authService.changePassword(userId, data) };
   }
 
   @Delete("me")

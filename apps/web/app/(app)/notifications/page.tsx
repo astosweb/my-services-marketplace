@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { NotificationDto } from "@monorepo/shared";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,7 +12,25 @@ import { useNotifications } from "@/lib/api/hooks";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { toast } from "sonner";
 
+function notificationHref(notification: NotificationDto): string | null {
+  const payload = notification.payload ?? {};
+  const conversationId = payload.conversationId;
+  const ticketId = payload.ticketId;
+  const requestId = payload.requestId;
+  if (typeof conversationId === "string" && conversationId) {
+    return `/messages/${conversationId}`;
+  }
+  if (typeof ticketId === "string" && ticketId) {
+    return `/support/${ticketId}`;
+  }
+  if (typeof requestId === "string" && requestId) {
+    return `/requests/${requestId}`;
+  }
+  return null;
+}
+
 export default function NotificationsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useNotifications({ limit: 50 });
 
@@ -71,34 +92,41 @@ export default function NotificationsPage() {
         />
       ) : (
         <ul className="space-y-3">
-          {data.items.map((notification) => (
-            <li key={notification.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!notification.isRead) markRead.mutate(notification.id);
-                }}
-                className={cn(
-                  "w-full rounded-2xl border px-4 py-4 text-left transition",
-                  notification.isRead
-                    ? "border-border/60 bg-white/50"
-                    : "border-primary/25 bg-white shadow-sm",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{notification.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {notification.body}
-                    </p>
+          {data.items.map((notification) => {
+            const href = notificationHref(notification);
+            return (
+              <li key={notification.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!notification.isRead) markRead.mutate(notification.id);
+                    if (href) router.push(href);
+                  }}
+                  className={cn(
+                    "w-full rounded-2xl border px-4 py-4 text-left transition",
+                    notification.isRead
+                      ? "border-border/60 bg-white/50"
+                      : "border-primary/25 bg-white shadow-sm",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{notification.title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {notification.body}
+                      </p>
+                      {href ? (
+                        <p className="mt-2 text-xs text-primary">Open related item →</p>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatRelativeTime(notification.createdAt)}
+                    </span>
                   </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatRelativeTime(notification.createdAt)}
-                  </span>
-                </div>
-              </button>
-            </li>
-          ))}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

@@ -24,6 +24,7 @@ export function requestsPath(params: {
   city?: string;
   categoryId?: string;
   status?: string;
+  q?: string;
   limit?: number;
   offset?: number;
 }) {

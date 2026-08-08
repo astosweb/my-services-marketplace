@@ -203,6 +203,7 @@ export type NotificationDto = {
   title: string;
   body: string;
   contextTag: string | null;
+  payload: Record<string, unknown> | null;
   isRead: boolean;
   createdAt: string;
 };

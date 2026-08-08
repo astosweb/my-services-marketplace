@@ -11,7 +11,7 @@ import {
 import { Logger } from "@nestjs/common";
 import type { Server, Socket } from "socket.io";
 import { z } from "zod";
-import { UserRole, UserStatus } from "../generated/prisma/client.js";
+import { MessageStatus, UserRole, UserStatus } from "../generated/prisma/client.js";
 import { verifyAccessToken } from "../lib/auth.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import {
@@ -284,6 +284,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       this.emitError(socket, "FORBIDDEN", "Not a conversation participant");
       return;
     }
+    await this.prisma.message.updateMany({
+      where: {
+        id: parsed.data.messageId,
+        conversationId: parsed.data.conversationId,
+        senderId: { not: user.id },
+        status: { in: [MessageStatus.SENT, MessageStatus.SENDING] },
+      },
+      data: { status: MessageStatus.DELIVERED },
+    });
     this.publisher.messageDelivered({
       conversationId: parsed.data.conversationId,
       messageId: parsed.data.messageId,
@@ -327,15 +336,28 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     if (!unread) return;
 
     const readAt = new Date();
-    await this.prisma.conversationParticipant.update({
-      where: {
-        conversationId_userId: {
-          conversationId: parsed.data.conversationId,
-          userId: user.id,
+    await this.prisma.$transaction([
+      this.prisma.conversationParticipant.update({
+        where: {
+          conversationId_userId: {
+            conversationId: parsed.data.conversationId,
+            userId: user.id,
+          },
         },
-      },
-      data: { lastReadAt: readAt },
-    });
+        data: { lastReadAt: readAt },
+      }),
+      this.prisma.message.updateMany({
+        where: {
+          conversationId: parsed.data.conversationId,
+          senderId: { not: user.id },
+          status: { not: MessageStatus.READ },
+          ...(membership.lastReadAt
+            ? { createdAt: { gt: membership.lastReadAt } }
+            : {}),
+        },
+        data: { status: MessageStatus.READ },
+      }),
+    ]);
 
     const participants = await this.prisma.conversationParticipant.findMany({
       where: { conversationId: parsed.data.conversationId },
@@ -390,11 +412,11 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     if (room.startsWith("request:")) {
       const requestId = room.slice("request:".length);
       if (user.role === "ADMIN") return true;
+      // Participants only — never open public browse rooms (avoids offer price leakage).
       const request = await this.prisma.serviceRequest.findUnique({
         where: { id: requestId },
         select: {
           ownerId: true,
-          status: true,
           offers: { where: { offererId: user.id }, select: { id: true }, take: 1 },
           conversations: {
             where: { participants: { some: { userId: user.id } } },
@@ -406,8 +428,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       if (!request) return false;
       if (request.ownerId === user.id) return true;
       if (request.offers.length > 0) return true;
-      if (request.conversations.length > 0) return true;
-      return request.status === "OPEN" || request.status === "IN_PROGRESS";
+      return request.conversations.length > 0;
     }
     if (room.startsWith("support:")) {
       const ticketId = room.slice("support:".length);

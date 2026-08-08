@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { nestFetch, NestRequestError } from "@/lib/api/nest";
 import { setAuthCookies } from "@/lib/auth/token-cookies";
+import { assertSameOriginMutation } from "@/lib/auth/csrf";
 
 type NestAuthPayload = {
   data: {
@@ -17,6 +18,9 @@ type NestAuthPayload = {
 };
 
 export async function POST(request: Request) {
+  const csrf = assertSameOriginMutation(request);
+  if (csrf) return csrf;
+
   let body: { email?: string; password?: string };
   try {
     body = await request.json();

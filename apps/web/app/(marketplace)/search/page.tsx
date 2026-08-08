@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { RequestCard } from "@/components/marketplace/request-card";
 import { SearchBar } from "@/components/marketplace/search-bar";
 import { EmptyState, ErrorState } from "@/components/shared/states";
@@ -19,20 +18,11 @@ function SearchResults() {
   const requestsQuery = useRequests({
     city: city || undefined,
     categoryId: categoryId || undefined,
+    q: q.trim() || undefined,
     limit: 50,
   });
 
-  const filtered = useMemo(() => {
-    const items = requestsQuery.data?.items ?? [];
-    const needle = q.trim().toLowerCase();
-    if (!needle) return items;
-    return items.filter(
-      (request) =>
-        request.title.toLowerCase().includes(needle) ||
-        request.description.toLowerCase().includes(needle) ||
-        request.location.toLowerCase().includes(needle),
-    );
-  }, [q, requestsQuery.data]);
+  const items = requestsQuery.data?.items ?? [];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -65,7 +55,7 @@ function SearchResults() {
           description="Search failed to load."
           onRetry={() => void requestsQuery.refetch()}
         />
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           title="No matches"
           description="Try different keywords or clear a filter."
@@ -74,7 +64,7 @@ function SearchResults() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((request) => (
+          {items.map((request) => (
             <RequestCard key={request.id} request={request} />
           ))}
         </div>
@@ -88,8 +78,7 @@ export default function SearchPage() {
     <Suspense
       fallback={
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-          <Skeleton className="mb-8 h-10 w-48" />
-          <Skeleton className="mb-8 h-14 w-full rounded-xl" />
+          <Skeleton className="mb-8 h-12 w-48" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <Skeleton key={index} className="h-40 rounded-2xl" />
